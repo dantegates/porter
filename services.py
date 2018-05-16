@@ -17,14 +17,16 @@ def check_request(X, feature_names):
         raise ValueError('No!')
 
 
-def serve_prediction(model):
+def serve_prediction(model, feature_engineer=None):
     data = flask.request.get_json(force=True)
     X = pd.DataFrame(data)
     try:
         check_request(data, model.get_feature_names())
-        model_prediction = model.predict(X)
     except ValueError:
         raise BadRequest()
+    if feature_engineer is not None:
+        X = feature_engineer.transform(X)
+    model_prediction = model.predict(X)
     return flask.jsonify(model_prediction)
 
 
@@ -64,13 +66,13 @@ class ModelService:
     def run(self, **kwargs):
         self._app.run(**kwargs)
 
-    def add_model(self, model, name):
-        self.route_model(model, name)
+    def add_model(self, model, name, feature_engineer=None):
+        self.route_model(model, name, feature_engineer=feature_engineer)
         self.route_model_schema(model.get_schema(), name)
 
-    def route_model(self, model, name):
+    def route_model(self, model, name, feature_engineer=None):
         model_url = self._make_model_url(name)
-        fn = self._make_model_prediction_fn(model)
+        fn = self._make_model_prediction_fn(model, feature_engineer)
         self._app.route(model_url, methods=['POST'])(fn)
 
     def route_model_schema(self, model_schema, name):
@@ -88,8 +90,8 @@ class ModelService:
     def _make_model_schema_url(self, name):
         return self._url_schema_format.format(model_name=name)
 
-    def _make_model_prediction_fn(self, model):
-        return partial(serve_prediction, model=model)
+    def _make_model_prediction_fn(self, model, feature_engineer=None):
+        return partial(serve_prediction, model=model, feature_engineer=feature_engineer)
 
     def _make_model_schema_fn(self, model_schema):
         return partial(serve_schema, model_schema=model_schema)

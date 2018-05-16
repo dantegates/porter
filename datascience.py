@@ -13,6 +13,16 @@ def load_h5(path):
     model = keras.models.load_model(path)
     return model
 
+def load_file(path):
+    extension = os.path.splitext(path)[-1]
+    if extension == '.pkl':
+        obj = load_pkl(path)
+    elif extension == '.h5':
+        obj = load_h5(path)
+    else:
+        raise Exception('file type unkown')
+    return obj
+
 
 class BaseModel:
     def __init__(self, model):
@@ -29,11 +39,18 @@ class BaseModel:
 
     @classmethod
     def from_file(cls, path):
-        extension = os.path.splitext(path)[-1]
-        if extension == '.pkl':
-            model = load_pkl(path)
-        elif extension == '.h5':
-            model = load_h5(path)
-        else:
-            raise Exception('file type unkown')
+        model = load_file(path)
         return cls(model)
+
+
+class BaseFeatureEngineer:
+    def __init__(self, transformer):
+        self.transformer = transformer
+
+    def transform(self, X):
+        self.transformer.transform(X)
+
+    @classmethod
+    def from_file(cls, path):
+        transformer = load_file(path)
+        return cls(transformer)

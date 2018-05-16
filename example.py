@@ -1,12 +1,13 @@
-from datascience import Model
+import datascience as ds
 from services import ModelService
 
 
 model_service = ModelService()
 
-model = Model.from_file('path/to/model.pkl')
-another_model = Model.from_file('path/to/another_model.h5')
-model_service.route_model(model, 'super-model')
+model = ds.BaseModel.from_file('path/to/model.pkl')
+feature_engineer = ds.BaseFeatureEngineer.from_file('path/to/feature_engineer.pkl')
+another_model = ds.BaseModel.from_file('path/to/another_model.h5')
+model_service.route_model(model, 'super-model', feature_engineer=feature_engineer)
 model_service.route_model(another_model, 'another-super-model')
 
 
