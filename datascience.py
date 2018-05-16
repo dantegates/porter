@@ -14,7 +14,7 @@ def load_h5(path):
     return model
 
 
-class Model:
+class BaseModel:
     def __init__(self, model):
         self.model = model
 
