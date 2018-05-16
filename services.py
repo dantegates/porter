@@ -1,5 +1,5 @@
-from functools import partial
 import traceback
+from functools import partial
 
 import flask
 import pandas as pd
