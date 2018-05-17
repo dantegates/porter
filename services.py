@@ -7,7 +7,7 @@ from werkzeug.exceptions import BadRequest
 
 
 # TODO: model version in response
-# TODO: handle id
+# TODO: handle id key
 
 
 def check_request(X, feature_names):
@@ -52,7 +52,6 @@ def serve_error_message(error):
 
 class ModelService:
     _url_prediction_format = '{model_name}/prediction/'
-    _url_schema_format = '{model_name}/schema/'
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -86,9 +85,6 @@ class ModelService:
 
     def _make_model_url(self, name):
         return self._url_prediction_format.format(model_name=name)
-
-    def _make_model_schema_url(self, name):
-        return self._url_schema_format.format(model_name=name)
 
     def _make_model_prediction_fn(self, model, feature_engineer=None):
         return partial(serve_prediction, model=model, feature_engineer=feature_engineer)

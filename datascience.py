@@ -34,9 +34,6 @@ class BaseModel:
     def get_feature_names(self):
         raise NotImplementedError
 
-    def get_schema(self):
-        raise NotImplementedError
-
     @classmethod
     def from_file(cls, path):
         model = load_file(path)
