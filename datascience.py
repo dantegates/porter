@@ -1,7 +1,7 @@
 import os
 
 
-# on the acceptability of imports inside a function, see
+# on the reasonableness of imports inside a function, see
 # https://stackoverflow.com/questions/3095071/in-python-what-happens-when-you-import-inside-of-a-function/3095167#3095167
 def load_pkl(path):
     from sklearn.externals import joblib
@@ -24,30 +24,32 @@ def load_file(path):
     return obj
 
 
-class BaseModel:
-    def __init__(self, model):
+class BaseModel(object):
+    def __init__(self, model, name, id):
         self.model = model
+        self.name = name
+        self.id = id
 
     def predict(self, X):
         return self.model.predict(X)
+
+    @classmethod
+    def from_file(cls, path, *args, **kwargs):
+        model = load_file(path)
+        return cls(model, *args, **kwargs)
+
+
+class BaseFeatureEngineer(object):
+    def __init__(self, transformer):
+        self.transformer = transformer
+
+    def transform(self, X):
+        return self.transformer.transform(X)
 
     def get_feature_names(self):
         raise NotImplementedError
 
     @classmethod
-    def from_file(cls, path):
-        model = load_file(path)
-        return cls(model)
-
-
-class BaseFeatureEngineer:
-    def __init__(self, transformer):
-        self.transformer = transformer
-
-    def transform(self, X):
-        self.transformer.transform(X)
-
-    @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path, *args, **kwargs):
         transformer = load_file(path)
-        return cls(transformer)
+        return cls(transformer, *args, **kwargs)

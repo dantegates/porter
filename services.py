@@ -5,29 +5,33 @@ import flask
 import pandas as pd
 from werkzeug.exceptions import BadRequest
 
+import responses
+import utils
 
-# TODO: model version in response
-# TODO: handle id key
+
+_ID_KEY = 'id'
 
 
 def check_request(X, feature_names):
+    required_keys = [_ID_KEY]
+    required_keys.extend(feature_names)
     # checks that all columns are present and no nulls sent
     # (or missing values)
-    if X[[feature_names]].isnull().any().any():
+    if X[required_keys].isnull().any().any():
         raise ValueError('No!')
 
 
-def serve_prediction(model, feature_engineer=None):
+def serve_prediction(model, feature_engineer):
     data = flask.request.get_json(force=True)
     X = pd.DataFrame(data)
     try:
-        check_request(data, model.get_feature_names())
+        check_request(X, feature_engineer.get_feature_names())
     except ValueError:
         raise BadRequest()
-    if feature_engineer is not None:
-        X = feature_engineer.transform(X)
-    model_prediction = model.predict(X)
-    return flask.jsonify(model_prediction)
+    X_tf = feature_engineer.transform(X)
+    model_prediction = model.predict(X_tf)
+    resp = responses.PredictionResponse(model.id, X[_ID_KEY], model_prediction)
+    return flask.jsonify(resp)
 
 
 def serve_schema(model_schema):
@@ -51,7 +55,7 @@ def serve_error_message(error):
 
 
 class ModelService:
-    _url_prediction_format = '{model_name}/prediction/'
+    _url_prediction_format = '/{model_name}/prediction/'
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -60,39 +64,31 @@ class ModelService:
     )
 
     def __init__(self):
-        self._app = self._build_app()
+        self.app = self._build_app()
 
-    def run(self, **kwargs):
-        self._app.run(**kwargs)
-
-    def add_model(self, model, name, feature_engineer=None):
-        self.route_model(model, name, feature_engineer=feature_engineer)
-        self.route_model_schema(model.get_schema(), name)
-
-    def route_model(self, model, name, feature_engineer=None):
-        model_url = self._make_model_url(name)
+    def add_model(self, model, feature_engineer):
+        model_url = self._make_model_url(model.name)
         fn = self._make_model_prediction_fn(model, feature_engineer)
-        self._app.route(model_url, methods=['POST'])(fn)
-
-    def route_model_schema(self, model_schema, name):
-        schema_url = self._make_model_schema_url(name)
-        fn = self._make_model_schema_fn(model_schema)
-        self._app.route(schema_url, methods=['GET'])(fn)
+        self.app.route(model_url, methods=['POST'])(fn)
 
     def _build_app(self):
         app = flask.Flask(__name__)
-        self._add_exception_handlers(app, self._error_codes)
+        app.json_encoder = utils.NumpyEncoder
+        for error in self._error_codes:
+            app.register_error_handler(error, serve_error_message)
+        return app
 
-    def _make_model_url(self, name):
-        return self._url_prediction_format.format(model_name=name)
+    def _make_model_url(self, model_name):
+        return self._url_prediction_format.format(model_name=model_name)
 
     def _make_model_prediction_fn(self, model, feature_engineer=None):
-        return partial(serve_prediction, model=model, feature_engineer=feature_engineer)
+        partial_fn = partial(serve_prediction, model=model, feature_engineer=feature_engineer)
+        # mimic function API
+        partial_fn.__name__ = '{}_prediction'.format(model.name.replace('-', '_'))
+        return partial_fn
 
     def _make_model_schema_fn(self, model_schema):
         return partial(serve_schema, model_schema=model_schema)
 
     def _add_exception_handlers(self, app, error_codes):
         """Register a generic function to handle given error codes."""
-        for error in error_codes:
-            app.register_error_handler(error, serve_error_message)
