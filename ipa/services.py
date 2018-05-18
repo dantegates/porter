@@ -5,8 +5,8 @@ import flask
 import pandas as pd
 from werkzeug.exceptions import BadRequest
 
-import responses
-import utils
+from ipa import responses
+from ipa import utils
 
 
 _ID_KEY = 'id'
@@ -17,9 +17,18 @@ def check_request(X, feature_names):
     required_keys.extend(feature_names)
     # checks that all columns are present and no nulls sent
     # (or missing values)
-    if X[required_keys].isnull().any().any():
-        raise ValueError('No!')
-
+    try:
+        if X[required_keys].isnull().any().any():
+            null_counts = X[required_keys].isnull().sum()
+            null_columns = null_counts[null_counts > 0].index.tolist()
+            raise ValueError(
+                'request payload had null values in the following fields: %s'
+                % null_columns)
+    except KeyError:
+        missing = [c for c in required_keys if not c in X.columns]
+        raise ValueError(
+            'request payload is missing the following fields: %s'
+            % missing)
 
 def serve_prediction(model, feature_engineer):
     data = flask.request.get_json(force=True)
