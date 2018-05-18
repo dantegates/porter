@@ -34,10 +34,6 @@ def serve_prediction(model, feature_engineer):
     return flask.jsonify(resp)
 
 
-def serve_schema(model_schema):
-    return flask.jsonify(model_schema)
-
-
 def serve_error_message(error):
     """Return a response with JSON payload describing the most recent exception."""
     tb = traceback.format_exc()
@@ -86,9 +82,3 @@ class ModelService:
         # mimic function API
         partial_fn.__name__ = '{}_prediction'.format(model.name.replace('-', '_'))
         return partial_fn
-
-    def _make_model_schema_fn(self, model_schema):
-        return partial(serve_schema, model_schema=model_schema)
-
-    def _add_exception_handlers(self, app, error_codes):
-        """Register a generic function to handle given error codes."""

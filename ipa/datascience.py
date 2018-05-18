@@ -20,7 +20,7 @@ def load_file(path):
     elif extension == '.h5':
         obj = load_h5(path)
     else:
-        raise Exception('file type unkown')
+        raise Exception('unkown file type')
     return obj
 
 
