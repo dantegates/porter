@@ -51,3 +51,7 @@ class TestPredictionResponse(unittest.TestCase):
             ]
         }
         self.assertItemsEqual(actual_decoded_json, expected_decoded_json)
+
+
+if __name__ == '__main__':
+    unittest.main()

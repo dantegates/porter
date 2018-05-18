@@ -30,3 +30,7 @@ class TestNumpyEncoder(unittest.TestCase):
         actual = json.dumps(x, cls=NumpyEncoder)
         expected = '[[4.0], [0.0]]'
         self.assertEqual(actual, expected)
+
+
+if __name__ == '__main__':
+    unittest.main()
