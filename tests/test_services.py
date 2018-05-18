@@ -1,9 +1,10 @@
 import unittest
 
+import flask
 import numpy as np
 import pandas as pd
-from ipa.services import (ModelService, check_request, serve_error_message,
-                          serve_prediction, _ID_KEY)
+from ipa.services import (_ID_KEY, ModelService, check_request,
+                          serve_error_message, serve_prediction)
 
 
 class TestFuntions(unittest.TestCase):

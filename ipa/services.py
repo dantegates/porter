@@ -1,4 +1,3 @@
-import traceback
 from functools import partial
 
 import flask
@@ -45,15 +44,7 @@ def serve_prediction(model, feature_engineer):
 
 def serve_error_message(error):
     """Return a response with JSON payload describing the most recent exception."""
-    tb = traceback.format_exc()
-    error_body = {
-        'error': type(error).__name__,
-        # getattr() is used to work around werkzeug's bad implementation
-        # of HTTPException (i.e. HTTPException inherits from Exception but
-        # exposes a different API, namely
-        # Exception.message -> HTTPException.description).
-        'message': getattr(error, 'description', error.message),
-        'traceback': tb}
+    error_body = responses.ErrorResponse(error)
     response = flask.jsonify(error_body)
     response.status_code = getattr(error, 'code', 500)
     return response
