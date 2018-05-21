@@ -8,7 +8,7 @@ import unittest
 
 import flask
 
-from ipa.services import ModelService
+from ipa.services import ModelApp
 
 
 class TestAppErrorHandling(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestAppErrorHandling(unittest.TestCase):
         # In this class we actually want to test the applications error handling
         # and thus do not set this attribute.
         # See, http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
-        app = ModelService().app
+        app = ModelApp().app
         @app.route('/test-error-handling/', methods=['POST'])
         def test_error():
             flask.request.get_json(force=True)

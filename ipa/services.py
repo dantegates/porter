@@ -11,7 +11,7 @@ from ipa import utils
 _ID_KEY = 'id'
 
 
-def check_request(X, feature_names, allow_nulls):
+def check_request(X, feature_names, allow_nulls=False):
     required_keys = [_ID_KEY]
     required_keys.extend(feature_names)
     # checks that all columns are present and no nulls sent
@@ -30,13 +30,12 @@ def check_request(X, feature_names, allow_nulls):
             'request payload is missing the following fields: %s'
             % missing)
 
-def serve_prediction(model, feature_engineer, input_schema, validate_request,
-                     allow_nulls):
+def serve_prediction(model, feature_engineer, input_schema, check_input, allow_nulls):
     data = flask.request.get_json(force=True)
     X = pd.DataFrame(data)
-    if validate_request:
+    if check_input:
         try:
-            validate_request(X, input_schema.keys(), allow_nulls)
+            check_input(X, input_schema.keys(), allow_nulls)
         except ValueError:
             raise BadRequest()
     X_tf = X if feature_engineer is None else feature_engineer.transform(X)
@@ -50,15 +49,15 @@ def serve_error_message(error):
     return response
 
 
-class ModelServiceConfig:
+class ServiceConfig:
     def __init__(self, model, feature_engineer=None, input_schema=None,
-                 validate_request=False, allow_nulls=False):
+                 check_input=False, allow_nulls=False):
         self.model = model
         self.feature_engineer = feature_engineer
         self.input_schema = input_schema
-        if validate_request and not self.input_schema:
-            raise ValueError('input_schema is required when validate_request=True')
-        self.validate_request = validate_request
+        if check_input and not self.input_schema:
+            raise ValueError('input_schema is required when check_input=True')
+        self.check_input = check_input
         self.allow_nulls = allow_nulls
 
 
@@ -74,11 +73,11 @@ class ModelApp:
     def __init__(self):
         self.app = self._build_app()
 
-    def add_model_service(self, service_config):
+    def add_service(self, service_config):
         cf = service_config  # just an alias for convenience
         model_url = self._make_model_url(cf.model.name)
         fn = self._init_prediction_fn(model=cf.model, feature_engineer=cf.feature_engineer,
-            input_schema=cf.input_schema, validate_request=cf.validate_request,
+            input_schema=cf.input_schema, check_input=cf.check_input,
             allow_nulls=cf.allow_nulls)
         self.app.route(model_url, methods=['POST'])(fn)
 
@@ -93,10 +92,10 @@ class ModelApp:
         return self._url_prediction_format.format(model_name=model_name)
 
     def _init_prediction_fn(self, model, feature_engineer=None, input_schema=None,
-                            validate_request=False, allow_nulls=False):
+                            check_input=False, allow_nulls=False):
         fn = partial(serve_prediction, model=model,
             feature_engineer=feature_engineer, input_schema=input_schema,
-            validate_request=validate_request, allow_nulls=allow_nulls)
+            check_input=check_input, allow_nulls=allow_nulls)
         # mimic function API - assumed in flask implementation
         fn.__name__ = '{}_prediction'.format(model.name.replace('-', '_'))
         return fn
