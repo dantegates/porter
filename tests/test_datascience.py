@@ -1,7 +1,7 @@
 import mock
 import unittest
 
-from ipa.datascience import (BaseFeatureEngineer, BaseModel,
+from porter.datascience import (BaseFeatureEngineer, BaseModel,
                              WrappedFeatureEngineer, WrappedModel)
 from tests.utils import (KERAS_MODEL_PATH, KERAS_VALIDATE_PATH,
                          SKLEARN_MODEL_PATH, SKLEARN_VALIDATE_PATH)

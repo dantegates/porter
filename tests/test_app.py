@@ -1,5 +1,5 @@
 """
-Tests for the `.app` attribute belonging to an instance of `ipa.ModelService`.
+Tests for the `.app` attribute belonging to an instance of `porter.ModelService`.
 """
 
 
@@ -8,7 +8,7 @@ import unittest
 
 import flask
 
-from ipa.services import ModelApp
+from porter.services import ModelApp
 
 
 class TestAppErrorHandling(unittest.TestCase):

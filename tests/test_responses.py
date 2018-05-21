@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from ipa.responses import PredictionPayload, ErrorPayload
+from porter.responses import PredictionPayload, ErrorPayload
 
 
 class TestPredictionPayload(unittest.TestCase):

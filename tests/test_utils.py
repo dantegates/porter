@@ -2,7 +2,7 @@ import json
 import unittest
 
 import numpy as np
-from ipa.utils import NumpyEncoder
+from porter.utils import NumpyEncoder
 
 
 class TestNumpyEncoder(unittest.TestCase):

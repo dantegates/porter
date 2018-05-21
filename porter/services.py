@@ -4,8 +4,8 @@ import flask
 import pandas as pd
 from werkzeug.exceptions import BadRequest
 
-from ipa.responses import make_prediction_response, make_error_response
-from ipa import utils
+from porter.responses import make_prediction_response, make_error_response
+from porter import utils
 
 
 _ID_KEY = 'id'

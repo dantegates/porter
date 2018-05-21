@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 import pandas as pd
-from ipa.services import (_ID_KEY, ModelApp, check_request,
+from porter.services import (_ID_KEY, ModelApp, check_request,
                           serve_error_message, serve_prediction)
 
 
