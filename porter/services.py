@@ -30,7 +30,8 @@ def check_request(X, feature_names, allow_nulls=False):
             'request payload is missing the following fields: %s'
             % missing)
 
-def serve_prediction(model, feature_engineer, input_schema, validate_input, allow_nulls):
+def serve_prediction(model, model_id, feature_engineer, input_schema, validate_input,
+                     allow_nulls):
     data = flask.request.get_json(force=True)
     X = pd.DataFrame(data)
     if validate_input:
@@ -40,7 +41,7 @@ def serve_prediction(model, feature_engineer, input_schema, validate_input, allo
             raise BadRequest()
     X_tf = X if feature_engineer is None else feature_engineer.transform(X)
     model_prediction = model.predict(X_tf)
-    response = make_prediction_response(model.id, X[_ID_KEY], model_prediction)
+    response = make_prediction_response(model_id, X[_ID_KEY], model_prediction)
     return response
 
 def serve_error_message(error):
@@ -92,7 +93,7 @@ class ModelApp:
 
     def _make_prediction_fn(self, service_config):
         cf = service_config  # just an alias for convenience
-        fn = partial(serve_prediction, model=cf.model,
+        fn = partial(serve_prediction, model=cf.model, model_id=cf.model_id,
             feature_engineer=cf.feature_engineer, input_schema=cf.input_schema,
             validate_input=cf.validate_input, allow_nulls=cf.allow_nulls)
         # mimic function API - assumed in flask implementation
