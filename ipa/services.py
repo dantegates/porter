@@ -4,7 +4,7 @@ import flask
 import pandas as pd
 from werkzeug.exceptions import BadRequest
 
-from ipa import responses
+from ipa.responses import make_prediction_response, make_error_response
 from ipa import utils
 
 
@@ -38,15 +38,12 @@ def serve_prediction(model, feature_engineer):
         raise BadRequest()
     X_tf = feature_engineer.transform(X)
     model_prediction = model.predict(X_tf)
-    resp = responses.PredictionResponse(model.id, X[_ID_KEY], model_prediction)
-    return flask.jsonify(resp)
-
+    response = make_prediction_response(model.id, X[_ID_KEY], model_prediction)
+    return response
 
 def serve_error_message(error):
     """Return a response with JSON payload describing the most recent exception."""
-    error_body = responses.ErrorResponse(error)
-    response = flask.jsonify(error_body)
-    response.status_code = getattr(error, 'code', 500)
+    response = make_error_response(error)
     return response
 
 
