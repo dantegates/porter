@@ -1,16 +1,18 @@
+import mock
 import unittest
 
-from ipa.datascience import BaseModel, BaseFeatureEngineer
-from tests.utils import SKLEARN_MODEL_PATH, KERAS_MODEL_PATH, \
-                       SKLEARN_VALIDATE_PATH, KERAS_VALIDATE_PATH
+from ipa.datascience import (BaseFeatureEngineer, BaseModel,
+                             WrappedFeatureEngineer, WrappedModel)
+from tests.utils import (KERAS_MODEL_PATH, KERAS_VALIDATE_PATH,
+                         SKLEARN_MODEL_PATH, SKLEARN_VALIDATE_PATH)
 
 
-class TestBaseModel(unittest. TestCase):
+class TestWrappedModel(unittest.TestCase):
     def test_predict(self):
         class MockModel:
             def predict(self, X):
                 return X + 1
-        model = BaseModel(MockModel(), 'test-model-name', 'test-model-id')
+        model = WrappedModel(MockModel(), 'test-model-name', 'test-model-id')
         actual = model.predict(1)
         expected = 2
         self.assertEqual(actual, expected)
@@ -22,18 +24,18 @@ class TestBaseModel(unittest. TestCase):
         pass
 
 
-class TestBaseFeatureEngineer(unittest.TestCase):
+class TestWrappedFeatureEngineer(unittest.TestCase):
     def test_transform(self):
         class MockTransformer:
             def transform(self, X):
                 return X + 1
-        feature_engineer = BaseFeatureEngineer(MockTransformer())
+        feature_engineer = WrappedFeatureEngineer(MockTransformer())
         actual = feature_engineer.transform(1)
         expected = 2
         self.assertEqual(actual, expected)
 
 
-class TestFunctions(unittest.TestCase):
+class TestLoadFunctions(unittest.TestCase):
     def test_load_pkl(self):
         pass
 

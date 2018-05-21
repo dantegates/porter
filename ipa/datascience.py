@@ -25,10 +25,25 @@ def load_file(path):
 
 
 class BaseModel(object):
-    def __init__(self, model, name, id):
-        self.model = model
+    def __init__(self, name, id):
         self.name = name
         self.id = id
+
+    def predict(self, X):
+        raise NotImplementedError(
+            '%s must implement .predict()' % self.__class__.__name__)
+
+
+class BaseFeatureEngineer(object):
+    def transform(self):
+        raise NotImplementedError(
+            '%s must implement .transform()' % self.__class__.__name__)
+
+
+class WrappedModel(BaseModel):
+    def __init__(self, model, name, id):
+        self.model = model
+        super(WrappedModel, self).__init__(name, id)
 
     def predict(self, X):
         return self.model.predict(X)
@@ -39,15 +54,13 @@ class BaseModel(object):
         return cls(model, *args, **kwargs)
 
 
-class BaseFeatureEngineer(object):
-    def __init__(self, transformer=None):
+class WrappedFeatureEngineer(BaseFeatureEngineer):
+    def __init__(self, transformer):
         self.transformer = transformer
+        super(WrappedFeatureEngineer, self).__init__()
 
     def transform(self, X):
         return self.transformer.transform(X)
-
-    def get_feature_names(self):
-        raise NotImplementedError
 
     @classmethod
     def from_file(cls, path, *args, **kwargs):
