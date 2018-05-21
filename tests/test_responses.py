@@ -22,9 +22,9 @@ class TestPredictionPayload(unittest.TestCase):
         expected = {
             'model_id': 123,
             'predictions': [
-                {1: 10.0},
-                {2: 11.0},
-                {3: 12.0}
+                {"id": 1, "prediction": 10.0},
+                {"id": 2, "prediction": 11.0},
+                {"id": 3, "prediction": 12.0}
             ]
         }
         self.assertItemsEqual(actual, expected)
@@ -43,9 +43,9 @@ class TestPredictionPayload(unittest.TestCase):
         expected_decoded_json = {
             'model_id': 123,
             'predictions': [
-                {1: 10.0},
-                {2: 11.0},
-                {3: 12.0}
+                {"id": 1, "prediction": 10.0},
+                {"id": 2, "prediction": 11.0},
+                {"id": 3, "prediction": 12.0}
             ]
         }
         self.assertItemsEqual(actual_decoded_json, expected_decoded_json)

@@ -17,7 +17,8 @@ class PredictionPayload(BasePayload):
     def _init_payload(model_id, id_keys, predictions):
         return {
             'model_id': model_id,
-            'predictions': [{id: p} for id, p in zip(id_keys, predictions)]
+            'predictions': [{"id": id, "prediction": p}
+                            for id, p in zip(id_keys, predictions)]
         }
 
 
