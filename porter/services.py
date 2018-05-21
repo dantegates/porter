@@ -53,6 +53,8 @@ class ServiceConfig:
     def __init__(self, model, model_name, model_id, feature_engineer=None,
                  input_schema=None, validate_input=False, allow_nulls=False):
         self.model = model
+        self.model_name = model_name
+        self.model_id = model_id
         self.feature_engineer = feature_engineer
         self.input_schema = input_schema
         if validate_input and not self.input_schema:
@@ -74,12 +76,9 @@ class ModelApp:
         self.app = self._build_app()
 
     def add_service(self, service_config):
-        cf = service_config  # just an alias for convenience
-        model_url = self._make_model_url(cf.model.name)
-        fn = self._init_prediction_fn(model=cf.model, feature_engineer=cf.feature_engineer,
-            input_schema=cf.input_schema, validate_input=cf.validate_input,
-            allow_nulls=cf.allow_nulls)
-        self.app.route(model_url, methods=['POST'])(fn)
+        model_url = self._make_model_url(service_config)
+        fn = self._make_prediction_fn(service_config)
+        self.app.route(model_url, methods=['POST'])(fn)  # calling flask route decorator directly
 
     def _build_app(self):
         app = flask.Flask(__name__)
@@ -88,14 +87,14 @@ class ModelApp:
             app.register_error_handler(error, serve_error_message)
         return app
 
-    def _make_model_url(self, model_name):
-        return self._url_prediction_format.format(model_name=model_name)
+    def _make_model_url(self, service_config):
+        return self._url_prediction_format.format(model_name=service_config.model_name)
 
-    def _init_prediction_fn(self, model, feature_engineer=None, input_schema=None,
-                            validate_input=False, allow_nulls=False):
-        fn = partial(serve_prediction, model=model,
-            feature_engineer=feature_engineer, input_schema=input_schema,
-            validate_input=validate_input, allow_nulls=allow_nulls)
+    def _make_prediction_fn(self, service_config):
+        cf = service_config  # just an alias for convenience
+        fn = partial(serve_prediction, model=cf.model,
+            feature_engineer=cf.feature_engineer, input_schema=cf.input_schema,
+            validate_input=cf.validate_input, allow_nulls=cf.allow_nulls)
         # mimic function API - assumed in flask implementation
-        fn.__name__ = '{}_prediction'.format(model.name.replace('-', '_'))
+        fn.__name__ = '{}_prediction'.format(cf.model_name.replace('-', '_'))
         return fn
