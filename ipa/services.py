@@ -29,14 +29,15 @@ def check_request(X, feature_names):
             'request payload is missing the following fields: %s'
             % missing)
 
-def serve_prediction(model, feature_engineer):
+def serve_prediction(model, feature_engineer, input_schema, validate_request):
     data = flask.request.get_json(force=True)
     X = pd.DataFrame(data)
-    try:
-        check_request(X, feature_engineer.get_feature_names())
-    except ValueError:
-        raise BadRequest()
-    X_tf = feature_engineer.transform(X)
+    if validate_request:
+        try:
+            validate_request(X, input_schema.keys())
+        except ValueError:
+            raise BadRequest()
+    X_tf = X if feature_engineer is None else feature_engineer.transform(X)
     model_prediction = model.predict(X_tf)
     response = make_prediction_response(model.id, X[_ID_KEY], model_prediction)
     return response
@@ -45,6 +46,17 @@ def serve_error_message(error):
     """Return a response with JSON payload describing the most recent exception."""
     response = make_error_response(error)
     return response
+
+
+class ModelServiceConfig:
+    def __init__(self, model, feature_engineer=None, input_schema=None,
+                 validate_request=False):
+        self.model = model
+        self.feature_engineer = feature_engineer
+        self.input_schema = input_schema
+        if validate_request and not self.input_schema:
+            raise ValueError('input_schema is required when validate_request=True')
+        self.validate_request = validate_request
 
 
 class ModelService:
@@ -59,9 +71,15 @@ class ModelService:
     def __init__(self):
         self.app = self._build_app()
 
-    def add_model(self, model, feature_engineer):
-        model_url = self._make_model_url(model.name)
-        fn = self._make_model_prediction_fn(model, feature_engineer)
+    def add_model_service(self, service_config):
+        model = service_config.model
+        model_name = service_config.model.name
+        feature_engineer = service_config.feature_engineer
+        input_schema = service_config.input_schema
+        validate_request = service_config.validate_request
+        model_url = self._make_model_url(model_name)
+        fn = self._init_prediction_fn(model=model, feature_engineer=feature_engineer,
+            input_schema=input_schema, validate_request=validate_request)
         self.app.route(model_url, methods=['POST'])(fn)
 
     def _build_app(self):
@@ -74,8 +92,11 @@ class ModelService:
     def _make_model_url(self, model_name):
         return self._url_prediction_format.format(model_name=model_name)
 
-    def _make_model_prediction_fn(self, model, feature_engineer=None):
-        partial_fn = partial(serve_prediction, model=model, feature_engineer=feature_engineer)
-        # mimic function API
-        partial_fn.__name__ = '{}_prediction'.format(model.name.replace('-', '_'))
-        return partial_fn
+    def _init_prediction_fn(self, model, feature_engineer=None, input_schema=None,
+                            validate_request=False):
+        fn = partial(serve_prediction, model=model,
+            feature_engineer=feature_engineer, input_schema=input_schema,
+            validate_request=validate_request)
+        # mimic function API - assumed in flask implementation
+        fn.__name__ = '{}_prediction'.format(model.name.replace('-', '_'))
+        return fn

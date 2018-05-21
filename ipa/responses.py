@@ -1,10 +1,15 @@
 import traceback
 
+import flask
+
 
 class BasePayload(dict):
     def __init__(self, *args, **kwargs):
         payload = self._init_payload(*args, **kwargs)
         super(BasePayload, self).__init__(payload)
+
+    def _init_payload(self):
+        raise NotImplementedError
 
 
 class PredictionPayload(BasePayload):
@@ -29,13 +34,13 @@ class ErrorPayload(BasePayload):
             'traceback': traceback.format_exc()}
 
 
-def make_prediction_response(model_id, id_keys, predictions, status_code):
+def make_prediction_response(model_id, id_keys, predictions):
     payload = PredictionPayload(model_id, id_keys, predictions)
     return flask.jsonify(payload)
 
 
 def make_error_response(error):
-    paylod = {
+    payload = {
         'error': type(error).__name__,
         # getattr() is used to work around werkzeug's bad implementation
         # of HTTPException (i.e. HTTPException inherits from Exception but

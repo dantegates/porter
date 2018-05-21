@@ -40,7 +40,7 @@ class BaseModel(object):
 
 
 class BaseFeatureEngineer(object):
-    def __init__(self, transformer):
+    def __init__(self, transformer=None):
         self.transformer = transformer
 
     def transform(self, X):

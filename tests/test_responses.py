@@ -1,5 +1,4 @@
 import json
-import mock
 import unittest
 
 from ipa.responses import PredictionPayload, ErrorPayload
@@ -18,7 +17,7 @@ class TestPredictionPayload(unittest.TestCase):
         }
         self.assertItemsEqual(actual, expected)
 
-    def test_make_response(self):
+    def test__init_payload(self):
         actual = PredictionPayload(123, [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'model_id': 123,
@@ -65,12 +64,12 @@ class TestErrorPayload(unittest.TestCase):
             'traceback': 'raise error'
         }
 
-    def test_make_response(self):
+    def test__init_payload(self):
         error = Exception('foo bar baz')
         try:
             raise error
         except:
-            actual = ErrorPayload.make_response(error)
+            actual = ErrorPayload._init_payload(error)
         expected = {
             'error': 'Exception',
             'message': 'foo bar baz',
@@ -83,7 +82,7 @@ class TestErrorPayload(unittest.TestCase):
         try:
             raise error
         except:
-            response = ErrorPayload.make_response(error)
+            response = ErrorPayload._init_payload(error)
         actual_json = json.dumps(response)
         # rather than comparing strings (which would include using OrderedDicts
         # and writing out the JSON as a str) we simply decoded the encoded JSON.

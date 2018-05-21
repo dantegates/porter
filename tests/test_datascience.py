@@ -1,4 +1,3 @@
-import mock
 import unittest
 
 from ipa.datascience import BaseModel, BaseFeatureEngineer
