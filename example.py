@@ -1,4 +1,4 @@
-from porter.datascience import WrappedModel, BaseFeatureEngineer
+from porter.datascience import WrappedModel, WrappedFeatureEngineer
 from porter.services import ModelApp, ServiceConfig
 
 
