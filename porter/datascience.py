@@ -25,10 +25,6 @@ def load_file(path):
 
 
 class BaseModel(object):
-    def __init__(self, name, id):
-        self.name = name
-        self.id = id
-
     def predict(self, X):
         raise NotImplementedError(
             '%s must implement .predict()' % self.__class__.__name__)
@@ -41,9 +37,9 @@ class BaseFeatureEngineer(object):
 
 
 class WrappedModel(BaseModel):
-    def __init__(self, model, name, id):
+    def __init__(self, model):
         self.model = model
-        super(WrappedModel, self).__init__(name, id)
+        super(WrappedModel, self).__init__()
 
     def predict(self, X):
         return self.model.predict(X)

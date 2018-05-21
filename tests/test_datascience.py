@@ -9,10 +9,9 @@ from tests.utils import (KERAS_MODEL_PATH, KERAS_VALIDATE_PATH,
 
 class TestWrappedModel(unittest.TestCase):
     def test_predict(self):
-        class MockModel:
-            def predict(self, X):
-                return X + 1
-        model = WrappedModel(MockModel(), 'test-model-name', 'test-model-id')
+        mock_model = mock.Mock()
+        mock_model.predict = lambda x: x+1
+        model = WrappedModel(mock_model)
         actual = model.predict(1)
         expected = 2
         self.assertEqual(actual, expected)
