@@ -41,14 +41,7 @@ def make_prediction_response(model_id, id_keys, predictions):
 
 
 def make_error_response(error):
-    payload = {
-        'error': type(error).__name__,
-        # getattr() is used to work around werkzeug's bad implementation
-        # of HTTPException (i.e. HTTPException inherits from Exception but
-        # exposes a different API, namely
-        # Exception.message -> HTTPException.description).
-        'message': getattr(error, 'description', error.message),
-        'traceback': traceback.format_exc()}
+    payload = ErrorPayload(error)
     response = flask.jsonify(payload)
     response.status_code = getattr(error, 'code', 500)
     return response
