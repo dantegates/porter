@@ -50,7 +50,7 @@ service_config = ServiceConfig(
                                         # returned to the client.
                                         # Required.
                                         #
-    model_name='supa-dupa-model',       # Name of the model. This determines
+    endpoint='supa-dupa-model',         # Name of the model. This determines
                                         # the route. E.g. send POST requests
                                         # for this model to
                                         #   host:port/supa-dupa-model/prediction/

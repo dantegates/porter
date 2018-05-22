@@ -51,10 +51,10 @@ def serve_error_message(error):
 
 
 class ServiceConfig:
-    def __init__(self, model, model_name, model_id, feature_engineer=None,
+    def __init__(self, model, endpoint, model_id, feature_engineer=None,
                  input_schema=None, validate_input=False, allow_nulls=False):
         self.model = model
-        self.model_name = model_name
+        self.endpoint = endpoint
         self.model_id = model_id
         self.feature_engineer = feature_engineer
         self.input_schema = input_schema
