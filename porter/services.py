@@ -51,7 +51,7 @@ def serve_error_message(error):
 
 
 class ServiceConfig:
-    def __init__(self, model, endpoint, model_id, feature_engineer=None,
+    def __init__(self, model, model_id, endpoint, feature_engineer=None,
                  input_schema=None, validate_input=False, allow_nulls=False):
         self.model = model
         self.endpoint = endpoint
@@ -65,7 +65,7 @@ class ServiceConfig:
 
 
 class ModelApp:
-    _url_prediction_format = '/{model_name}/prediction/'
+    _url_prediction_format = '/{endpoint}/prediction/'
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -89,7 +89,7 @@ class ModelApp:
         return app
 
     def _make_model_url(self, service_config):
-        return self._url_prediction_format.format(model_name=service_config.model_name)
+        return self._url_prediction_format.format(endpoint=service_config.endpoint)
 
     def _make_prediction_fn(self, service_config):
         cf = service_config  # just an alias for convenience
@@ -97,5 +97,5 @@ class ModelApp:
             feature_engineer=cf.feature_engineer, input_schema=cf.input_schema,
             validate_input=cf.validate_input, allow_nulls=cf.allow_nulls)
         # mimic function API - assumed in flask implementation
-        fn.__name__ = '{}_prediction'.format(cf.model_name.replace('-', '_'))
+        fn.__name__ = '{}_prediction'.format(cf.endpoint.replace('-', '_'))
         return fn
