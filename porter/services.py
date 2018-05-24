@@ -48,9 +48,9 @@ def serve_error_message(error):
 
 def serve_alive():
     message = (
-        'Model app is alive\n'
+        "I'm alive\n"
         'Send POST requests to\n\n'
-        '\t/model-name/prediction/'
+        '\t/<model-name>/prediction/'
     )
     return message, 200
 
