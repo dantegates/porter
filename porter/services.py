@@ -35,10 +35,7 @@ def serve_prediction(model, model_id, feature_engineer, input_schema, validate_i
     data = flask.request.get_json(force=True)
     X = pd.DataFrame(data)
     if validate_input:
-        try:
-            check_request(X, input_schema.keys(), allow_nulls)
-        except ValueError:
-            raise BadRequest()
+        check_request(X, input_schema.keys(), allow_nulls)
     X_tf = X if feature_engineer is None else feature_engineer.transform(X)
     model_prediction = model.predict(X_tf)
     response = make_prediction_response(model_id, X[_ID_KEY], model_prediction)
@@ -48,6 +45,14 @@ def serve_error_message(error):
     """Return a response with JSON payload describing the most recent exception."""
     response = make_error_response(error)
     return response
+
+def serve_alive():
+    message = (
+        'Model app is alive\n'
+        'Send POST requests to\n\n'
+        '\t/model-name/prediction/'
+    )
+    return message, 200
 
 
 class ServiceConfig:
@@ -83,9 +88,13 @@ class ModelApp:
 
     def _build_app(self):
         app = flask.Flask(__name__)
+        # register a custom JSON encoder that handles numpy data types.
         app.json_encoder = utils.NumpyEncoder
+        # register error handlers
         for error in self._error_codes:
             app.register_error_handler(error, serve_error_message)
+        # create a root route that can be used to check if the app is running
+        app.route('/', methods=['GET'])(serve_alive)
         return app
 
     def _make_model_url(self, service_config):
