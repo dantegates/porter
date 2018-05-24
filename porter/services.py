@@ -92,8 +92,9 @@ class ModelApp:
         # register error handlers
         for error in self._error_codes:
             app.register_error_handler(error, serve_error_message)
-        # create a root route that can be used to check if the app is running
-        app.route('/', methods=['GET'])(serve_alive)
+        # create a route that can be used to check if the app is running
+        # usefule for kubernetes/helm integration
+        app.route('/alive/', methods=['GET'])(serve_alive)
         return app
 
     def _make_model_url(self, service_config):

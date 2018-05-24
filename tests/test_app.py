@@ -59,8 +59,8 @@ class TestAppErrorHandling(unittest.TestCase):
         if not traceback_substr is None:
             self.assertIn(traceback_substr, data['traceback'])
 
-    def test_root(self):
-        resp = self.app.get('/')
+    def test_alive(self):
+        resp = self.app.get('/alive/')
         self.assertEqual(resp.status_code, 200)
 
 
