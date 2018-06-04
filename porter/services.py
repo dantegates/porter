@@ -104,7 +104,9 @@ class ModelApp:
             input_schema=service_config.input_schema,
             validate_input=service_config.validate_input,
             allow_nulls=service_config.allow_nulls)
-        # calling flask route decorator directly
+        # flask looks for the __name__ attribute of the routed callable.
+        # Hence we route a bound instance method rather than an instance
+        # implementing __call__()
         self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction.serve)
 
     def _build_app(self):
