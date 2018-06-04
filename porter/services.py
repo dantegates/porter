@@ -19,7 +19,7 @@ class ServePrediction(object):
         self.allow_nulls = allow_nulls
         self.transform_input = self.feature_engineer is not None
 
-    def __call__(self):
+    def serve(self):
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
@@ -105,7 +105,7 @@ class ModelApp:
             validate_input=service_config.validate_input,
             allow_nulls=service_config.allow_nulls)
         # calling flask route decorator directly
-        self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction)
+        self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction.serve)
 
     def _build_app(self):
         self.app = flask.Flask(__name__)
