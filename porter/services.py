@@ -121,4 +121,4 @@ class ModelApp:
         self._route_alive()
 
     def _route_alive(self):
-        self.app.route('/alive/', methods=['GET'])(serve_alive)
+        self.app.route('/', methods=['GET'])(serve_alive)
