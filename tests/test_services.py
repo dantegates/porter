@@ -7,9 +7,23 @@ from porter.services import (_ID_KEY, ModelApp, ServePrediction,
                              serve_error_message)
 
 
-class TestFuntions(unittest.TestCase):
-    def test_serve_error_message(self):
-        pass
+class TestFuntionsUnit(unittest.TestCase):
+    @mock.patch('flask.jsonify')
+    def test_serve_error_message_status_codes(self, mock_jsonify):
+        error = ValueError('an error message')
+        actual = serve_error_message(error)
+        actual_status_code = 500
+        expected_status_code = 500
+        self.assertEqual(actual_status_code, expected_status_code)
+
+    @mock.patch('flask.jsonify')
+    def test_serve_error_message_status_codes(self, mock_jsonify):
+        error = ValueError('an error message')
+        error.code = 123
+        actual = serve_error_message(error)
+        actual_status_code = 123
+        expected_status_code = 123
+        self.assertEqual(actual_status_code, expected_status_code)
 
 
 class TestServePrediction(unittest.TestCase):
