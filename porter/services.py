@@ -85,7 +85,7 @@ class ModelApp:
         400,  # bad request
         404,  # not found
         405,  # method not allowed
-        500   # internal server error
+        500,  # internal server error
     )
 
     def __init__(self):

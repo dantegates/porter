@@ -60,7 +60,7 @@ class TestAppErrorHandling(unittest.TestCase):
             self.assertIn(traceback_substr, data['traceback'])
 
     def test_alive(self):
-        resp = self.app.get('/alive/')
+        resp = self.app.get('/')
         self.assertEqual(resp.status_code, 200)
 
 
