@@ -30,10 +30,10 @@ class BaseModel(object):
             '%s must implement .predict()' % self.__class__.__name__)
 
 
-class BaseFeatureEngineer(object):
-    def transform(self):
+class BaseProcessor(object):
+    def process(self, X):
         raise NotImplementedError(
-            '%s must implement .transform()' % self.__class__.__name__)
+            '%s must implement .process()' % self.__class__.__name__)
 
 
 class WrappedModel(BaseModel):
@@ -50,12 +50,12 @@ class WrappedModel(BaseModel):
         return cls(model, *args, **kwargs)
 
 
-class WrappedFeatureEngineer(BaseFeatureEngineer):
+class WrappedTransformer(BaseProcessor):
     def __init__(self, transformer):
         self.transformer = transformer
-        super(WrappedFeatureEngineer, self).__init__()
+        super(WrappedTransformer, self).__init__()
 
-    def transform(self, X):
+    def process(self, X):
         return self.transformer.transform(X)
 
     @classmethod

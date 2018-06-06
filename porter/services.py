@@ -9,25 +9,28 @@ _ID_KEY = 'id'
 
 
 class ServePrediction(object):
-    def __init__(self, model, model_id, feature_engineer, input_schema,
-                 validate_input, allow_nulls):
+    def __init__(self, model, model_id, preprocessor, postprocessor, input_schema, allow_nulls):
         self.model = model
         self.model_id = model_id
-        self.feature_engineer = feature_engineer
+        self.preprocessor = preprocessor
+        self.postprocessor = postprocessor
         self.input_schema = input_schema
-        self.validate_input = validate_input
         self.allow_nulls = allow_nulls
-        self.transform_input = self.feature_engineer is not None
+        self.validate_input = self.input_schema is not None
+        self.preprocess_model_input = self.preprocessor is not None
+        self.postprocess_model_output = self.postprocessor is not None
 
     def serve(self):
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.input_schema.keys(), self.allow_nulls)
-        X_tf = self.feature_engineer.transform(X) if self.transform_input else X
-        model_prediction = self.model.predict(X_tf)
-        response = porter_responses.make_prediction_response(
-            self.model_id, X[_ID_KEY], model_prediction)
+        if self.preprocess_model_input:
+            X = self.preprocessor.process(X)
+        preds = self.model.predict(X)
+        if self.postprocess_model_output:
+            preds = self.postprocessor.process(preds)
+        response = porter_responses.make_prediction_response(self.model_id, X[_ID_KEY], preds)
         return response
 
     @staticmethod
@@ -66,15 +69,15 @@ def serve_alive():
 
 
 class ServiceConfig:
-    def __init__(self, model, model_id, endpoint, feature_engineer=None,
-                 input_schema=None, validate_input=False, allow_nulls=False):
+    def __init__(self, model, model_id, endpoint, preprocessor=None,
+                 postprocessor=None, input_schema=None, validate_input=False,
+                 allow_nulls=False):
         self.model = model
         self.endpoint = endpoint
         self.model_id = model_id
-        self.feature_engineer = feature_engineer
+        self.preprocessor = preprocessor
+        self.postprocessor = postprocessor
         self.input_schema = input_schema
-        if validate_input and not self.input_schema:
-            raise ValueError('input_schema is required when validate_input=True')
         self.validate_input = validate_input
         self.allow_nulls = allow_nulls
 
@@ -100,13 +103,14 @@ class ModelApp:
         serve_prediction = ServePrediction(
             model=service_config.model,
             model_id=service_config.model_id,
-            feature_engineer=service_config.feature_engineer,
+            preprocessor=service_config.preprocessor,
+            postprocessor=service_config.postprocessor,
             input_schema=service_config.input_schema,
             validate_input=service_config.validate_input,
             allow_nulls=service_config.allow_nulls)
         # flask looks for the __name__ attribute of the routed callable.
-        # Hence we route a bound instance method rather than an instance
-        # implementing __call__()
+        # Hence we route a bound instance method rather than a partial or an
+        # instance implementing __call__()
         self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction.serve)
 
     def _build_app(self):
