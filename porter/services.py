@@ -70,15 +70,13 @@ def serve_alive():
 
 class ServiceConfig:
     def __init__(self, model, model_id, endpoint, preprocessor=None,
-                 postprocessor=None, input_schema=None, validate_input=False,
-                 allow_nulls=False):
+                 postprocessor=None, input_schema=None, allow_nulls=False):
         self.model = model
         self.endpoint = endpoint
         self.model_id = model_id
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.input_schema = input_schema
-        self.validate_input = validate_input
         self.allow_nulls = allow_nulls
 
 
@@ -106,7 +104,6 @@ class ModelApp:
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
             input_schema=service_config.input_schema,
-            validate_input=service_config.validate_input,
             allow_nulls=service_config.allow_nulls)
         # flask looks for the __name__ attribute of the routed callable.
         # Hence we route a bound instance method rather than a partial or an
