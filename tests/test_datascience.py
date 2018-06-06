@@ -1,10 +1,17 @@
 import mock
 import unittest
 
-from porter.datascience import (BaseFeatureEngineer, BaseModel,
-                             WrappedFeatureEngineer, WrappedModel)
+from porter.datascience import (BaseProcessor, BaseModel,
+                                WrappedTransformer, WrappedModel)
 from tests.utils import (KERAS_MODEL_PATH, KERAS_VALIDATE_PATH,
                          SKLEARN_MODEL_PATH, SKLEARN_VALIDATE_PATH)
+
+
+class TestBaseModel(unittest.TestCase):
+    def test_abc(self):
+        class A(BaseModel): pass
+        with self.assertRaises(NotImplementedError):
+            A().predict(None)
 
 
 class TestWrappedModel(unittest.TestCase):
@@ -23,13 +30,20 @@ class TestWrappedModel(unittest.TestCase):
         pass
 
 
-class TestWrappedFeatureEngineer(unittest.TestCase):
+class TestBaseProcessor(unittest.TestCase):
+    def test_abc(self):
+        class A(BaseProcessor): pass
+        with self.assertRaises(NotImplementedError):
+            A().process(None)
+
+
+class TestWrappedTransformer(unittest.TestCase):
     def test_transform(self):
         class MockTransformer:
             def transform(self, X):
                 return X + 1
-        feature_engineer = WrappedFeatureEngineer(MockTransformer())
-        actual = feature_engineer.transform(1)
+        processor = WrappedTransformer(MockTransformer())
+        actual = processor.process(1)
         expected = 2
         self.assertEqual(actual, expected)
 
