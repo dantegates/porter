@@ -12,7 +12,7 @@ such as
 
 to the endpoint
 
-    localhost:8000/supa-dupa-model/prediction/
+    <host>:<port>/supa-dupa-model/prediction/
 
 The corresponding output has the format
 
@@ -24,7 +24,7 @@ The corresponding output has the format
     ]
 """
 
-from porter.datascience import WrappedModel, WrappedFeatureEngineer
+from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
 from porter.services import ModelApp, ServiceConfig
 
 
@@ -34,13 +34,26 @@ from porter.services import ModelApp, ServiceConfig
 # Services are added to the app with `model_app.add_service` below.
 model_app = ModelApp()
 
+# define the expected input schema so the model can validate the POST
+# request input
+input_schema = [
+    'feature1',
+    'feature2',
+    'column3',
+]
 
-input_schema = {
-    'feature1': 'str',
-    'feature2': 'str',
-    'column3': float
-}
-feature_engineer = WrappedFeatureEngineer.from_file(path='/path/to/feature_engineer.pkl')
+# Define a preprocessor, model and postprocessor for transforming the
+# POST request data, predicting and transforming the model's predictions.
+# Both processor instances are optional.
+#
+# For convenience we can load pickled `sklearn` objects as the preprocessor
+# and model.
+class Postprocessor(BaseProcessor):
+    def process(self, X):
+        # model predicts the log of value we really care about
+        return 10**X
+postprocessor = Postprocessor()
+preprocessor = WrappedTransformer.from_file(path='/path/to/feature_engineer.pkl')
 model = WrappedModel.from_file(path='/path/to/model.pkl')
 
 # the service config contains everything needed for `model_app` to add a route
@@ -60,16 +73,17 @@ service_config = ServiceConfig(
                                         # to client in the prediction response.
                                         # Required.
                                         #
-    feature_engineer=feature_engineer,  # feature_engineer.transform() is
+    preprocessor=preprocessor,          # preprocessor.transform() is
                                         # called on the POST request data
                                         # before predicting. Optional.
+                                        #
+    postprocessor=postprocessor,        # postprocessor.transform() is
+                                        # called on the model's predictions before
+                                        # returning to user. Optional.
                                         #
     input_schema=input_schema,          # The input schema is used to validate
                                         # the payload of the POST request.
                                         # Optional.
-                                        #
-    validate_input=True,                # Payload input validated only when this
-                                        # is True. Optional and False by default.
                                         #
     allow_nulls=False                   # Wether nulls are allowed in the POST
                                         # request data. Optional and meaningless
@@ -83,4 +97,4 @@ model_app.add_service(service_config)
 if __name__ == '__main__':
     # you can run this with `gunicorn app:model_app.app`
     # localhost:8000/supa-dupa-model/prediction <- POST requests
-    model_app.app.run(port=8000)
+    model_app.run(port=8000)
