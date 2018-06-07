@@ -1,11 +1,10 @@
-from __future__ import print_function
-
+import json
 import unittest
 
 import mock
 import numpy as np
 import pandas as pd
-from porter.services import (_ID_KEY, ModelApp, ServePrediction,
+from porter.services import (_ID_KEY, ModelApp, ServePrediction, NumpyEncoder,
                              serve_error_message)
 
 
@@ -189,8 +188,32 @@ class TestServePrediction(unittest.TestCase):
         mock_X.isnull.assert_not_called()
 
 
-class TestModelService(unittest.TestCase):
-    pass
+
+class TestNumpyEncoder(unittest.TestCase):
+    def test_default(self):
+        encoder = NumpyEncoder()
+        actual_type = type(encoder.default(np.int32(1)))
+        expected_type = int
+        self.assertIs(actual_type, expected_type)
+
+        actual_type = type(encoder.default(np.float32(1)))
+        expected_type = float
+        self.assertIs(actual_type, expected_type)
+
+        actual_type = type(encoder.default(np.array([[1]])))
+        expected_type = list
+        self.assertIs(actual_type, expected_type)
+
+        with self.assertRaises(TypeError):
+            actual_type = type(encoder.default(1))
+            expected_type = list
+            self.assertIs(actual_type, expected_type)
+
+    def test_with_json_dumps(self):
+        x = np.array([[np.float32(4.0)], [np.int32(0)]])
+        actual = json.dumps(x, cls=NumpyEncoder)
+        expected = '[[4.0], [0.0]]'
+        self.assertEqual(actual, expected)
 
 
 if __name__ == '__main__':

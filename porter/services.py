@@ -1,16 +1,28 @@
 """
-Contains objects for creating a "model service."
 """
 
+import json
 
 import flask
+import numpy as np
 import pandas as pd
 
 import porter.responses as porter_responses
-from porter import utils
 
 
 _ID_KEY = 'id'
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(NumpyEncoder, self).default(obj)
 
 
 class ServePrediction(object):
@@ -226,7 +238,7 @@ class ModelApp:
         """
         app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.
-        app.json_encoder = utils.NumpyEncoder
+        app.json_encoder = NumpyEncoder
         # register error handlers
         for error in self._error_codes:
             app.register_error_handler(error, serve_error_message)
