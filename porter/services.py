@@ -1,4 +1,19 @@
-"""
+"""Tools for building RESTful services that exposes machine learning models.
+
+Building and running an app with the tools in this module is as simple as
+
+1. Instantiating `ModelApp`.
+2. Instantiating `ServiceConfig` once for each model you wish to add to the
+    service.
+3. Use the config(s) created in 2. to add models to the app with either
+    `ModelApp.add_service()` or `ModelApp.add_services()`.
+
+For example,
+
+    >>> model_app = ModelApp()
+    >>> service_config1 = ServiceConfig(...)
+    >>> service_config2 = ServiceConfig(...)
+    >>> model_app.add_services(service_config1, service_config2)
 """
 
 import json
@@ -14,6 +29,8 @@ _ID_KEY = 'id'
 
 
 class NumpyEncoder(json.JSONEncoder):
+    """A JSON encoder that handles `numpy` data types."""
+
     def default(self, obj):
         if isinstance(obj, np.integer):
             return int(obj)
@@ -86,6 +103,8 @@ class ServePrediction(object):
         self.postprocess_model_output = self.postprocessor is not None
 
     def __call__(self):
+        """Retrive POST request data from flask and return a response containing
+        the corresponding predictions."""
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
@@ -100,10 +119,25 @@ class ServePrediction(object):
 
     @staticmethod
     def check_request(X, feature_names, allow_nulls=False):
-        """Check the POST request data.
+        """Check the POST request data raising an error if a check fails.
+
+        Checks include
+
+        1. `X` contains all columns in `feature_names`.
+        2. `X` does not contain nulls (only if allow_nulls == True).
 
         Args:
+            X (pandas.DataFrame): A `pandas.DataFrame` created from the POST
+                request.
+            feature_names (list): All feature names expected in `X`.
+            allow_nulls (bool): Whether nulls are allowed in `X`. False by
+                default.
 
+        Returns:
+            None
+
+        Raises:
+            ValueError if a given check fails.
         """
         required_keys = [_ID_KEY]
         required_keys.extend(feature_names)
@@ -200,7 +234,7 @@ class ModelApp:
         """Initialize an instance of `ModelApp`."""
         self.app = self._build_app()
 
-    def  add_services(self, *service_configs):
+    def add_services(self, *service_configs):
         for service_config in service_configs:
             self.add_service(service_config)
 
