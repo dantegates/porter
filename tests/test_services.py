@@ -131,12 +131,6 @@ class TestServePrediction(unittest.TestCase):
         )
         _ = serve_prediction()
 
-    @mock.patch('flask.request')
-    def test_serve_processing(self, mock_flask_request):
-        pass
-        # serve_prediction = ServePrediction.serve
-        # _ = serve_prediction()
-
 
     def test_check_request_pass(self):
         # no error should be raised
@@ -214,6 +208,17 @@ class TestNumpyEncoder(unittest.TestCase):
         actual = json.dumps(x, cls=NumpyEncoder)
         expected = '[[4.0], [0.0]]'
         self.assertEqual(actual, expected)
+
+
+class TestModelApp(unittest.TestCase):
+    @mock.patch('porter.services.ModelApp._build_app')
+    @mock.patch('porter.services.ModelApp.add_service')
+    def test_add_services(self, mock_add_service, mock__build_app):
+        configs = [object(), object(), object()]
+        model_app = ModelApp()
+        model_app.add_services(configs[0], configs[1], configs[2])
+        expected_calls = [mock.call(obj) for obj in configs]
+        mock_add_service.assert_has_calls(expected_calls)
 
 
 if __name__ == '__main__':

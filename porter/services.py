@@ -200,6 +200,10 @@ class ModelApp:
         """Initialize an instance of `ModelApp`."""
         self.app = self._build_app()
 
+    def  add_services(self, *service_configs):
+        for service_config in service_configs:
+            self.add_service(service_config)
+
     def add_service(self, service_config):
         """
         Add a model service to the API.
