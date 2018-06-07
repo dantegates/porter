@@ -234,3 +234,4 @@ class ModelApp:
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
         return app
+
