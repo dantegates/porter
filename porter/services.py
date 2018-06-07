@@ -1,3 +1,8 @@
+"""
+Contains objects for creating a "model service."
+"""
+
+
 import flask
 import pandas as pd
 
@@ -9,18 +14,55 @@ _ID_KEY = 'id'
 
 
 class ServePrediction(object):
+    """Class for building stateful prediction routes.
+
+    Instances of this class are intended to be routed to endpoints in a `flask`
+    app. E.g.
+
+        >>> app = flask.Flask(__name__)
+        >>> serve_prediction = ServePrediction(...)
+        >>> app.route('/prediction/', methods=['POST'])(serve_prediction)
+
+    Instances of this class can hold all required state necessary for making
+    predictions at runtime and when called will return predictions corresponding
+    POST requests sent to the app.
+    """
     _instances = 0
 
     def __new__(cls, *args, **kwargs):
-        instance = super(ServePrediction, cls).__new__(cls)
-        cls._instances += 1
         # flask looks for the __name__ attribute of the routed callable,
         # and each name of a routed object must be unique.
         # Therefore we define a unique name here to meet flask's expectations.
+        instance = super(ServePrediction, cls).__new__(cls)
+        cls._instances += 1
         instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
         return instance
 
-    def __init__(self, model, model_id, preprocessor, postprocessor, input_schema, allow_nulls):
+    def __init__(self, model, model_id, preprocessor, postprocessor, input_schema,
+                 allow_nulls):
+        """Initialize an instance of ServePrediction.
+
+        Args:
+            model (object): An object implementing the interface defined by
+                `porter.datascience.BaseModel`.
+            model_id (str): A unique identifier for the model. Returned to the
+                user alongside the model predictions.
+            preprocessor (object or None): An object implementing the interface
+                defined by `porter.datascience.BaseProcessor`. If not `None`,
+                the `.process()` method of this object will be called on the POST
+                request data and its output will be passed to `model.predict()`.
+            postprocessor (object or None): An object implementing the interface
+                defined by `porter.datascience.BaseProcessor`. If not `None`,
+                the `.process()` method of this object will be called on the
+                output of `model.predict()` and its return value will be used to
+                populate the predictions returned to the user. 
+            input_schema (list-like or None): A list (or list like object) containing
+                the feature names required in the POST data. Will be used to validate
+                the POST request if not `None`.
+            allow_nulls (bool): Are nulls allowed in the POST request data? If `False`
+                an error is raised when nulls are found.
+        """
+
         self.model = model
         self.model_id = model_id
         self.preprocessor = preprocessor
@@ -35,7 +77,7 @@ class ServePrediction(object):
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
-            self.check_request(X, self.input_schema.keys(), self.allow_nulls)
+            self.check_request(X, list(self.input_schema), self.allow_nulls)
         if self.preprocess_model_input:
             X = self.preprocessor.process(X)
         preds = self.model.predict(X)
@@ -46,6 +88,11 @@ class ServePrediction(object):
 
     @staticmethod
     def check_request(X, feature_names, allow_nulls=False):
+        """Check the POST request data.
+
+        Args:
+
+        """
         required_keys = [_ID_KEY]
         required_keys.extend(feature_names)
         # checks that all columns are present and no nulls sent
@@ -71,7 +118,8 @@ def serve_error_message(error):
     return response
 
 
-def serve_alive():
+def serve_root():
+    """Return a helpful description of how to use the app."""
     message = (
         "I'm alive.<br>"
         'Send POST requests to /&lt model-name &gt/prediction/'
@@ -80,11 +128,41 @@ def serve_alive():
 
 
 class ServiceConfig:
+    """
+    A simple container that holds all necessary data for an instance of `ModelApp`
+    to route a model.
+    """
     def __init__(self, model, model_id, endpoint, preprocessor=None,
                  postprocessor=None, input_schema=None, allow_nulls=False):
+        """
+        Initialize a ServiceConfig.
+
+        Args:
+            model (object): An object implementing the interface defined by
+                `porter.datascience.BaseModel`.
+            model_id (str): A unique identifier for the model. Returned to the
+                user alongside the model predictions.
+            endpoint (str): Name of the model endpoint. The final routed endpoint
+                will become "/<endpoint>/prediction/".
+            preprocessor (object or None): An object implementing the interface
+                defined by `porter.datascience.BaseProcessor`. If not `None`,
+                the `.process()` method of this object will be called on the POST
+                request data and its output will be passed to `model.predict()`.
+                Optional.
+            postprocessor (object or None): An object implementing the interface
+                defined by `porter.datascience.BaseProcessor`. If not `None`,
+                the `.process()` method of this object will be called on the
+                output of `model.predict()` and its return value will be used to
+                populate the predictions returned to the user. Optional.
+            input_schema (list-like or None): A list (or list like object) containing
+                the feature names required in the POST data. Will be used to validate
+                the POST request if not `None`. Optional.
+            allow_nulls (bool): Are nulls allowed in the POST request data? If `False`
+                an error is raised when nulls are found. Optional.
+        """
         self.model = model
-        self.endpoint = endpoint
         self.model_id = model_id
+        self.endpoint = endpoint
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.input_schema = input_schema
@@ -92,6 +170,12 @@ class ServiceConfig:
 
 
 class ModelApp:
+    """
+    Abstraction used to simplify building REST APIs that expose predictive models.
+
+    Essentially this class is a wrapper around an instance of `flask.Flask`.
+    """
+
     _prediction_endpoint_template = '/{endpoint}/prediction/'
     _error_codes = (
         400,  # bad request
@@ -101,14 +185,20 @@ class ModelApp:
     )
 
     def __init__(self):
-        self._build_app()
+        """Initialize an instance of `ModelApp`."""
+        self.app = self._build_app()
 
     def add_service(self, service_config):
+        """
+        Add a model service to the API.
+
+        Args:
+            service_config (object): Instance of `porter.services.ServiceConfig`.
+        Returns:
+            None
+        """
         prediction_endpoint = self._prediction_endpoint_template.format(
             endpoint=service_config.endpoint)
-        self._route_prediction(service_config, prediction_endpoint)
-
-    def _route_prediction(self, service_config, prediction_endpoint):
         serve_prediction = ServePrediction(
             model=service_config.model,
             model_id=service_config.model_id,
@@ -118,16 +208,29 @@ class ModelApp:
             allow_nulls=service_config.allow_nulls)
         self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction)
 
+    def run(self, *args, **kwargs):
+        """
+        Run the app.
+
+        Args:
+            *args: Positional arguments passed on to the wrapped `flask` app.
+            **kwargs: Keyword arguments passed on to the wrapped `flask` app.
+        """
+        self.app.run(*args, **kwargs)
+
     def _build_app(self):
-        self.app = flask.Flask(__name__)
+        """Build and return the `flask` app.
+
+        Any global properties of the app, such as error handling and response
+        formatting, are added here.
+        """
+        app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.
-        self.app.json_encoder = utils.NumpyEncoder
+        app.json_encoder = utils.NumpyEncoder
         # register error handlers
         for error in self._error_codes:
-            self.app.register_error_handler(error, serve_error_message)
-        # create a route that can be used to check if the app is running
-        # useful for kubernetes/helm integration
-        self._route_alive()
-
-    def _route_alive(self):
-        self.app.route('/', methods=['GET'])(serve_alive)
+            app.register_error_handler(error, serve_error_message)
+        # This route that can be used to check if the app is running.
+        # Useful for kubernetes/helm integration
+        app.route('/', methods=['GET'])(serve_root)
+        return app
