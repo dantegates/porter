@@ -9,6 +9,17 @@ _ID_KEY = 'id'
 
 
 class ServePrediction(object):
+    _instances = 0
+
+    def __new__(cls, *args, **kwargs):
+        instance = super(ServePrediction, cls).__new__(cls)
+        cls._instances += 1
+        # flask looks for the __name__ attribute of the routed callable,
+        # and each name of a routed object must be unique.
+        # Therefore we define a unique name here to meet flask's expectations.
+        instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
+        return instance
+
     def __init__(self, model, model_id, preprocessor, postprocessor, input_schema, allow_nulls):
         self.model = model
         self.model_id = model_id
@@ -20,7 +31,7 @@ class ServePrediction(object):
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
 
-    def serve(self):
+    def __call__(self):
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
@@ -105,10 +116,7 @@ class ModelApp:
             postprocessor=service_config.postprocessor,
             input_schema=service_config.input_schema,
             allow_nulls=service_config.allow_nulls)
-        # flask looks for the __name__ attribute of the routed callable.
-        # Hence we route a bound instance method rather than a partial or an
-        # instance implementing __call__()
-        self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction.serve)
+        self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction)
 
     def _build_app(self):
         self.app = flask.Flask(__name__)

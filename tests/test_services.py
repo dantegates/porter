@@ -29,6 +29,21 @@ class TestFuntionsUnit(unittest.TestCase):
 
 
 class TestServePrediction(unittest.TestCase):
+    @mock.patch('porter.services.ServePrediction._instances', 0)
+    @mock.patch('porter.services.ServePrediction.__init__')
+    def test_naming(self, mock__init__):
+        mock__init__.return_value = None
+        actual1 = ServePrediction().__name__
+        expected1 = 'serveprediction_1'
+        actual2 = ServePrediction().__name__
+        expected2 = 'serveprediction_2'
+        actual3 = ServePrediction().__name__
+        expected3 = 'serveprediction_3'
+        self.assertEqual(actual1, expected1)
+        self.assertEqual(actual2, expected2)
+        self.assertEqual(actual3, expected3)
+
+
     @mock.patch('flask.request')
     @mock.patch('porter.responses.flask')
     def test_serve_success(self, mock_responses_flask, mock_flask_request):
@@ -65,7 +80,7 @@ class TestServePrediction(unittest.TestCase):
             input_schema=input_schema,
             allow_nulls=allow_nulls
         )
-        actual = serve_prediction.serve()
+        actual = serve_prediction()
         expected = {
             'model_id': test_model_id,
             'predictions': [
@@ -96,7 +111,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor
         )
-        _ = serve_prediction.serve()
+        _ = serve_prediction()
         mock_preprocessor.process.assert_called()
         mock_postprocessor.process.assert_called()
 
@@ -115,13 +130,13 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None
         )
-        _ = serve_prediction.serve()
+        _ = serve_prediction()
 
     @mock.patch('flask.request')
     def test_serve_processing(self, mock_flask_request):
         pass
         # serve_prediction = ServePrediction.serve
-        # _ = serve_prediction.serve()
+        # _ = serve_prediction()
 
 
     def test_check_request_pass(self):
