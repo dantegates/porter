@@ -95,6 +95,7 @@ model_app.add_service(service_config)
 
 
 if __name__ == '__main__':
-    # you can run this with `gunicorn app:model_app.app`
-    # localhost:8000/supa-dupa-model/prediction <- POST requests
+    # you can run this with `gunicorn app:model_app.app`, or
+    # simply execute this script with Python and send POST requests
+    # to localhost:8000/supa-dupa-model/prediction/
     model_app.run(port=8000)
