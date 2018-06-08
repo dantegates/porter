@@ -173,7 +173,7 @@ def serve_root():
     return message, 200
 
 
-class ServiceConfig:
+class PredictionServiceConfig:
     """
     A simple container that holds all necessary data for an instance of `ModelApp`
     to route a model.
@@ -239,6 +239,12 @@ class ModelApp:
             self.add_service(service_config)
 
     def add_service(self, service_config):
+        if isinstance(service_config, PredictionServiceConfig):
+            self.add_prediction_service(service_config)
+        else:
+            raise ValueError('unkown service type')
+
+    def add_prediction_service(self, service_config):
         """
         Add a model service to the API.
 

@@ -9,7 +9,7 @@ import unittest
 import flask
 
 from porter.datascience import BaseModel, BaseProcessor
-from porter.services import ModelApp, ServiceConfig, _ID_KEY
+from porter.services import ModelApp, PredictionServiceConfig, _ID_KEY
 
 
 class TestApp(unittest.TestCase):
@@ -70,7 +70,7 @@ class TestApp(unittest.TestCase):
         ]
 
         # define configs and add services to app
-        service_config1 = ServiceConfig(
+        service_config1 = PredictionServiceConfig(
             model=Model1(),
             endpoint='model-1',
             model_id='model-1-id',
@@ -79,7 +79,7 @@ class TestApp(unittest.TestCase):
             input_schema=input_schema1,
             allow_nulls=False
         )
-        service_config2 = ServiceConfig(
+        service_config2 = PredictionServiceConfig(
             model=Model2(),
             endpoint='model-2',
             model_id='model-2-id',
@@ -88,7 +88,7 @@ class TestApp(unittest.TestCase):
             input_schema=input_schema2,
             allow_nulls=False
         )
-        service_config3 = ServiceConfig(
+        service_config3 = PredictionServiceConfig(
             model=Model3(),
             endpoint='model-3',
             model_id='model-3-id',
