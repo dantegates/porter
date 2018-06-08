@@ -101,11 +101,11 @@ class TestApp(unittest.TestCase):
         self.model_app.add_service(service_config2)
         self.model_app.add_service(service_config3)
 
-        actual1 = self.app.post('/model-1/prediction/', data=json.dumps(post_data1))
+        actual1 = self.app.post('/model-1/prediction', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
-        actual2 = self.app.post('/model-2/prediction/', data=json.dumps(post_data2))
+        actual2 = self.app.post('/model-2/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
-        actual3 = self.app.post('/model-3/prediction/', data=json.dumps(post_data3))
+        actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
             'model_id': 'model-1-id',

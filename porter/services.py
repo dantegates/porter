@@ -262,7 +262,8 @@ class ModelApp:
             postprocessor=service_config.postprocessor,
             input_schema=service_config.input_schema,
             allow_nulls=service_config.allow_nulls)
-        self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction)
+        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
+        self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
 
     def run(self, *args, **kwargs):
         """
