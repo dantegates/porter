@@ -16,7 +16,7 @@ class TestFunctions(unittest.TestCase):
                 {"id": 3, "prediction": 12.0}
             ]
         }
-        self.assertItemsEqual(actual, expected)
+        self.assertEqual(actual, expected)
 
     def test__make_error_payload(self):
         error = Exception('foo bar baz')
@@ -26,10 +26,14 @@ class TestFunctions(unittest.TestCase):
             actual = _make_error_payload(error)
         expected = {
             'error': 'Exception',
-            'message': 'foo bar baz',
-            'traceback': 'raise error'
+            'message': ('foo bar baz',),
+            'traceback': ('Traceback (most recent call last):\n'
+                          '  File "/Users/dgates/repos/porter/tests/test_responses.py", '
+                          'line 24, in test__make_error_payload\n'
+                          '    raise error\n'
+                          'Exception: foo bar baz\n')
         }
-        self.assertItemsEqual(actual, expected)
+        self.assertEqual(actual, expected)
 
 
 if __name__ == '__main__':

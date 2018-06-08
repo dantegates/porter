@@ -178,7 +178,7 @@ class PredictionServiceConfig:
     A simple container that holds all necessary data for an instance of `ModelApp`
     to route a model.
     """
-    def __init__(self, model, model_id, endpoint, preprocessor=None,
+    def __init__(self, *, model, model_id, endpoint, preprocessor=None,
                  postprocessor=None, input_schema=None, allow_nulls=False):
         """
         Initialize a ServiceConfig.

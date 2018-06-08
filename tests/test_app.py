@@ -186,7 +186,12 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertIn('message', data)
         self.assertIn('traceback', data)
         if not message_substr is None:
-            self.assertIn(message_substr, data['message'])
+            if isinstance(data['message'], list):
+                # if error is a builtin, it does not have a description. Thus
+                # data['message'] is Exception().args, i.e. a list once jsonified
+                self.assertTrue(any(message_substr in arg for arg in data['message']))
+            else:
+                self.assertIn(message_substr, data['message'])
         if not traceback_substr is None:
             self.assertIn(traceback_substr, data['traceback'])
 
