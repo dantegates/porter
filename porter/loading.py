@@ -1,20 +1,38 @@
 """Loading utilities."""
 
 
+import io
 import os
+import tempfile
 
 
 def load_file(path):
     """Load a file and return the result."""
     extension = os.path.splitext(path)[-1]
     if path.startswith('s3://'):
-        s3_access_key_id = os.environ.get('PORTER_S3_ACCESS_KEY_ID')
-        s3_secret_access_key = os.environ.get('PORTER_S3_SECRET_ACCESS_KEY')
+        s3_access_key_id = os.environ['PORTER_S3_ACCESS_KEY_ID']
+        s3_secret_access_key = os.environ['PORTER_S3_SECRET_ACCESS_KEY']
         path_or_stream = load_s3(path, s3_access_key_id, s3_secret_access_key)
+    else:
+        path_or_stream = path
     if extension == '.pkl':
         obj = load_pkl(path_or_stream)
     elif extension == '.h5':
-        obj = load_h5(path_or_stream)
+        # keras does not support loading a model from stream like joblib does.
+        # as a workaround write the stream to a temporary file and load from
+        # there.
+        # See,
+        # https://github.com/keras-team/keras/issues/9343
+        if hasattr(path_or_stream, 'read'):
+            with tempfile.NamedTemporaryFile() as tmp:
+                with open(tmp.name, 'wb') as f:
+                    # get buffer avoids copying the entire file contents
+                    # like path_or_stream.read() would.
+                    # https://docs.python.org/3/library/io.html#io.BytesIO.getbuffer
+                    f.write(path_or_stream.getbuffer())
+                obj = load_h5(tmp.name)
+        else:
+            obj = load_h5(path_or_stream)
     else:
         raise Exception('unkown file type')
     return obj
@@ -42,7 +60,8 @@ def load_s3(path, s3_access_key_id, s3_secret_access_key):
         aws_secret_access_key=s3_secret_access_key)
     bucket, key = split_s3_path(path)
     try:
-        stream = s3_client.download_fileobj(bucket, key)
+        stream = io.BytesIO()
+        _ = s3_client.download_fileobj(bucket, key, stream)
     except botocore.exceptions.ClientError as err:
         if err.response['Error']['Code'] == "404":  # not found
             raise RuntimeError(
@@ -50,6 +69,7 @@ def load_s3(path, s3_access_key_id, s3_secret_access_key):
                 % (bucket, key))
         else:
             raise err
+    stream.seek(0)
     return stream
 
 def split_s3_path(path):

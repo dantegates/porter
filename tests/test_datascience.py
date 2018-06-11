@@ -3,8 +3,6 @@ from unittest import mock
 
 from porter.datascience import (BaseProcessor, BaseModel,
                                 WrappedTransformer, WrappedModel)
-from tests.utils import (KERAS_MODEL_PATH, KERAS_VALIDATE_PATH,
-                         SKLEARN_MODEL_PATH, SKLEARN_VALIDATE_PATH)
 
 
 class TestBaseModel(unittest.TestCase):
@@ -46,17 +44,6 @@ class TestWrappedTransformer(unittest.TestCase):
         actual = processor.process(1)
         expected = 2
         self.assertEqual(actual, expected)
-
-
-class TestLoadFunctions(unittest.TestCase):
-    def test_load_pkl(self):
-        pass
-
-    def test_load_h5(self):
-        pass
-
-    def test_load_file(self):
-        pass
 
 
 if __name__ == '__main__':
