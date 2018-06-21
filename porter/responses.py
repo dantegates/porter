@@ -30,5 +30,5 @@ def _make_error_payload(error):
         # of HTTPException (i.e. HTTPException inherits from Exception but
         # exposes a different API, namely
         # Exception.message -> HTTPException.description).
-        'message': getattr(error, 'description', error.message),
+        'message': getattr(error, 'description', error.args),
         'traceback': traceback.format_exc()}

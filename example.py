@@ -25,7 +25,7 @@ The corresponding output has the format
 """
 
 from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
-from porter.services import ModelApp, ServiceConfig
+from porter.services import ModelApp, PredictionServiceConfig
 
 
 # first we instantiate the model app.
@@ -58,7 +58,7 @@ model = WrappedModel.from_file(path='/path/to/model.pkl')
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
-service_config = ServiceConfig(
+service_config = PredictionServiceConfig(
     model=model,                    # The value of model.predict() is
                                     # returned to the client.
                                     # Required.

@@ -9,7 +9,7 @@ import unittest
 import flask
 
 from porter.datascience import BaseModel, BaseProcessor
-from porter.services import ModelApp, ServiceConfig, _ID_KEY
+from porter.services import ModelApp, PredictionServiceConfig, _ID_KEY
 
 
 class TestApp(unittest.TestCase):
@@ -70,7 +70,7 @@ class TestApp(unittest.TestCase):
         ]
 
         # define configs and add services to app
-        service_config1 = ServiceConfig(
+        service_config1 = PredictionServiceConfig(
             model=Model1(),
             endpoint='model-1',
             model_id='model-1-id',
@@ -79,7 +79,7 @@ class TestApp(unittest.TestCase):
             input_schema=input_schema1,
             allow_nulls=False
         )
-        service_config2 = ServiceConfig(
+        service_config2 = PredictionServiceConfig(
             model=Model2(),
             endpoint='model-2',
             model_id='model-2-id',
@@ -88,7 +88,7 @@ class TestApp(unittest.TestCase):
             input_schema=input_schema2,
             allow_nulls=False
         )
-        service_config3 = ServiceConfig(
+        service_config3 = PredictionServiceConfig(
             model=Model3(),
             endpoint='model-3',
             model_id='model-3-id',
@@ -101,11 +101,11 @@ class TestApp(unittest.TestCase):
         self.model_app.add_service(service_config2)
         self.model_app.add_service(service_config3)
 
-        actual1 = self.app.post('/model-1/prediction/', data=json.dumps(post_data1))
+        actual1 = self.app.post('/model-1/prediction', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
-        actual2 = self.app.post('/model-2/prediction/', data=json.dumps(post_data2))
+        actual2 = self.app.post('/model-2/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
-        actual3 = self.app.post('/model-3/prediction/', data=json.dumps(post_data3))
+        actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
             'model_id': 'model-1-id',
@@ -186,7 +186,12 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertIn('message', data)
         self.assertIn('traceback', data)
         if not message_substr is None:
-            self.assertIn(message_substr, data['message'])
+            if isinstance(data['message'], list):
+                # if error is a builtin, it does not have a description. Thus
+                # data['message'] is Exception().args, i.e. a list once jsonified
+                self.assertTrue(any(message_substr in arg for arg in data['message']))
+            else:
+                self.assertIn(message_substr, data['message'])
         if not traceback_substr is None:
             self.assertIn(traceback_substr, data['traceback'])
 

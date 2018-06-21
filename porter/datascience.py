@@ -1,30 +1,7 @@
-import os
+"""Definitions of interfaces for data science objects expected by `porter.services`."""
 
 
-# on the reasonableness of imports inside a function, see
-# https://stackoverflow.com/questions/3095071/in-python-what-happens-when-you-import-inside-of-a-function/3095167#3095167
-def load_pkl(path):
-    """Load and return a pickled object with `joblib`."""
-    from sklearn.externals import joblib
-    model = joblib.load(path)
-    return model
-
-def load_h5(path):
-    """Load and return an object stored in h5 with `keras`."""
-    import keras
-    model = keras.models.load_model(path)
-    return model
-
-def load_file(path):
-    """Load a file and return the result."""
-    extension = os.path.splitext(path)[-1]
-    if extension == '.pkl':
-        obj = load_pkl(path)
-    elif extension == '.h5':
-        obj = load_h5(path)
-    else:
-        raise Exception('unkown file type')
-    return obj
+from porter.loading import load_file
 
 
 class BaseModel(object):

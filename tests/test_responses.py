@@ -1,8 +1,7 @@
-import json
+import re
 import unittest
 
-from porter.responses import (_make_error_payload, _make_prediction_payload,
-                              make_error_response, make_prediction_response)
+from porter.responses import _make_error_payload, _make_prediction_payload
 
 
 class TestFunctions(unittest.TestCase):
@@ -16,7 +15,7 @@ class TestFunctions(unittest.TestCase):
                 {"id": 3, "prediction": 12.0}
             ]
         }
-        self.assertItemsEqual(actual, expected)
+        self.assertEqual(actual, expected)
 
     def test__make_error_payload(self):
         error = Exception('foo bar baz')
@@ -26,10 +25,15 @@ class TestFunctions(unittest.TestCase):
             actual = _make_error_payload(error)
         expected = {
             'error': 'Exception',
-            'message': 'foo bar baz',
-            'traceback': 'raise error'
+            'message': ('foo bar baz',),
+            'traceback': ('.*'
+                          'line 24, in test__make_error_payload\n'
+                          '    raise error\n'
+                          'Exception: foo bar baz\n')
         }
-        self.assertItemsEqual(actual, expected)
+        self.assertEqual(actual['error'], expected['error'])
+        self.assertEqual(actual['message'], expected['message'])
+        self.assertTrue(re.match(actual['error'], expected['error']))
 
 
 if __name__ == '__main__':

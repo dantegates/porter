@@ -173,12 +173,12 @@ def serve_root():
     return message, 200
 
 
-class ServiceConfig:
+class PredictionServiceConfig:
     """
     A simple container that holds all necessary data for an instance of `ModelApp`
     to route a model.
     """
-    def __init__(self, model, model_id, endpoint, preprocessor=None,
+    def __init__(self, *, model, model_id, endpoint, preprocessor=None,
                  postprocessor=None, input_schema=None, allow_nulls=False):
         """
         Initialize a ServiceConfig.
@@ -239,6 +239,12 @@ class ModelApp:
             self.add_service(service_config)
 
     def add_service(self, service_config):
+        if isinstance(service_config, PredictionServiceConfig):
+            self.add_prediction_service(service_config)
+        else:
+            raise ValueError('unkown service type')
+
+    def add_prediction_service(self, service_config):
         """
         Add a model service to the API.
 
@@ -256,7 +262,8 @@ class ModelApp:
             postprocessor=service_config.postprocessor,
             input_schema=service_config.input_schema,
             allow_nulls=service_config.allow_nulls)
-        self.app.route(prediction_endpoint, methods=['POST'])(serve_prediction)
+        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
+        self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
 
     def run(self, *args, **kwargs):
         """

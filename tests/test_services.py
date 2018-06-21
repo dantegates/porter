@@ -1,7 +1,7 @@
 import json
 import unittest
+from unittest import mock
 
-import mock
 import numpy as np
 import pandas as pd
 from porter.services import (_ID_KEY, ModelApp, ServePrediction, NumpyEncoder,
@@ -84,13 +84,15 @@ class TestServePrediction(unittest.TestCase):
             'model_id': test_model_id,
             'predictions': [
                 {_ID_KEY: 1, 'prediction': 20},
-                {_ID_KEY: 2, 'prediction': 24},
-                {_ID_KEY: 3, 'prediction': 28},
-                {_ID_KEY: 4, 'prediction': 32},
-                {_ID_KEY: 5, 'prediction': 34},
+                {_ID_KEY: 2, 'prediction': 26},
+                {_ID_KEY: 3, 'prediction': 32},
+                {_ID_KEY: 4, 'prediction': 38},
+                {_ID_KEY: 5, 'prediction': 42},
             ]
         }
-        self.assertItemsEqual(actual, expected)
+        self.assertEqual(actual['model_id'], expected['model_id'])
+        self.assertEqual(sorted(actual['predictions'], key=lambda x: x[_ID_KEY]),
+                         sorted(expected['predictions'], key=lambda x: x[_ID_KEY]))
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
