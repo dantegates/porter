@@ -44,7 +44,7 @@ setup(
     version=VERSION,
     python_requires=REQUIRES_PYTHON,
     packages=find_packages(exclude=(
-        'tests', 'examples',
+        'tests',
     )),
     install_requires=REQUIRED,
     extras_require=EXTRAS_REQUIRED
