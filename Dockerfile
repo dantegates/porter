@@ -1,18 +1,22 @@
-FROM python:2.7
+FROM python:3.6
 
-ADD requirements.txt .
-RUN python -m pip install -r requirements.txt
+ARG PORTER_S3_ACCESS_KEY_ID
+ARG PORTER_S3_SECRET_ACCESS_KEY
+ARG PORTER_S3_BUCKET_TEST
 
-# Add porter to the standard directory for custom packages so that users
-# can import it from anywhere
-# https://docs.python.org/2/library/site.html#site.USER_SITE
-ADD porter /root/.local/lib/python2.7/site-packages/porter/
-ENV PYTHONPATH=/root/.local/lib/python2.7/site-packages/porter:$PYTHONPATH
+WORKDIR /porter
+
+ADD setup.py .
+RUN python3.6 -m pip install .[keras-utils,sklearn-utils,s3-utils]
+#,sklearn-utils,s3-utils]
+ADD porter ./porter
+RUN python3.6 setup.py install
 
 ADD tests ./tests
 ADD runtests.sh .
+
 RUN ./runtests.sh
 
 WORKDIR /code
 
-ENTRYPOINT ["python"]
+ENTRYPOINT ["python3.6"]

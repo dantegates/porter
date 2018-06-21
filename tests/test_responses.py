@@ -1,8 +1,7 @@
-import json
+import re
 import unittest
 
-from porter.responses import (_make_error_payload, _make_prediction_payload,
-                              make_error_response, make_prediction_response)
+from porter.responses import _make_error_payload, _make_prediction_payload
 
 
 class TestFunctions(unittest.TestCase):
@@ -27,13 +26,14 @@ class TestFunctions(unittest.TestCase):
         expected = {
             'error': 'Exception',
             'message': ('foo bar baz',),
-            'traceback': ('Traceback (most recent call last):\n'
-                          '  File "/Users/dgates/repos/porter/tests/test_responses.py", '
+            'traceback': ('.*'
                           'line 24, in test__make_error_payload\n'
                           '    raise error\n'
                           'Exception: foo bar baz\n')
         }
-        self.assertEqual(actual, expected)
+        self.assertEqual(actual['error'], expected['error'])
+        self.assertEqual(actual['message'], expected['message'])
+        self.assertTrue(re.match(actual['error'], expected['error']))
 
 
 if __name__ == '__main__':
