@@ -18,13 +18,13 @@ REQUIRED = [
     'pandas==0.23.0',
 ]
 
-# These are packages required for non-essential funcitonality,
-# e.g. loading keras models. These additional features can
-# be installed with pip. E.g.
+# These are packages required for non-essential functionality, e.g. loading
+# keras models. These additional features can be installed with pip. Below is
+# an example of how to install additional keras and s3 functionality.
 # 
-#    $ pip install porter[keras-utils]
+#    $ pip install porter[keras-utils,s3-utils]
 #
-# see
+# For more details see:
 # http://peak.telecommunity.com/DevCenter/setuptools#declaring-extras-optional-features-with-their-own-dependencies
 # and 
 # https://github.com/seatgeek/fuzzywuzzy#installation
