@@ -8,7 +8,6 @@ WORKDIR /porter
 
 ADD setup.py .
 RUN python3.6 -m pip install .[keras-utils,sklearn-utils,s3-utils]
-#,sklearn-utils,s3-utils]
 ADD porter ./porter
 RUN python3.6 setup.py install
 
