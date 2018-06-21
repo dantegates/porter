@@ -1,4 +1,3 @@
-
 """
 This code demonstrates how to expose a pickled sklearn model as a REST
 API via porter.
@@ -24,9 +23,13 @@ The corresponding output has the format
     ]
 """
 
+import os
+
 from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
+PREPROCESSOR_PATH = os.path.join('{model_directory}', 'preprocessor.pkl')
+MODEL_PATH = os.path.join('{model_directory}', 'model.h5')
 
 # first we instantiate the model app.
 # The model app is simply a wrapper around the `flask.Flask` object.
@@ -48,13 +51,13 @@ input_schema = [
 #
 # For convenience we can load pickled `sklearn` objects as the preprocessor
 # and model.
+preprocessor = WrappedTransformer.from_file(path=PREPROCESSOR_PATH)
+model = WrappedModel.from_file(path=MODEL_PATH)
 class Postprocessor(BaseProcessor):
     def process(self, X):
         # model predicts the log of value we really care about
         return 10**X
 postprocessor = Postprocessor()
-preprocessor = WrappedTransformer.from_file(path='/path/to/feature_engineer.pkl')
-model = WrappedModel.from_file(path='/path/to/model.pkl')
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
