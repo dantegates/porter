@@ -43,7 +43,9 @@ setup(
     name=NAME,
     version=VERSION,
     python_requires=REQUIRES_PYTHON,
-    packages=['porter'],
+    packages=find_packages(exclude=(
+        'tests',
+    )),
     install_requires=REQUIRED,
     extras_require=EXTRAS_REQUIRED
 )
