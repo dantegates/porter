@@ -9,7 +9,9 @@ The basic workflow for building a model service is as follows
 2. Define model classes for each service you want to add to the app. A single service consists of
   a model that satisfies the `porter.datascience.BaseModel` interface. Additionally you can define
   processor classes (objects implementing the `porter.datascience.BaseProcessor` interface`) for
-  pre/post processing of model input/output respectively.
+  pre/post processing of model input/output respectively. If you have a serialized `sklearn` and/or
+  `keras` objects and/or your model is on S3, classes in `porter.datascience` can help load these
+  objects.
 3. Instantiate `porter.services.PredictionServiceConfig` with the appropriate arguments once for
   each model you would expose through the app.
 4. Pass the config objects from 3. to the `add_serivce` method of your `ModelApp` instance.
