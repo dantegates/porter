@@ -8,8 +8,15 @@ import unittest
 
 import flask
 
+from porter.constants import KEYS
 from porter.datascience import BaseModel, BaseProcessor
-from porter.services import ModelApp, PredictionServiceConfig, _ID_KEY
+from porter.services import ModelApp, PredictionServiceConfig
+
+
+MODEL_ID = KEYS.PREDICTION.MODEL_ID
+PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
+ID = KEYS.PREDICTION.ID
+PREDICTION = KEYS.PREDICTION.PREDICTION
 
 
 class TestApp(unittest.TestCase):
@@ -32,11 +39,11 @@ class TestApp(unittest.TestCase):
                 return X * -1
         input_features1 = ['feature1', 'feature2']
         post_data1 = [
-            {_ID_KEY: 1, 'feature1': 2, 'feature2': 1},
-            {_ID_KEY: 2, 'feature1': 2, 'feature2': 2},
-            {_ID_KEY: 3, 'feature1': 2, 'feature2': 3},
-            {_ID_KEY: 4, 'feature1': 2, 'feature2': 4},
-            {_ID_KEY: 5, 'feature1': 2, 'feature2': 5},
+            {ID: 1, 'feature1': 2, 'feature2': 1},
+            {ID: 2, 'feature1': 2, 'feature2': 2},
+            {ID: 3, 'feature1': 2, 'feature2': 3},
+            {ID: 4, 'feature1': 2, 'feature2': 4},
+            {ID: 5, 'feature1': 2, 'feature2': 5},
         ]
 
         # define objects for model 2
@@ -49,11 +56,11 @@ class TestApp(unittest.TestCase):
                 return X['feature1'] + X['feature3']
         input_features2 = ['feature1']
         post_data2 = [
-            {_ID_KEY: 1, 'feature1': 10},
-            {_ID_KEY: 2, 'feature1': 10},
-            {_ID_KEY: 3, 'feature1':  1},
-            {_ID_KEY: 4, 'feature1':  3},
-            {_ID_KEY: 5, 'feature1':  3},
+            {ID: 1, 'feature1': 10},
+            {ID: 2, 'feature1': 10},
+            {ID: 3, 'feature1':  1},
+            {ID: 4, 'feature1':  3},
+            {ID: 5, 'feature1':  3},
         ]
 
         # define objects for model 3
@@ -62,11 +69,11 @@ class TestApp(unittest.TestCase):
                 return X['feature1'] * -1
         input_features3 = ['feature1']
         post_data3 = [
-            {_ID_KEY: 1, 'feature1': 5},
-            {_ID_KEY: 2, 'feature1': 4},
-            {_ID_KEY: 3, 'feature1': 3},
-            {_ID_KEY: 4, 'feature1': 2},
-            {_ID_KEY: 5, 'feature1': 1},
+            {ID: 1, 'feature1': 5},
+            {ID: 2, 'feature1': 4},
+            {ID: 3, 'feature1': 3},
+            {ID: 4, 'feature1': 2},
+            {ID: 5, 'feature1': 1},
         ]
 
         # define configs and add services to app
@@ -108,33 +115,33 @@ class TestApp(unittest.TestCase):
         actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
-            'model_id': 'model-1-id',
-            'predictions': [
-                {_ID_KEY: 1, 'prediction': 0},
-                {_ID_KEY: 2, 'prediction': -2},
-                {_ID_KEY: 3, 'prediction': -4},
-                {_ID_KEY: 4, 'prediction': -6},
-                {_ID_KEY: 5, 'prediction': -8},
+            MODEL_ID: 'model-1-id',
+            PREDICTIONS: [
+                {ID: 1, PREDICTION: 0},
+                {ID: 2, PREDICTION: -2},
+                {ID: 3, PREDICTION: -4},
+                {ID: 4, PREDICTION: -6},
+                {ID: 5, PREDICTION: -8},
             ]
         }
         expected2 = {
-            'model_id': 'model-2-id',
-            'predictions': [
-                {_ID_KEY: 1, 'prediction': 10},
-                {_ID_KEY: 2, 'prediction': 11},
-                {_ID_KEY: 3, 'prediction': 3},
-                {_ID_KEY: 4, 'prediction': 6},
-                {_ID_KEY: 5, 'prediction': 7},
+            MODEL_ID: 'model-2-id',
+            PREDICTIONS: [
+                {ID: 1, PREDICTION: 10},
+                {ID: 2, PREDICTION: 11},
+                {ID: 3, PREDICTION: 3},
+                {ID: 4, PREDICTION: 6},
+                {ID: 5, PREDICTION: 7},
             ]
         }
         expected3 = {
-            'model_id': 'model-3-id',
-            'predictions': [
-                {_ID_KEY: 1, 'prediction': -5},
-                {_ID_KEY: 2, 'prediction': -4},
-                {_ID_KEY: 3, 'prediction': -3},
-                {_ID_KEY: 4, 'prediction': -2},
-                {_ID_KEY: 5, 'prediction': -1},
+            MODEL_ID: 'model-3-id',
+            PREDICTIONS: [
+                {ID: 1, PREDICTION: -5},
+                {ID: 2, PREDICTION: -4},
+                {ID: 3, PREDICTION: -3},
+                {ID: 4, PREDICTION: -2},
+                {ID: 5, PREDICTION: -1},
             ]
         }
         self.assertEqual(actual1, expected1)

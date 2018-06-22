@@ -2,6 +2,8 @@ import traceback
 
 import flask
 
+from .constants import KEYS
+
 
 def make_prediction_response(model_id, id_keys, predictions):
     payload = _make_prediction_payload(model_id, id_keys, predictions)
@@ -10,9 +12,13 @@ def make_prediction_response(model_id, id_keys, predictions):
 
 def _make_prediction_payload(model_id, id_keys, predictions):
     return {
-        'model_id': model_id,
-        'predictions': [{"id": id, "prediction": p}
-                        for id, p in zip(id_keys, predictions)]
+        KEYS.PREDICTION.MODEL_ID: model_id,
+        KEYS.PREDICTION.PREDICTIONS: [
+            {
+                KEYS.PREDICTION.ID: id,
+                KEYS.PREDICTION.PREDICTION: p
+            }
+            for id, p in zip(id_keys, predictions)]
     }
 
 
@@ -25,10 +31,10 @@ def make_error_response(error):
 
 def _make_error_payload(error):
     return {
-        'error': type(error).__name__,
+        KEYS.ERROR.ERROR: type(error).__name__,
         # getattr() is used to work around werkzeug's bad implementation
         # of HTTPException (i.e. HTTPException inherits from Exception but
         # exposes a different API, namely
         # Exception.message -> HTTPException.description).
-        'message': getattr(error, 'description', error.args),
-        'traceback': traceback.format_exc()}
+        KEYS.ERROR.MESSAGE: getattr(error, 'description', error.args),
+        KEYS.ERROR.TRACEBACK: traceback.format_exc()}
