@@ -22,10 +22,11 @@ import flask
 import numpy as np
 import pandas as pd
 
+from .constants import KEYS
 import porter.responses as porter_responses
 
 
-_ID_KEY = 'id'
+ID = KEYS.PREDICTION.ID
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -55,6 +56,28 @@ class ServePrediction(object):
     Instances of this class can hold all required state necessary for making
     predictions at runtime and when called will return predictions corresponding
     POST requests sent to the app.
+
+    Initialize an instance of ServePrediction.
+
+    Args:
+        model (object): An object implementing the interface defined by
+            `porter.datascience.BaseModel`.
+        model_id (str): A unique identifier for the model. Returned to the
+            user alongside the model predictions.
+        preprocessor (object or None): An object implementing the interface
+            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            `.process()` method of this object will be called on the POST
+            request data and its output will be passed to `model.predict()`.
+        postprocessor (object or None): An object implementing the interface
+            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            `.process()` method of this object will be called on the output of
+            `model.predict()` and its return value will be used to populate
+            the predictions returned to the user.
+        schema (object): An instance of `porter.datascience.Schema`. The
+            `feature_names` attribute is used to validate the the POST request
+            if not `None`.
+        allow_nulls (bool): Are nulls allowed in the POST request data? If
+            `False` an error is raised when nulls are found.
     """
     _instances = 0
 
@@ -69,29 +92,6 @@ class ServePrediction(object):
 
     def __init__(self, model, model_id, preprocessor, postprocessor, schema,
                  allow_nulls):
-        """Initialize an instance of ServePrediction.
-
-        Args:
-            model (object): An object implementing the interface defined by
-                `porter.datascience.BaseModel`.
-            model_id (str): A unique identifier for the model. Returned to the
-                user alongside the model predictions.
-            preprocessor (object or None): An object implementing the interface
-                defined by `porter.datascience.BaseProcessor`. If not `None`,
-                the `.process()` method of this object will be called on the POST
-                request data and its output will be passed to `model.predict()`.
-            postprocessor (object or None): An object implementing the interface
-                defined by `porter.datascience.BaseProcessor`. If not `None`,
-                the `.process()` method of this object will be called on the
-                output of `model.predict()` and its return value will be used to
-                populate the predictions returned to the user. 
-            schema (object): An instance of `porter.datascience.Schema`. The
-                `feature_names` attribute is used to validate the the POST
-                request if not `None`.
-            allow_nulls (bool): Are nulls allowed in the POST request data? If `False`
-                an error is raised when nulls are found.
-        """
-
         self.model = model
         self.model_id = model_id
         self.preprocessor = preprocessor
@@ -103,8 +103,13 @@ class ServePrediction(object):
         self.postprocess_model_output = self.postprocessor is not None
 
     def __call__(self):
-        """Retrive POST request data from flask and return a response containing
-        the corresponding predictions."""
+        """Retrive POST request data from flask and return a response
+        containing the corresponding predictions.
+
+        Returns:
+            object: A `flask` object representing the response to return to
+                the user.
+        """
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
@@ -117,7 +122,7 @@ class ServePrediction(object):
         preds = self.model.predict(Xt)
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
-        response = porter_responses.make_prediction_response(self.model_id, X[_ID_KEY], preds)
+        response = porter_responses.make_prediction_response(self.model_id, X[ID], preds)
         return response
 
     @staticmethod
@@ -140,7 +145,7 @@ class ServePrediction(object):
             None
 
         Raises:
-            ValueError if a given check fails.
+            ValueError: If a given check fails.
         """
         # checks that all columns are present and no nulls sent
         # (or missing values)
@@ -160,13 +165,15 @@ class ServePrediction(object):
 
 
 def serve_error_message(error):
-    """Return a response with JSON payload describing the most recent exception."""
+    """Return a response with JSON payload describing the most recent
+    exception."""
     response = porter_responses.make_error_response(error)
     return response
 
 
 def serve_root():
     """Return a helpful description of how to use the app."""
+
     message = (
         "I'm alive.<br>"
         'Send POST requests to /&lt model-name &gt/prediction/'
@@ -175,45 +182,77 @@ def serve_root():
 
 
 class Schema:
+    """
+    A simple container that represents a model's schema.
+
+    Args:
+        input_features (list of str): A list of the features input to the
+            model service. If the service defines a preprocessor these are the
+            features expected by the preprocessor.
+
+    Attributes:
+        input_columns (list of str): A list of all columns expected in the
+            POST request payload.
+        input_features (list of str): A list of the features input to the
+            model service. If the service defines a preprocessor these are the
+            features expected by the preprocessor.
+    """
     def __init__(self, *, input_features):
-        self.input_columns = [_ID_KEY] + input_features
+        self.input_columns = [ID] + input_features
         self.input_features = input_features
 
 
 class PredictionServiceConfig:
     """
-    A simple container that holds all necessary data for an instance of `ModelApp`
-    to route a model.
+    A simple container that holds all necessary data for an instance of
+    `ModelApp` to route a model.
+
+    Args:
+        model (object): An object implementing the interface defined by
+            `porter.datascience.BaseModel`.
+        model_id (str): A unique identifier for the model. Returned to the
+            user alongside the model predictions.
+        endpoint (str): Name of the model endpoint. The final routed endpoint
+            will become "/<endpoint>/prediction/".
+        preprocessor (object or None): An object implementing the interface
+            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            `.process()` method of this object will be called on the POST
+            request data and its output will be passed to `model.predict()`.
+            Optional.
+        postprocessor (object or None): An object implementing the interface
+            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            `.process()` method of this object will be called on the output of
+            `model.predict()` and its return value will be used to populate
+            the predictions returned to the user. Optional.
+        input_features (list-like or None): A list (or list like object)
+            containing the feature names required in the POST data. Will be
+            used to validate the POST request if not `None`. Optional.            
+        allow_nulls (bool): Are nulls allowed in the POST request data? If
+            `False` an error is raised when nulls are found. Optional.
+
+    Attributes:
+        model (object): An object implementing the interface defined by
+            `porter.datascience.BaseModel`.
+        model_id (str): A unique identifier for the model. Returned to the
+            user alongside the model predictions.
+        endpoint (str): Name of the model endpoint. The final routed endpoint
+            will become "/<endpoint>/prediction/".
+        preprocessor (object or None): An object implementing the interface
+            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            `.process()` method of this object will be called on the POST
+            request data and its output will be passed to `model.predict()`.
+            Optional.
+        postprocessor (object or None): An object implementing the interface
+            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            `.process()` method of this object will be called on the output of
+            `model.predict()` and its return value will be used to populate
+            the predictions returned to the user. Optional.
+        schema (object): An instance of `porter.services.Schema`.
+        allow_nulls (bool): Are nulls allowed in the POST request data? If
+            `False` an error is raised when nulls are found. Optional.
     """
     def __init__(self, *, model, model_id, endpoint, preprocessor=None,
                  postprocessor=None, input_features=None, allow_nulls=False):
-        """
-        Initialize a ServiceConfig.
-
-        Args:
-            model (object): An object implementing the interface defined by
-                `porter.datascience.BaseModel`.
-            model_id (str): A unique identifier for the model. Returned to the
-                user alongside the model predictions.
-            endpoint (str): Name of the model endpoint. The final routed
-                endpoint will become "/<endpoint>/prediction/".
-            preprocessor (object or None): An object implementing the
-                interface defined by `porter.datascience.BaseProcessor`. If
-                not `None`, the `.process()` method of this object will be
-                called on the POST request data and its output will be passed
-                to `model.predict()`. Optional.
-            postprocessor (object or None): An object implementing the
-                interface defined by `porter.datascience.BaseProcessor`. If
-                not `None`, the `.process()` method of this object will be
-                called on the output of `model.predict()` and its return value
-                will be used to populate the predictions returned to the user.
-                Optional.
-            input_features (list-like or None): A list (or list like object)
-                containing the feature names required in the POST data. Will
-                be used to validate the POST request if not `None`. Optional.
-            allow_nulls (bool): Are nulls allowed in the POST request data? If
-                `False` an error is raised when nulls are found. Optional.
-        """
         self.model = model
         self.model_id = model_id
         self.endpoint = endpoint
@@ -240,14 +279,33 @@ class ModelApp:
     )
 
     def __init__(self):
-        """Initialize an instance of `ModelApp`."""
         self.app = self._build_app()
 
     def add_services(self, *service_configs):
+        """Add services to the app from `*service_configs`.
+
+        Args:
+            *service_configs (list): List of `porter.services.ServiceConfig`
+                instances to add to the model.
+
+        Returns:
+            None
+        """
         for service_config in service_configs:
             self.add_service(service_config)
 
     def add_service(self, service_config):
+        """Add a service to the app from `service_config`.
+
+        Args:
+            service_config (object): Instance of `porter.services.ServiceConfig`.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the type of `service_config` is not recognized.         
+        """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
         else:
@@ -259,6 +317,7 @@ class ModelApp:
 
         Args:
             service_config (object): Instance of `porter.services.ServiceConfig`.
+
         Returns:
             None
         """
@@ -289,6 +348,9 @@ class ModelApp:
 
         Any global properties of the app, such as error handling and response
         formatting, are added here.
+
+        Returns:
+            An instance of `flask.Flask`.
         """
         app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.

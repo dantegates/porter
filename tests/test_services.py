@@ -4,7 +4,9 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-from porter.services import (_ID_KEY, ModelApp, ServePrediction, NumpyEncoder,
+
+from porter.constants import KEYS
+from porter.services import (ModelApp, NumpyEncoder, ServePrediction,
                              serve_error_message)
 
 
@@ -47,11 +49,11 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('porter.responses.flask')
     def test_serve_success(self, mock_responses_flask, mock_flask_request):
         mock_flask_request.get_json.return_value = [
-            {_ID_KEY: 1, 'feature1': 10, 'feature2': 0},
-            {_ID_KEY: 2, 'feature1': 11, 'feature2': 1},
-            {_ID_KEY: 3, 'feature1': 12, 'feature2': 2},
-            {_ID_KEY: 4, 'feature1': 13, 'feature2': 3},
-            {_ID_KEY: 5, 'feature1': 14, 'feature2': 3},
+            {KEYS.PREDICTION.ID: 1, 'feature1': 10, 'feature2': 0},
+            {KEYS.PREDICTION.ID: 2, 'feature1': 11, 'feature2': 1},
+            {KEYS.PREDICTION.ID: 3, 'feature1': 12, 'feature2': 2},
+            {KEYS.PREDICTION.ID: 4, 'feature1': 13, 'feature2': 3},
+            {KEYS.PREDICTION.ID: 5, 'feature1': 14, 'feature2': 3},
         ]
         mock_responses_flask.jsonify = lambda payload:payload
         mock_model = mock.Mock()
@@ -81,24 +83,24 @@ class TestServePrediction(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            'model_id': test_model_id,
-            'predictions': [
-                {_ID_KEY: 1, 'prediction': 20},
-                {_ID_KEY: 2, 'prediction': 26},
-                {_ID_KEY: 3, 'prediction': 32},
-                {_ID_KEY: 4, 'prediction': 38},
-                {_ID_KEY: 5, 'prediction': 42},
+            KEYS.PREDICTION.MODEL_ID: test_model_id,
+            KEYS.PREDICTION.PREDICTIONS: [
+                {KEYS.PREDICTION.ID: 1, KEYS.PREDICTION.PREDICTION: 20},
+                {KEYS.PREDICTION.ID: 2, KEYS.PREDICTION.PREDICTION: 26},
+                {KEYS.PREDICTION.ID: 3, KEYS.PREDICTION.PREDICTION: 32},
+                {KEYS.PREDICTION.ID: 4, KEYS.PREDICTION.PREDICTION: 38},
+                {KEYS.PREDICTION.ID: 5, KEYS.PREDICTION.PREDICTION: 42},
             ]
         }
-        self.assertEqual(actual['model_id'], expected['model_id'])
-        self.assertEqual(sorted(actual['predictions'], key=lambda x: x[_ID_KEY]),
-                         sorted(expected['predictions'], key=lambda x: x[_ID_KEY]))
+        self.assertEqual(actual[KEYS.PREDICTION.MODEL_ID], expected[KEYS.PREDICTION.MODEL_ID])
+        self.assertEqual(sorted(actual[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]),
+                         sorted(expected[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]))
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
         model = model_id = allow_nulls = mock.Mock()
-        mock_flask_request.get_json.return_value = {_ID_KEY: []}
+        mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
         mock_preprocessor.process.return_value = {}
@@ -123,7 +125,7 @@ class TestServePrediction(unittest.TestCase):
         # make sure it doesn't break when processors are None
         model = model_id = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
-        mock_flask_request.get_json.return_value = {_ID_KEY: []}
+        mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
         model.predict.return_value = []
         serve_prediction = ServePrediction(
             model=model,
@@ -140,41 +142,41 @@ class TestServePrediction(unittest.TestCase):
         # no error should be raised
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
-            columns=[_ID_KEY, 'one', 'two', 'three'])
-        ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
+            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+        ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaises(ValueError):
-            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id_column(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*id'):
-            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_input_columns(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
-            columns=[_ID_KEY, 'missing', 'missing', 'three'])
+            columns=[KEYS.PREDICTION.ID, 'missing', 'missing', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*one.*two'):
-            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
 
     def test_check_request_fail_nulls(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
-            columns=[_ID_KEY, 'one', 'two', 'three'])
+            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'null.*two.*three'):
-            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
 
     def test_check_request_ignore_nulls_pass(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
-            columns=[_ID_KEY, 'one', 'two', 'three'])
+            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
         # no error shoudl be raised
         ServePrediction.check_request(X, ['one', 'two', 'three'], True)
 

@@ -7,8 +7,14 @@ import keras
 import numpy as np
 import pandas as pd
 import sklearn.preprocessing
-from porter.services import _ID_KEY, NumpyEncoder
+
+from porter.constants import KEYS
+from porter.services import NumpyEncoder
 from sklearn.externals import joblib
+
+ID = KEYS.PREDICTION.ID
+PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
+PREDICTION = KEYS.PREDICTION.PREDICTION
 
 HERE = os.path.dirname(__file__)
 
@@ -18,16 +24,16 @@ class TestExample(unittest.TestCase):
     def setUpClass(cls):
         cls.X = pd.DataFrame(
             data=np.random.randint(0, 100, size=(10, 4)),
-            columns=[_ID_KEY] + ['feature1', 'feature2', 'column3'])
-        cls.y = np.random.randint(1, 10, size=10)
-        cls.preprocessor = sklearn.preprocessing.StandardScaler().fit(cls.X.drop(_ID_KEY, axis=1))
+            columns=[ID] + ['feature1', 'feature2', 'column3'])
+        cls.y = np.random.randint(1, 10, size=10)   
+        cls.preprocessor = sklearn.preprocessing.StandardScaler().fit(cls.X.drop(ID, axis=1))
         cls.model = keras.models.Sequential([
             keras.layers.Dense(20, input_shape=(3,)),
             keras.layers.Dense(1)
         ])
         cls.model.compile(loss='mean_squared_error', optimizer='sgd')
-        cls.model.fit(cls.preprocessor.transform(cls.X.drop(_ID_KEY, axis=1)), cls.y, verbose=0)
-        cls.predictions = cls.model.predict(cls.preprocessor.transform(cls.X.drop(_ID_KEY, axis=1))).reshape(-1)
+        cls.model.fit(cls.preprocessor.transform(cls.X.drop(ID, axis=1)), cls.y, verbose=0)
+        cls.predictions = cls.model.predict(cls.preprocessor.transform(cls.X.drop(ID, axis=1))).reshape(-1)
 
     def test(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -43,11 +49,11 @@ class TestExample(unittest.TestCase):
         actual_response_data = json.loads(response.data)
         expected_model_id = 'supa-dupa-model-v0'
         expected_predictions = {
-            id_: pred for id_, pred in zip(self.X[_ID_KEY], self.predictions)
+            id_: pred for id_, pred in zip(self.X[ID], self.predictions)
         }
         self.assertEqual(actual_response_data['model_id'], expected_model_id)
-        for rec in actual_response_data['predictions']:
-            actual_id, actual_pred = rec[_ID_KEY], rec['prediction']
+        for rec in actual_response_data[PREDICTIONS]:
+            actual_id, actual_pred = rec[ID], rec[PREDICTION]
             expected_pred = expected_predictions[actual_id]
             self.assertTrue(np.allclose(actual_pred, expected_pred))
 
