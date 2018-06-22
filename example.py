@@ -1,4 +1,3 @@
-
 """
 This code demonstrates how to expose a pickled sklearn model as a REST
 API via porter.
@@ -24,9 +23,15 @@ The corresponding output has the format
     ]
 """
 
+import os
+
 from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
+# model_directory = ''
+
+PREPROCESSOR_PATH = os.path.join(f'{model_directory}', 'preprocessor.pkl')
+MODEL_PATH = os.path.join(f'{model_directory}', 'model.h5')
 
 # first we instantiate the model app.
 # The model app is simply a wrapper around the `flask.Flask` object.
@@ -36,7 +41,7 @@ model_app = ModelApp()
 
 # define the expected input schema so the model can validate the POST
 # request input
-input_schema = [
+input_features = [
     'feature1',
     'feature2',
     'column3',
@@ -48,13 +53,13 @@ input_schema = [
 #
 # For convenience we can load pickled `sklearn` objects as the preprocessor
 # and model.
+preprocessor = WrappedTransformer.from_file(path=PREPROCESSOR_PATH)
+model = WrappedModel.from_file(path=MODEL_PATH)
 class Postprocessor(BaseProcessor):
     def process(self, X):
-        # model predicts the log of value we really care about
-        return 10**X
+        # keras model returns an array with shape (n observations, 1)
+        return X.reshape(-1)
 postprocessor = Postprocessor()
-preprocessor = WrappedTransformer.from_file(path='/path/to/feature_engineer.pkl')
-model = WrappedModel.from_file(path='/path/to/model.pkl')
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
@@ -81,7 +86,7 @@ service_config = PredictionServiceConfig(
                                     # called on the model's predictions before
                                     # returning to user. Optional.
                                     #
-    input_schema=input_schema,      # The input schema is used to validate
+    input_features=input_features,  # The input schema is used to validate
                                     # the payload of the POST request.
                                     # Optional.
                                     #

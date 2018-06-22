@@ -30,7 +30,7 @@ class TestApp(unittest.TestCase):
         class Postprocessor1(BaseProcessor):
             def process(self, X):
                 return X * -1
-        input_schema1 = ['feature1', 'feature2']
+        input_features1 = ['feature1', 'feature2']
         post_data1 = [
             {_ID_KEY: 1, 'feature1': 2, 'feature2': 1},
             {_ID_KEY: 2, 'feature1': 2, 'feature2': 2},
@@ -47,7 +47,7 @@ class TestApp(unittest.TestCase):
         class Model2(BaseModel):
             def predict(self, X):
                 return X['feature1'] + X['feature3']
-        input_schema2 = ['feature1']
+        input_features2 = ['feature1']
         post_data2 = [
             {_ID_KEY: 1, 'feature1': 10},
             {_ID_KEY: 2, 'feature1': 10},
@@ -60,7 +60,7 @@ class TestApp(unittest.TestCase):
         class Model3(BaseModel):
             def predict(self, X):
                 return X['feature1'] * -1
-        input_schema3 = ['feature1']
+        input_features3 = ['feature1']
         post_data3 = [
             {_ID_KEY: 1, 'feature1': 5},
             {_ID_KEY: 2, 'feature1': 4},
@@ -76,7 +76,7 @@ class TestApp(unittest.TestCase):
             model_id='model-1-id',
             preprocessor=Preprocessor1(),
             postprocessor=Postprocessor1(),
-            input_schema=input_schema1,
+            input_features=input_features1,
             allow_nulls=False
         )
         service_config2 = PredictionServiceConfig(
@@ -85,7 +85,7 @@ class TestApp(unittest.TestCase):
             model_id='model-2-id',
             preprocessor=Preprocessor2(),
             postprocessor=None,
-            input_schema=input_schema2,
+            input_features=input_features2,
             allow_nulls=False
         )
         service_config3 = PredictionServiceConfig(
@@ -94,7 +94,7 @@ class TestApp(unittest.TestCase):
             model_id='model-3-id',
             preprocessor=None,
             postprocessor=None,
-            input_schema=input_schema3,
+            input_features=input_features3,
             allow_nulls=False
         )
         self.model_app.add_service(service_config1)
