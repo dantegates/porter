@@ -33,7 +33,7 @@ class TestExample(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             joblib.dump(self.preprocessor, os.path.join(tmpdirname, 'preprocessor.pkl'))
             keras.models.save_model(self.model, os.path.join(tmpdirname, 'model.h5'))
-            with open(os.path.join(HERE, '../example.py')) as f:
+            with open(os.path.join(HERE, '../examples/example.py')) as f:
                 example = f.read()
             namespace = {'model_directory': tmpdirname}
             exec(example, namespace)
