@@ -98,7 +98,7 @@ class ServePrediction(object):
         self.postprocessor = postprocessor
         self.schema = schema
         self.allow_nulls = allow_nulls
-        self.validate_input = self.schema is not None
+        self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
 
@@ -109,10 +109,11 @@ class ServePrediction(object):
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
-        if not self.preprocess_model_input:
             Xt = X[self.schema.input_features]
         else:
-            Xt = self.preprocessor.process(X[self.schema.input_features])
+            Xt = X
+        if self.preprocess_model_input:
+            Xt = self.preprocessor.process(Xt)
         preds = self.model.predict(Xt)
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)

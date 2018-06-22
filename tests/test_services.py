@@ -58,7 +58,7 @@ class TestServePrediction(unittest.TestCase):
         test_model_id = 'model.id'
         mock_preprocessor = mock.Mock()
         mock_postprocessor = mock.Mock()
-        input_schema = None
+        schema = mock.Mock(input_features=None, input_columns=None)
         allow_nulls = False
 
         feature_values = {str(x): x for x in range(5)}
@@ -76,7 +76,7 @@ class TestServePrediction(unittest.TestCase):
             model_id=test_model_id,
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
-            input_schema=input_schema,
+            schema=schema,
             allow_nulls=allow_nulls
         )
         actual = serve_prediction()
@@ -104,10 +104,11 @@ class TestServePrediction(unittest.TestCase):
         mock_preprocessor.process.return_value = {_ID_KEY: []}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = []
+        mock_schema = mock.Mock(input_features=None, input_columns=None)
         serve_prediction = ServePrediction(
             model=model,
             model_id=model_id,
-            input_schema=None,
+            schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor
@@ -120,13 +121,14 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('flask.jsonify')
     def test_serve_no_processing(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
-        model = model_id = input_schema = allow_nulls = mock.Mock()
+        model = model_id = allow_nulls = mock.Mock()
+        mock_schema = mock.Mock(input_features=None, input_columns=None)
         mock_flask_request.get_json.return_value = {_ID_KEY: []}
         model.predict.return_value = []
         serve_prediction = ServePrediction(
             model=model,
             model_id=model_id,
-            input_schema=None,
+            schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=None,
             postprocessor=None
@@ -139,35 +141,35 @@ class TestServePrediction(unittest.TestCase):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=[_ID_KEY, 'one', 'two', 'three'])
-        ServePrediction.check_request(X, ['one', 'two', 'three'])
+        ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaises(ValueError):
-            ServePrediction.check_request(X, ['one', 'two', 'three'])
+            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id_column(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*id'):
-            ServePrediction.check_request(X, ['one', 'two', 'three'])
+            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_input_columns(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=[_ID_KEY, 'missing', 'missing', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*one.*two'):
-            ServePrediction.check_request(X, ['one', 'two', 'three'])
+            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
 
     def test_check_request_fail_nulls(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
             columns=[_ID_KEY, 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'null.*two.*three'):
-            ServePrediction.check_request(X, ['one', 'two', 'three'])
+            ServePrediction.check_request(X, [_ID_KEY, 'one', 'two', 'three'])
 
     def test_check_request_ignore_nulls_pass(self):
         X = pd.DataFrame(
