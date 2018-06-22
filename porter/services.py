@@ -67,7 +67,7 @@ class ServePrediction(object):
         instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
         return instance
 
-    def __init__(self, model, model_id, preprocessor, postprocessor, input_schema,
+    def __init__(self, model, model_id, preprocessor, postprocessor, schema,
                  allow_nulls):
         """Initialize an instance of ServePrediction.
 
@@ -85,9 +85,9 @@ class ServePrediction(object):
                 the `.process()` method of this object will be called on the
                 output of `model.predict()` and its return value will be used to
                 populate the predictions returned to the user. 
-            input_schema (list-like or None): A list (or list like object) containing
-                the feature names required in the POST data. Will be used to validate
-                the POST request if not `None`.
+            schema (object): An instance of `porter.datascience.Schema`. The
+                `feature_names` attribute is used to validate the the POST
+                request if not `None`.
             allow_nulls (bool): Are nulls allowed in the POST request data? If `False`
                 an error is raised when nulls are found.
         """
@@ -96,9 +96,9 @@ class ServePrediction(object):
         self.model_id = model_id
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.input_schema = input_schema
+        self.schema = schema
         self.allow_nulls = allow_nulls
-        self.validate_input = self.input_schema is not None
+        self.validate_input = self.schema is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
 
@@ -108,17 +108,19 @@ class ServePrediction(object):
         data = flask.request.get_json(force=True)
         X = pd.DataFrame(data)
         if self.validate_input:
-            self.check_request(X, list(self.input_schema), self.allow_nulls)
-        if self.preprocess_model_input:
-            X = self.preprocessor.process(X)
-        preds = self.model.predict(X)
+            self.check_request(X, self.schema.input_columns, self.allow_nulls)
+        if not self.preprocess_model_input:
+            Xt = X[self.schema.input_features]
+        else:
+            Xt = self.preprocessor.process(X[self.schema.input_features])
+        preds = self.model.predict(Xt)
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
         response = porter_responses.make_prediction_response(self.model_id, X[_ID_KEY], preds)
         return response
 
     @staticmethod
-    def check_request(X, feature_names, allow_nulls=False):
+    def check_request(X, input_columns, allow_nulls=False):
         """Check the POST request data raising an error if a check fails.
 
         Checks include
@@ -139,20 +141,18 @@ class ServePrediction(object):
         Raises:
             ValueError if a given check fails.
         """
-        required_keys = [_ID_KEY]
-        required_keys.extend(feature_names)
         # checks that all columns are present and no nulls sent
         # (or missing values)
         try:
             # check for allow_nulls first to avoid computation if possible
-            if not allow_nulls and X[required_keys].isnull().any().any():
-                null_counts = X[required_keys].isnull().sum()
+            if not allow_nulls and X[input_columns].isnull().any().any():
+                null_counts = X[input_columns].isnull().sum()
                 null_columns = null_counts[null_counts > 0].index.tolist()
                 raise ValueError(
                     'request payload had null values in the following fields: %s'
                     % null_columns)
         except KeyError:
-            missing = [c for c in required_keys if not c in X.columns]
+            missing = [c for c in input_columns if not c in X.columns]
             raise ValueError(
                 'request payload is missing the following fields: %s'
                 % missing)
@@ -173,13 +173,19 @@ def serve_root():
     return message, 200
 
 
+class Schema:
+    def __init__(self, *, input_features):
+        self.input_columns = [_ID_KEY] + input_features
+        self.input_features = input_features
+
+
 class PredictionServiceConfig:
     """
     A simple container that holds all necessary data for an instance of `ModelApp`
     to route a model.
     """
     def __init__(self, *, model, model_id, endpoint, preprocessor=None,
-                 postprocessor=None, input_schema=None, allow_nulls=False):
+                 postprocessor=None, input_features=None, allow_nulls=False):
         """
         Initialize a ServiceConfig.
 
@@ -188,36 +194,38 @@ class PredictionServiceConfig:
                 `porter.datascience.BaseModel`.
             model_id (str): A unique identifier for the model. Returned to the
                 user alongside the model predictions.
-            endpoint (str): Name of the model endpoint. The final routed endpoint
-                will become "/<endpoint>/prediction/".
-            preprocessor (object or None): An object implementing the interface
-                defined by `porter.datascience.BaseProcessor`. If not `None`,
-                the `.process()` method of this object will be called on the POST
-                request data and its output will be passed to `model.predict()`.
+            endpoint (str): Name of the model endpoint. The final routed
+                endpoint will become "/<endpoint>/prediction/".
+            preprocessor (object or None): An object implementing the
+                interface defined by `porter.datascience.BaseProcessor`. If
+                not `None`, the `.process()` method of this object will be
+                called on the POST request data and its output will be passed
+                to `model.predict()`. Optional.
+            postprocessor (object or None): An object implementing the
+                interface defined by `porter.datascience.BaseProcessor`. If
+                not `None`, the `.process()` method of this object will be
+                called on the output of `model.predict()` and its return value
+                will be used to populate the predictions returned to the user.
                 Optional.
-            postprocessor (object or None): An object implementing the interface
-                defined by `porter.datascience.BaseProcessor`. If not `None`,
-                the `.process()` method of this object will be called on the
-                output of `model.predict()` and its return value will be used to
-                populate the predictions returned to the user. Optional.
-            input_schema (list-like or None): A list (or list like object) containing
-                the feature names required in the POST data. Will be used to validate
-                the POST request if not `None`. Optional.
-            allow_nulls (bool): Are nulls allowed in the POST request data? If `False`
-                an error is raised when nulls are found. Optional.
+            input_features (list-like or None): A list (or list like object)
+                containing the feature names required in the POST data. Will
+                be used to validate the POST request if not `None`. Optional.
+            allow_nulls (bool): Are nulls allowed in the POST request data? If
+                `False` an error is raised when nulls are found. Optional.
         """
         self.model = model
         self.model_id = model_id
         self.endpoint = endpoint
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.input_schema = input_schema
+        self.schema = Schema(input_features=input_features)
         self.allow_nulls = allow_nulls
 
 
 class ModelApp:
     """
-    Abstraction used to simplify building REST APIs that expose predictive models.
+    Abstraction used to simplify building REST APIs that expose predictive
+    models.
 
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
@@ -260,7 +268,7 @@ class ModelApp:
             model_id=service_config.model_id,
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
-            input_schema=service_config.input_schema,
+            schema=service_config.schema,
             allow_nulls=service_config.allow_nulls)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
