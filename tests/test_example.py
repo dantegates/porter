@@ -34,10 +34,8 @@ class TestExample(unittest.TestCase):
             joblib.dump(self.preprocessor, os.path.join(tmpdirname, 'preprocessor.pkl'))
             keras.models.save_model(self.model, os.path.join(tmpdirname, 'model.h5'))
             with open(os.path.join(HERE, '../example.py')) as f:
-                example = ''.join(
-                    L.format(model_directory=tmpdirname) if 'model_directory' in L else L
-                    for L in f)
-            namespace = {}
+                example = f.read()
+            namespace = {'model_directory': tmpdirname}
             exec(example, namespace)
         test_client = namespace['model_app'].app.test_client()
         app_input = self.X.to_dict('records')
@@ -47,11 +45,11 @@ class TestExample(unittest.TestCase):
         expected_predictions = {
             id_: pred for id_, pred in zip(self.X[_ID_KEY], self.predictions)
         }
-
         self.assertEqual(actual_response_data['model_id'], expected_model_id)
         for rec in actual_response_data['predictions']:
             actual_id, actual_pred = rec[_ID_KEY], rec['prediction']
             expected_pred = expected_predictions[actual_id]
+            print(actual_pred, expected_pred)
             self.assertTrue(np.allclose(actual_pred, expected_pred))
 
 

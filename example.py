@@ -28,8 +28,10 @@ import os
 from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
-PREPROCESSOR_PATH = os.path.join('{model_directory}', 'preprocessor.pkl')
-MODEL_PATH = os.path.join('{model_directory}', 'model.h5')
+# model_directory = ''
+
+PREPROCESSOR_PATH = os.path.join(f'{model_directory}', 'preprocessor.pkl')
+MODEL_PATH = os.path.join(f'{model_directory}', 'model.h5')
 
 # first we instantiate the model app.
 # The model app is simply a wrapper around the `flask.Flask` object.
