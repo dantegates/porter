@@ -37,7 +37,7 @@ The basic workflow for building a model service is as follows
 4. Pass the config objects from 3. to the `add_serivce` method of your `ModelApp` instance.
 5. Call the `run` method of your `ModelApp` instance. Your model is now live!
 
-See this [example script](./examples/example.py) for an illustrative but non-functional example.
+See this [example script](./examples/example.py) for an (almost functional) example.
 
 # Tests
 To run the test suite for porter execute the command
