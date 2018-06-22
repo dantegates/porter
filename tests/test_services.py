@@ -98,10 +98,10 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('flask.jsonify')
     def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
         model = model_id = allow_nulls = mock.Mock()
-        mock_flask_request.get_json.return_value = {}
+        mock_flask_request.get_json.return_value = {_ID_KEY: []}
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
-        mock_preprocessor.process.return_value = {_ID_KEY: []}
+        mock_preprocessor.process.return_value = {}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = []
         mock_schema = mock.Mock(input_features=None, input_columns=None)
