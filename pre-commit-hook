@@ -1,0 +1,7 @@
+#!/bin/bash
+if [ "$1" == "install" ]; then
+    echo 'copying' $0 'to ./.git/hooks/pre-commit'
+    cp $0 ./.git/hooks/pre-commit
+    exit 0
+fi
+make test
