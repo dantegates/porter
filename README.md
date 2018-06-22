@@ -21,6 +21,17 @@ pip install git+https://github.com/CadentTech/porter@1.0.0#egg=porter
 
 For more details on this topic see [here](https://codeinthehole.com/tips/using-pip-and-requirementstxt-to-install-from-the-head-of-a-github-branch/)
 
+## Installing extra dependencies
+Porter supports functionality for loading `sklearn` and `keras` models either from disk or `S3`.
+Since we don't expect `porter` applications to necessarily need all of these dependencies at once
+they can be optionally installed by issuing the command from the root directory of this repository
+
+```shell
+pip install .[keras-utils,sklearn-utils,s3-utils]
+```
+Note that you can choose to install only a subset of these additional requirements by removing
+the undesired names from the comma separated list in brackets above.
+
 # Usage
 The basic workflow for building a model service is as follows
 
