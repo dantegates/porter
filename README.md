@@ -1,6 +1,26 @@
 # porter
 porter is a framework for exposing machine learning models via REST APIs.
 
+# Installation
+`porter` can be installed with `pip` as follows
+
+```shell
+pip install git+https://github.com/CadentTech/porter#egg=porter
+```
+
+Note that without `#egg=porter` on the end of the url `pip freeze` will output `porter==<version>`
+rather than `-e git+https://...` as typically
+desired.
+
+If you want to install `porter` from a specific commit or tag, e.g. tag `1.0.0` simply and 
+`@<commit-or-tag>` immediately before `#egg=porter`.
+
+```shell
+pip install git+https://github.com/CadentTech/porter@1.0.0#egg=porter
+```
+
+For more details on this topic see [here](https://codeinthehole.com/tips/using-pip-and-requirementstxt-to-install-from-the-head-of-a-github-branch/)
+
 # Usage
 The basic workflow for building a model service is as follows
 
@@ -18,3 +38,17 @@ The basic workflow for building a model service is as follows
 5. Call the `run` method of your `ModelApp` instance. Your model is now live!
 
 See [example.py](./example.py) for an illustrative but non-functional example.
+
+# Tests
+To run the test suite for porter execute the command
+
+```shell
+make test
+```
+
+Additionally you can install a `git` pre-commit hook to run the test suite each time you make a
+commit with
+
+```shell
+./pre-commit-hook install
+```
