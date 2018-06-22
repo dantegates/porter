@@ -49,7 +49,6 @@ class TestExample(unittest.TestCase):
         for rec in actual_response_data['predictions']:
             actual_id, actual_pred = rec[_ID_KEY], rec['prediction']
             expected_pred = expected_predictions[actual_id]
-            print(actual_pred, expected_pred)
             self.assertTrue(np.allclose(actual_pred, expected_pred))
 
 
