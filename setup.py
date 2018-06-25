@@ -13,9 +13,9 @@ VERSION = '0.0.0'
 # What packages are required for this module to be executed?
 REQUIRED = [
     # package: version
-    'Flask==1.0.2',
-    'numpy==1.14.3',
-    'pandas==0.23.0',
+    'Flask>=1.0.2',
+    'numpy>=1.14.3',
+    'pandas>=0.23.0',
 ]
 
 # These are packages required for non-essential functionality, e.g. loading
