@@ -13,9 +13,9 @@ VERSION = '0.0.0'
 # What packages are required for this module to be executed?
 REQUIRED = [
     # package: version
-    'Flask>=1.0.2',
-    'numpy>=1.14.3',
-    'pandas>=0.23.0',
+    'Flask>=1.0.2,<1.1.0',
+    'numpy>=1.14.3,<1.15.0',
+    'pandas>=0.23.0,<0.24.0',
 ]
 
 # These are packages required for non-essential functionality, e.g. loading
@@ -30,9 +30,9 @@ REQUIRED = [
 # https://github.com/seatgeek/fuzzywuzzy#installation
 #
 EXTRAS_REQUIRED = {
-    'keras-utils': ['keras>=2.1.6', 'tensorflow>=1.5.0'],
-    'sklearn-utils': ['scikit-learn>=0.19.1'],
-    's3-utils': ['boto3>=1.7.35'],
+    'keras-utils': ['keras>=2.1.6,<2.2.0', 'tensorflow>=1.5.0,<1.6.0'],
+    'sklearn-utils': ['scikit-learn>=0.19.1,<0.20.0'],
+    's3-utils': ['boto3>=1.7.35,<1.8.0'],
 }
 
 # The rest you shouldn't have to touch too much :)
