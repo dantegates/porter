@@ -32,3 +32,10 @@ class ENDPOINTS:
     PREDICTION_TEMPLATE = '/{endpoint}/prediction'
     LIVENESS = '/-/alive'
     READINESS = '/-/ready'
+
+
+class APP:
+    class STATE:
+        SERVICES = 'services'
+        STATUS = 'status'
+        READY = 'READY'

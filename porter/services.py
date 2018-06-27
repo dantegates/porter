@@ -22,7 +22,7 @@ import flask
 import numpy as np
 import pandas as pd
 
-from .constants import KEYS, ENDPOINTS
+from .constants import KEYS, ENDPOINTS, APP
 import porter.responses as porter_responses
 
 
@@ -183,12 +183,12 @@ def serve_root():
 
 def serve_alive():
     """Serve liveness response."""
-    return 'alive', 200
+    return porter_responses.make_alive_response(ModelApp.state)
 
 
 def serve_ready():
     """Serve liveness response."""
-    return 'ready', 200
+    return porter_responses.make_ready_response(ModelApp.state)
 
 
 class Schema:
@@ -212,7 +212,35 @@ class Schema:
         self.input_features = input_features
 
 
-class PredictionServiceConfig:
+class AppState(dict):
+    def __init__(self):
+        super().__init__([
+            (APP.STATE.SERVICES, {})
+        ])
+
+    def update_service_status(self, name, status):
+        services = self[APP.STATE.SERVICES]
+        if services.get(name, None) is None:
+            services[name] = {}
+        services[name][APP.STATE.STATUS] = status
+
+
+class BaseServiceConfig:
+    """
+    Base container that holds configurations for services that can be added to
+    an instance of `ModelApp`.
+
+    Args:
+        name (str): The service name.
+
+    Attributes:
+        name (str): The service name.
+    """
+    def __init__(self, name):
+        self.name = name
+
+
+class PredictionServiceConfig(BaseServiceConfig):
     """
     A simple container that holds all necessary data for an instance of
     `ModelApp` to route a model.
@@ -270,6 +298,7 @@ class PredictionServiceConfig:
         self.postprocessor = postprocessor
         self.schema = Schema(input_features=input_features)
         self.allow_nulls = allow_nulls
+        super().__init__(name=model_id)
 
 
 class ModelApp:
@@ -280,6 +309,7 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
+    state = AppState()
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -319,6 +349,7 @@ class ModelApp:
             self.add_prediction_service(service_config)
         else:
             raise ValueError('unkown service type')
+        self.update_state(service_config)
 
     def add_prediction_service(self, service_config):
         """
@@ -341,6 +372,9 @@ class ModelApp:
             allow_nulls=service_config.allow_nulls)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
+
+    def update_state(self, service_config):
+        self.state.update_service_status(name=service_config.name, status=APP.STATE.READY)
 
     def run(self, *args, **kwargs):
         """

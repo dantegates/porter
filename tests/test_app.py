@@ -19,7 +19,7 @@ ID = KEYS.PREDICTION.ID
 PREDICTION = KEYS.PREDICTION.PREDICTION
 
 
-class TestApp(unittest.TestCase):
+class TestAppPredictions(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
         self.app = self.model_app.app.test_client()
@@ -146,7 +146,27 @@ class TestApp(unittest.TestCase):
         }
         self.assertEqual(actual1, expected1)
         self.assertEqual(actual2, expected2)
-        self.assertEqual(actual3, expected3)        
+        self.assertEqual(actual3, expected3)
+
+
+class TestAppHealthChecks(unittest.TestCase):
+    def setUp(self):
+        self.model_app = ModelApp()
+        self.app = self.model_app.app.test_client()
+
+    def test_liveness_live(self):
+        resp = self.app.get('/-/alive')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_readiness_not_ready(self):
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 503)
+
+    def test_root(self):
+        resp = self.app.get('/')
+        self.assertEqual(resp.status_code, 200)
 
 
 class TestAppErrorHandling(unittest.TestCase):
@@ -201,10 +221,6 @@ class TestAppErrorHandling(unittest.TestCase):
                 self.assertIn(message_substr, data['message'])
         if not traceback_substr is None:
             self.assertIn(traceback_substr, data['traceback'])
-
-    def test_alive(self):
-        resp = self.app.get('/')
-        self.assertEqual(resp.status_code, 200)
 
 
 if __name__ == '__main__':
