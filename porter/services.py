@@ -26,7 +26,8 @@ from .constants import KEYS, ENDPOINTS
 import porter.responses as porter_responses
 
 
-ID = KEYS.PREDICTION.ID
+# alias for convenience
+_ID = KEYS.PREDICTION.ID
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -122,7 +123,7 @@ class ServePrediction(object):
         preds = self.model.predict(Xt)
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
-        response = porter_responses.make_prediction_response(self.model_id, X[ID], preds)
+        response = porter_responses.make_prediction_response(self.model_id, X[_ID], preds)
         return response
 
     @staticmethod
@@ -207,7 +208,7 @@ class Schema:
             features expected by the preprocessor.
     """
     def __init__(self, *, input_features):
-        self.input_columns = [ID] + input_features
+        self.input_columns = [_ID] + input_features
         self.input_features = input_features
 
 
