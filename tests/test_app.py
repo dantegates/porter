@@ -5,13 +5,12 @@ Tests for the `.app` attribute belonging to an instance of `porter.ModelService`
 
 import json
 import unittest
+from unittest import mock
 
 import flask
-
 from porter.constants import KEYS
 from porter.datascience import BaseModel, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
-
 
 MODEL_ID = KEYS.PREDICTION.MODEL_ID
 PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
@@ -161,8 +160,50 @@ class TestAppHealthChecks(unittest.TestCase):
     def test_readiness_not_ready(self):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'services': {}
+        }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    @mock.patch('porter.services.PredictionServiceConfig.__init__')
+    @mock.patch('porter.services.ModelApp.add_prediction_service')
+    def test_readiness_ready_ready1(self, mock_add_prediction_service, mock_init):
+        mock_init.return_value = None
+        cf = PredictionServiceConfig()
+        cf.name = 'model1'
+        self.model_app.add_service(cf)
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'services': {'model1': {'status': 'READY'}}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 200)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    @mock.patch('porter.services.PredictionServiceConfig.__init__')
+    @mock.patch('porter.services.ModelApp.add_prediction_service')
+    def test_readiness_ready_ready2(self, mock_add_prediction_service, mock_init):
+        mock_init.return_value = None
+        cf1 = PredictionServiceConfig()
+        cf1.name = 'model1'
+        cf2 = PredictionServiceConfig()
+        cf2.name = 'model2'
+        self.model_app.add_services(cf2)
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'services': {'model1': {'status': 'READY'}},
+            'services': {'model2': {'status': 'READY'}}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 200)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
 
     def test_root(self):
         resp = self.app.get('/')

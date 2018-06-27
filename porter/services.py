@@ -44,7 +44,20 @@ class NumpyEncoder(json.JSONEncoder):
             return super(NumpyEncoder, self).default(obj)
 
 
-class ServePrediction(object):
+class StatefulRoute:
+    def __new__(cls, *args, **kwargs):
+        # flask looks for the __name__ attribute of the routed callable,
+        # and each name of a routed object must be unique.
+        # Therefore we define a unique name here to meet flask's expectations.
+        instance = super().__new__(cls)
+        if not hasattr(cls, '_instances'):
+            cls._instances = 0
+        cls._instances += 1
+        instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
+        return instance
+
+
+class ServePrediction(StatefulRoute):
     """Class for building stateful prediction routes.
 
     Instances of this class are intended to be routed to endpoints in a `flask`
@@ -80,13 +93,12 @@ class ServePrediction(object):
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found.
     """
-    _instances = 0
 
     def __new__(cls, *args, **kwargs):
         # flask looks for the __name__ attribute of the routed callable,
         # and each name of a routed object must be unique.
         # Therefore we define a unique name here to meet flask's expectations.
-        instance = super(ServePrediction, cls).__new__(cls)
+        instance = super().__new__(cls)
         cls._instances += 1
         instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
         return instance
@@ -181,14 +193,22 @@ def serve_root():
     return message, 200
 
 
-def serve_alive():
-    """Serve liveness response."""
-    return porter_responses.make_alive_response(ModelApp.state)
+class ServeAlive(StatefulRoute):
+    def __init__(self, app_state):
+        self.app_state = app_state
+
+    def __call__(self):
+        """Serve liveness response."""
+        return porter_responses.make_alive_response(self.app_state)
 
 
-def serve_ready():
-    """Serve liveness response."""
-    return porter_responses.make_ready_response(ModelApp.state)
+class ServeReady(StatefulRoute):
+    def __init__(self, app_state):
+        self.app_state = app_state
+
+    def __call__(self):
+        """Serve liveness response."""
+        return porter_responses.make_ready_response(self.app_state)
 
 
 class Schema:
@@ -309,7 +329,6 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
-    state = AppState()
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -318,6 +337,7 @@ class ModelApp:
     )
 
     def __init__(self):
+        self.state = AppState()
         self.app = self._build_app()
 
     def add_services(self, *service_configs):
@@ -404,6 +424,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route(ENDPOINTS.LIVENESS, methods=['GET'])(serve_alive)
-        app.route(ENDPOINTS.READINESS, methods=['GET'])(serve_ready)
+        app.route(ENDPOINTS.LIVENESS, methods=['GET'])(ServeAlive(self.state))
+        app.route(ENDPOINTS.READINESS, methods=['GET'])(ServeReady(self.state))
         return app
