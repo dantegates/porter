@@ -26,3 +26,9 @@ class KEYS:
         ERROR = 'error'
         MESSAGE = 'message'
         TRACEBACK = 'traceback'
+
+
+class ENDPOINTS:
+    PREDICTION_TEMPLATE = '/{endpoint}/prediction'
+    LIVENESS = '/-/alive'
+    READINESS = '/-/ready'

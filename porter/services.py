@@ -22,7 +22,7 @@ import flask
 import numpy as np
 import pandas as pd
 
-from .constants import KEYS
+from .constants import KEYS, ENDPOINTS
 import porter.responses as porter_responses
 
 
@@ -279,7 +279,6 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
-    _prediction_endpoint_template = '/{endpoint}/prediction/'
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -330,7 +329,7 @@ class ModelApp:
         Returns:
             None
         """
-        prediction_endpoint = self._prediction_endpoint_template.format(
+        prediction_endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(
             endpoint=service_config.endpoint)
         serve_prediction = ServePrediction(
             model=service_config.model,
@@ -370,6 +369,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route('/-/alive', methods=['GET'])(serve_alive)
-        app.route('/-/ready', methods=['GET'])(serve_ready)
+        app.route(ENDPOINTS.LIVENESS, methods=['GET'])(serve_alive)
+        app.route(ENDPOINTS.READINESS, methods=['GET'])(serve_ready)
         return app
