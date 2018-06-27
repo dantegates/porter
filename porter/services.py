@@ -175,10 +175,19 @@ def serve_root():
     """Return a helpful description of how to use the app."""
 
     message = (
-        "I'm alive.<br>"
         'Send POST requests to /&lt model-name &gt/prediction/'
     )
     return message, 200
+
+
+def serve_alive():
+    """Serve liveness response."""
+    return 'alive', 200
+
+
+def serve_ready():
+    """Serve liveness response."""
+    return 'ready', 200
 
 
 class Schema:
@@ -361,4 +370,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
+        app.route('/-/alive', methods=['GET'])(serve_alive)
+        app.route('/-/ready', methods=['GET'])(serve_ready)
         return app
