@@ -83,13 +83,13 @@ class TestServePrediction(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            KEYS.PREDICTION.MODEL_ID: test_model_id,
-            KEYS.PREDICTION.PREDICTIONS: [
-                {KEYS.PREDICTION.ID: 1, KEYS.PREDICTION.PREDICTION: 20},
-                {KEYS.PREDICTION.ID: 2, KEYS.PREDICTION.PREDICTION: 26},
-                {KEYS.PREDICTION.ID: 3, KEYS.PREDICTION.PREDICTION: 32},
-                {KEYS.PREDICTION.ID: 4, KEYS.PREDICTION.PREDICTION: 38},
-                {KEYS.PREDICTION.ID: 5, KEYS.PREDICTION.PREDICTION: 42},
+            'model_id': test_model_id,
+            'predictions': [
+                {'id': 1, 'prediction': 20},
+                {'id': 2, 'prediction': 26},
+                {'id': 3, 'prediction': 32},
+                {'id': 4, 'prediction': 38},
+                {'id': 5, 'prediction': 42},
             ]
         }
         self.assertEqual(actual[KEYS.PREDICTION.MODEL_ID], expected[KEYS.PREDICTION.MODEL_ID])

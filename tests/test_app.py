@@ -115,33 +115,33 @@ class TestApp(unittest.TestCase):
         actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
-            MODEL_ID: 'model-1-id',
-            PREDICTIONS: [
-                {ID: 1, PREDICTION: 0},
-                {ID: 2, PREDICTION: -2},
-                {ID: 3, PREDICTION: -4},
-                {ID: 4, PREDICTION: -6},
-                {ID: 5, PREDICTION: -8},
+            'model_id': 'model-1-id',
+            'predictions': [
+                {'id': 1, 'prediction': 0},
+                {'id': 2, 'prediction': -2},
+                {'id': 3, 'prediction': -4},
+                {'id': 4, 'prediction': -6},
+                {'id': 5, 'prediction': -8},
             ]
         }
         expected2 = {
-            MODEL_ID: 'model-2-id',
-            PREDICTIONS: [
-                {ID: 1, PREDICTION: 10},
-                {ID: 2, PREDICTION: 11},
-                {ID: 3, PREDICTION: 3},
-                {ID: 4, PREDICTION: 6},
-                {ID: 5, PREDICTION: 7},
+            'model_id': 'model-2-id',
+            'predictions': [
+                {'id': 1, 'prediction': 10},
+                {'id': 2, 'prediction': 11},
+                {'id': 3, 'prediction': 3},
+                {'id': 4, 'prediction': 6},
+                {'id': 5, 'prediction': 7},
             ]
         }
         expected3 = {
-            MODEL_ID: 'model-3-id',
-            PREDICTIONS: [
-                {ID: 1, PREDICTION: -5},
-                {ID: 2, PREDICTION: -4},
-                {ID: 3, PREDICTION: -3},
-                {ID: 4, PREDICTION: -2},
-                {ID: 5, PREDICTION: -1},
+            'model_id': 'model-3-id',
+            'predictions': [
+                {'id': 1, 'prediction': -5},
+                {'id': 2, 'prediction': -4},
+                {'id': 3, 'prediction': -3},
+                {'id': 4, 'prediction': -2},
+                {'id': 5, 'prediction': -1},
             ]
         }
         self.assertEqual(actual1, expected1)
