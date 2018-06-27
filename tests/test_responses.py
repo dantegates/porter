@@ -2,7 +2,7 @@ import re
 import unittest
 
 from porter.constants import KEYS
-from porter.responses import _make_error_payload, _make_prediction_payload
+from porter.responses import _make_error_payload, _make_prediction_payload, _is_ready
 
 
 class TestFunctions(unittest.TestCase):
@@ -36,6 +36,33 @@ class TestFunctions(unittest.TestCase):
         self.assertEqual(actual[KEYS.ERROR.MESSAGE], expected[KEYS.ERROR.MESSAGE])
         print(actual[KEYS.ERROR.TRACEBACK])
         self.assertTrue(re.search(expected[KEYS.ERROR.TRACEBACK], actual[KEYS.ERROR.TRACEBACK]))
+
+    def test__is_ready(self):
+        app_state = {
+            'services': {
+                'model1': {'status': 'READY'},
+                'model2': {'status': 'READY'},
+            }
+        }
+        ready = _is_ready(app_state)
+        self.assertTrue(ready)
+
+    def test__is_ready_not_ready1(self):
+        app_state = {
+            'services': {}
+        }
+        ready = _is_ready(app_state)
+        self.assertFalse(ready)
+
+    def test__is_ready_not_ready2(self):
+        app_state = {
+            'services': {
+                'model1': {'status': 'READY'},
+                'model2': {'status': 'NO'},
+            }
+        }
+        ready = _is_ready(app_state)
+        self.assertFalse(ready)
 
 
 if __name__ == '__main__':

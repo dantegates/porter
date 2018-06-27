@@ -2,7 +2,7 @@ import traceback
 
 import flask
 
-from .constants import KEYS
+from .constants import KEYS, APP
 
 
 def make_prediction_response(model_id, id_keys, predictions):
@@ -38,3 +38,21 @@ def _make_error_payload(error):
         # Exception.message -> HTTPException.description).
         KEYS.ERROR.MESSAGE: getattr(error, 'description', error.args),
         KEYS.ERROR.TRACEBACK: traceback.format_exc()}
+
+
+def make_alive_response(app_state):
+    return flask.jsonify(app_state)
+
+
+def make_ready_response(app_state):
+    ready = _is_ready(app_state)
+    response = flask.jsonify(app_state)
+    response.status_code = 200 if ready else 503  # service unavailable
+    return response
+
+
+def _is_ready(app_state):
+    services = app_state[APP.STATE.SERVICES]
+    # app must define services and all services must be ready
+    return services and all(
+        svc[APP.STATE.STATUS] == APP.STATE.READY for svc in services.values())
