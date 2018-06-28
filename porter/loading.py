@@ -6,12 +6,14 @@ import os
 import tempfile
 
 
-def load_file(path):
+def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
     """Load a file and return the result."""
     extension = os.path.splitext(path)[-1]
     if path.startswith('s3://'):
-        s3_access_key_id = os.environ['PORTER_S3_ACCESS_KEY_ID']
-        s3_secret_access_key = os.environ['PORTER_S3_SECRET_ACCESS_KEY']
+        if s3_access_key_id is None or s3_secret_access_key is None:
+            raise ValueError(
+                's3_access_key_id and s3_secret_access_key cannot be None '
+                'when loading a resource from S3.')
         path_or_stream = load_s3(path, s3_access_key_id, s3_secret_access_key)
     else:
         path_or_stream = path

@@ -22,11 +22,12 @@ import flask
 import numpy as np
 import pandas as pd
 
-from .constants import KEYS
+from .constants import KEYS, ENDPOINTS, APP
 import porter.responses as porter_responses
 
 
-ID = KEYS.PREDICTION.ID
+# alias for convenience
+_ID = KEYS.PREDICTION.ID
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -43,7 +44,23 @@ class NumpyEncoder(json.JSONEncoder):
             return super(NumpyEncoder, self).default(obj)
 
 
-class ServePrediction(object):
+class StatefulRoute:
+    """Helper class to ensure that classes defining __call__() intended to be
+    routed satisfy the flask interface.
+    """
+    def __new__(cls, *args, **kwargs):
+        # flask looks for the __name__ attribute of the routed callable,
+        # and each name of a routed object must be unique.
+        # Therefore we define a unique name here to meet flask's expectations.
+        instance = super().__new__(cls)
+        if not hasattr(cls, '_instances'):
+            cls._instances = 0
+        cls._instances += 1
+        instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
+        return instance
+
+
+class ServePrediction(StatefulRoute):
     """Class for building stateful prediction routes.
 
     Instances of this class are intended to be routed to endpoints in a `flask`
@@ -79,13 +96,12 @@ class ServePrediction(object):
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found.
     """
-    _instances = 0
 
     def __new__(cls, *args, **kwargs):
         # flask looks for the __name__ attribute of the routed callable,
         # and each name of a routed object must be unique.
         # Therefore we define a unique name here to meet flask's expectations.
-        instance = super(ServePrediction, cls).__new__(cls)
+        instance = super().__new__(cls)
         cls._instances += 1
         instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
         return instance
@@ -122,7 +138,7 @@ class ServePrediction(object):
         preds = self.model.predict(Xt)
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
-        response = porter_responses.make_prediction_response(self.model_id, X[ID], preds)
+        response = porter_responses.make_prediction_response(self.model_id, X[_ID], preds)
         return response
 
     @staticmethod
@@ -175,10 +191,41 @@ def serve_root():
     """Return a helpful description of how to use the app."""
 
     message = (
-        "I'm alive.<br>"
         'Send POST requests to /&lt model-name &gt/prediction/'
     )
     return message, 200
+
+
+class ServeAlive(StatefulRoute):
+    """Class for building stateful liveness routes.
+
+    Args:
+        app_state (object): An `AppState` instance containing the state of a
+            ModelApp. Instances of this class inspect app_state` when called to
+            determine if the app is alive.
+    """
+    def __init__(self, app_state):
+        self.app_state = app_state
+
+    def __call__(self):
+        """Serve liveness response."""
+        return porter_responses.make_alive_response(self.app_state)
+
+
+class ServeReady(StatefulRoute):
+    """Class for building stateful readiness routes.
+
+    Args:
+        app_state (object): An `AppState` instance containing the state of a
+            ModelApp. Instances of this class inspect app_state` when called to
+            determine if the app is ready.
+    """
+    def __init__(self, app_state):
+        self.app_state = app_state
+
+    def __call__(self):
+        """Serve readiness response."""
+        return porter_responses.make_ready_response(self.app_state)
 
 
 class Schema:
@@ -198,11 +245,50 @@ class Schema:
             features expected by the preprocessor.
     """
     def __init__(self, *, input_features):
-        self.input_columns = [ID] + input_features
+        self.input_columns = [_ID] + input_features
         self.input_features = input_features
 
 
-class PredictionServiceConfig:
+class AppState(dict):
+    """Mutable mapping object containing the state of a `ModelApp`.
+
+    Mutability of this object is a requirement. This is assumed elsewhere in
+    the code base, e.g. in `ServeAlive` and `ServeReady` instances.
+
+    The nested mapping interface of this class is also a requirement.
+    elsewhere in the code base we assume that instances of this class can be
+    "jsonified".
+    """
+
+    def __init__(self):
+        super().__init__([
+            (APP.STATE.SERVICES, {})
+        ])
+
+    def update_service_status(self, name, status):
+        """Update the status of a service."""
+        services = self[APP.STATE.SERVICES]
+        if services.get(name, None) is None:
+            services[name] = {}
+        services[name][APP.STATE.STATUS] = status
+
+
+class BaseServiceConfig:
+    """
+    Base container that holds configurations for services that can be added to
+    an instance of `ModelApp`.
+
+    Args:
+        name (str): The service name.
+
+    Attributes:
+        name (str): The service name.
+    """
+    def __init__(self, name):
+        self.name = name
+
+
+class PredictionServiceConfig(BaseServiceConfig):
     """
     A simple container that holds all necessary data for an instance of
     `ModelApp` to route a model.
@@ -260,6 +346,7 @@ class PredictionServiceConfig:
         self.postprocessor = postprocessor
         self.schema = Schema(input_features=input_features)
         self.allow_nulls = allow_nulls
+        super().__init__(name=model_id)
 
 
 class ModelApp:
@@ -270,7 +357,6 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
-    _prediction_endpoint_template = '/{endpoint}/prediction/'
     _error_codes = (
         400,  # bad request
         404,  # not found
@@ -279,6 +365,7 @@ class ModelApp:
     )
 
     def __init__(self):
+        self.state = AppState()
         self.app = self._build_app()
 
     def add_services(self, *service_configs):
@@ -310,6 +397,7 @@ class ModelApp:
             self.add_prediction_service(service_config)
         else:
             raise ValueError('unkown service type')
+        self.update_state(service_config)
 
     def add_prediction_service(self, service_config):
         """
@@ -321,7 +409,7 @@ class ModelApp:
         Returns:
             None
         """
-        prediction_endpoint = self._prediction_endpoint_template.format(
+        prediction_endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(
             endpoint=service_config.endpoint)
         serve_prediction = ServePrediction(
             model=service_config.model,
@@ -332,6 +420,9 @@ class ModelApp:
             allow_nulls=service_config.allow_nulls)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
+
+    def update_state(self, service_config):
+        self.state.update_service_status(name=service_config.name, status=APP.STATE.READY)
 
     def run(self, *args, **kwargs):
         """
@@ -361,4 +452,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
+        app.route(ENDPOINTS.LIVENESS, methods=['GET'])(ServeAlive(self.state))
+        app.route(ENDPOINTS.READINESS, methods=['GET'])(ServeReady(self.state))
         return app

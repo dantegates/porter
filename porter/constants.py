@@ -26,3 +26,27 @@ class KEYS:
         ERROR = 'error'
         MESSAGE = 'message'
         TRACEBACK = 'traceback'
+
+
+class ENDPOINTS:
+    """Container for endpoints."""
+    PREDICTION_TEMPLATE = '/{endpoint}/prediction'
+    LIVENESS = '/-/alive'
+    READINESS = '/-/ready'
+
+
+class APP:
+    """Container for app constants."""
+
+    class STATE:
+        """Container for keys and values of an applications state.
+
+        Attributes:
+            SERVICES: The key to access all services added to an instance of
+                `ModelApp`.
+            STATUS: The key to access a services stats.
+            READY: The value indicating that a service is ready
+        """
+        SERVICES = 'services'
+        STATUS = 'status'
+        READY = 'READY'

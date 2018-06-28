@@ -5,13 +5,12 @@ Tests for the `.app` attribute belonging to an instance of `porter.ModelService`
 
 import json
 import unittest
+from unittest import mock
 
 import flask
-
 from porter.constants import KEYS
 from porter.datascience import BaseModel, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
-
 
 MODEL_ID = KEYS.PREDICTION.MODEL_ID
 PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
@@ -19,7 +18,7 @@ ID = KEYS.PREDICTION.ID
 PREDICTION = KEYS.PREDICTION.PREDICTION
 
 
-class TestApp(unittest.TestCase):
+class TestAppPredictions(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
         self.app = self.model_app.app.test_client()
@@ -115,38 +114,100 @@ class TestApp(unittest.TestCase):
         actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
-            MODEL_ID: 'model-1-id',
-            PREDICTIONS: [
-                {ID: 1, PREDICTION: 0},
-                {ID: 2, PREDICTION: -2},
-                {ID: 3, PREDICTION: -4},
-                {ID: 4, PREDICTION: -6},
-                {ID: 5, PREDICTION: -8},
+            'model_id': 'model-1-id',
+            'predictions': [
+                {'id': 1, 'prediction': 0},
+                {'id': 2, 'prediction': -2},
+                {'id': 3, 'prediction': -4},
+                {'id': 4, 'prediction': -6},
+                {'id': 5, 'prediction': -8},
             ]
         }
         expected2 = {
-            MODEL_ID: 'model-2-id',
-            PREDICTIONS: [
-                {ID: 1, PREDICTION: 10},
-                {ID: 2, PREDICTION: 11},
-                {ID: 3, PREDICTION: 3},
-                {ID: 4, PREDICTION: 6},
-                {ID: 5, PREDICTION: 7},
+            'model_id': 'model-2-id',
+            'predictions': [
+                {'id': 1, 'prediction': 10},
+                {'id': 2, 'prediction': 11},
+                {'id': 3, 'prediction': 3},
+                {'id': 4, 'prediction': 6},
+                {'id': 5, 'prediction': 7},
             ]
         }
         expected3 = {
-            MODEL_ID: 'model-3-id',
-            PREDICTIONS: [
-                {ID: 1, PREDICTION: -5},
-                {ID: 2, PREDICTION: -4},
-                {ID: 3, PREDICTION: -3},
-                {ID: 4, PREDICTION: -2},
-                {ID: 5, PREDICTION: -1},
+            'model_id': 'model-3-id',
+            'predictions': [
+                {'id': 1, 'prediction': -5},
+                {'id': 2, 'prediction': -4},
+                {'id': 3, 'prediction': -3},
+                {'id': 4, 'prediction': -2},
+                {'id': 5, 'prediction': -1},
             ]
         }
         self.assertEqual(actual1, expected1)
         self.assertEqual(actual2, expected2)
-        self.assertEqual(actual3, expected3)        
+        self.assertEqual(actual3, expected3)
+
+
+class TestAppHealthChecks(unittest.TestCase):
+    def setUp(self):
+        self.model_app = ModelApp()
+        self.app = self.model_app.app.test_client()
+
+    def test_liveness_live(self):
+        resp = self.app.get('/-/alive')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_readiness_not_ready(self):
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'services': {}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 503)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    @mock.patch('porter.services.PredictionServiceConfig.__init__')
+    @mock.patch('porter.services.ModelApp.add_prediction_service')
+    def test_readiness_ready_ready1(self, mock_add_prediction_service, mock_init):
+        mock_init.return_value = None
+        cf = PredictionServiceConfig()
+        cf.name = 'model1'
+        self.model_app.add_service(cf)
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'services': {'model1': {'status': 'READY'}}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 200)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    @mock.patch('porter.services.PredictionServiceConfig.__init__')
+    @mock.patch('porter.services.ModelApp.add_prediction_service')
+    def test_readiness_ready_ready2(self, mock_add_prediction_service, mock_init):
+        mock_init.return_value = None
+        cf1 = PredictionServiceConfig()
+        cf1.name = 'model1'
+        cf2 = PredictionServiceConfig()
+        cf2.name = 'model2'
+        self.model_app.add_services(cf2)
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'services': {'model1': {'status': 'READY'}},
+            'services': {'model2': {'status': 'READY'}}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 200)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    def test_root(self):
+        resp = self.app.get('/')
+        self.assertEqual(resp.status_code, 200)
 
 
 class TestAppErrorHandling(unittest.TestCase):
@@ -201,10 +262,6 @@ class TestAppErrorHandling(unittest.TestCase):
                 self.assertIn(message_substr, data['message'])
         if not traceback_substr is None:
             self.assertIn(traceback_substr, data['traceback'])
-
-    def test_alive(self):
-        resp = self.app.get('/')
-        self.assertEqual(resp.status_code, 200)
 
 
 if __name__ == '__main__':

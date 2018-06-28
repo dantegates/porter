@@ -7,7 +7,7 @@ import pandas as pd
 
 from porter.constants import KEYS
 from porter.services import (ModelApp, NumpyEncoder, ServePrediction,
-                             serve_error_message)
+                             serve_error_message, StatefulRoute)
 
 
 class TestFuntionsUnit(unittest.TestCase):
@@ -29,22 +29,22 @@ class TestFuntionsUnit(unittest.TestCase):
         self.assertEqual(actual_status_code, expected_status_code)
 
 
-class TestServePrediction(unittest.TestCase):
-    @mock.patch('porter.services.ServePrediction._instances', 0)
-    @mock.patch('porter.services.ServePrediction.__init__')
-    def test_naming(self, mock__init__):
-        mock__init__.return_value = None
-        actual1 = ServePrediction().__name__
-        expected1 = 'serveprediction_1'
-        actual2 = ServePrediction().__name__
-        expected2 = 'serveprediction_2'
-        actual3 = ServePrediction().__name__
-        expected3 = 'serveprediction_3'
+class TestStatefulRoute(unittest.TestCase):
+    def test_naming(self):
+        class A(StatefulRoute):
+            pass
+        actual1 = A().__name__
+        expected1 = 'a_1'
+        actual2 = A().__name__
+        expected2 = 'a_2'
+        actual3 = A().__name__
+        expected3 = 'a_3'
         self.assertEqual(actual1, expected1)
         self.assertEqual(actual2, expected2)
         self.assertEqual(actual3, expected3)
 
 
+class TestServePrediction(unittest.TestCase):
     @mock.patch('flask.request')
     @mock.patch('porter.responses.flask')
     def test_serve_success(self, mock_responses_flask, mock_flask_request):
@@ -83,13 +83,13 @@ class TestServePrediction(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            KEYS.PREDICTION.MODEL_ID: test_model_id,
-            KEYS.PREDICTION.PREDICTIONS: [
-                {KEYS.PREDICTION.ID: 1, KEYS.PREDICTION.PREDICTION: 20},
-                {KEYS.PREDICTION.ID: 2, KEYS.PREDICTION.PREDICTION: 26},
-                {KEYS.PREDICTION.ID: 3, KEYS.PREDICTION.PREDICTION: 32},
-                {KEYS.PREDICTION.ID: 4, KEYS.PREDICTION.PREDICTION: 38},
-                {KEYS.PREDICTION.ID: 5, KEYS.PREDICTION.PREDICTION: 42},
+            'model_id': test_model_id,
+            'predictions': [
+                {'id': 1, 'prediction': 20},
+                {'id': 2, 'prediction': 26},
+                {'id': 3, 'prediction': 32},
+                {'id': 4, 'prediction': 38},
+                {'id': 5, 'prediction': 42},
             ]
         }
         self.assertEqual(actual[KEYS.PREDICTION.MODEL_ID], expected[KEYS.PREDICTION.MODEL_ID])
