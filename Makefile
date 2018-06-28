@@ -11,3 +11,8 @@ test:
 
 lint:
 	python3.6 -m pylint --errors-only porter
+
+coverage:
+	coverage run --source porter -m unittest discover -s tests
+	coverage html
+	open htmlcov/index.html
