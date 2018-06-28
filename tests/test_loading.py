@@ -57,7 +57,9 @@ class TestLoadingSklearn(BaseTestLoading):
         with tempfile.NamedTemporaryFile(suffix='.pkl') as tmp:
             joblib.dump(self.model, tmp.name)
             self.write_to_s3(tmp.name, self.bucket, key)
-        loaded_model = loading.load_file(s3_path)
+        loaded_model = loading.load_file(s3_path,
+                s3_access_key_id=self.s3_access_key_id,
+                s3_secret_access_key=self.s3_secret_access_key)
         actual_predictions = loaded_model.predict(self.X)
         expected_predictions = self.model.predict(self.X)
         self.assertTrue(np.allclose(actual_predictions, expected_predictions))
@@ -99,7 +101,9 @@ class TestLoadingKeras(BaseTestLoading):
         with tempfile.NamedTemporaryFile(suffix='.h5') as tmp:
             keras.models.save_model(self.model, tmp.name)
             self.write_to_s3(tmp.name, self.bucket, key)
-        loaded_model = loading.load_file(s3_path)
+        loaded_model = loading.load_file(s3_path,
+                s3_access_key_id=self.s3_access_key_id,
+                s3_secret_access_key=self.s3_secret_access_key)
         actual_predictions = loaded_model.predict(self.X)
         expected_predictions = self.model.predict(self.X)
         self.assertTrue(np.allclose(actual_predictions, expected_predictions))
@@ -124,11 +128,15 @@ class TestLoadingS3(BaseTestLoading):
     def test_load_file_s3_fail_missing_key(self):
         self.bucket = os.environ['PORTER_S3_BUCKET_TEST']
         with self.assertRaises(RuntimeError):
-            loading.load_file('s3://%s/this/does/not/exist' % self.bucket)
+            loading.load_file('s3://%s/this/does/not/exist' % self.bucket,
+                s3_access_key_id=self.s3_access_key_id,
+                s3_secret_access_key=self.s3_secret_access_key)
 
     def test_load_file_s3_fail_missing_bucket(self):
         with self.assertRaises(RuntimeError):
-            loading.load_file('s3://invalid-bucket/this/does/not/exist')
+            loading.load_file('s3://invalid-bucket/this/does/not/exist',
+                s3_access_key_id=self.s3_access_key_id,
+                s3_secret_access_key=self.s3_secret_access_key)
 
     def test_split_s3_path(self):
         path = 's3://my-bucket/some/key'

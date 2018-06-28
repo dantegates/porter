@@ -32,8 +32,9 @@ class WrappedModel(BaseModel):
         return self.model.predict(X)
 
     @classmethod
-    def from_file(cls, path, *args, **kwargs):
-        model = load_file(path)
+    def from_file(cls, path, *args, s3_access_key_id=None,
+                  s3_secret_access_key=None, **kwargs):
+        model = load_file(path, s3_access_key_id, s3_secret_access_key)
         return cls(model, *args, **kwargs)
 
 
@@ -49,6 +50,7 @@ class WrappedTransformer(BaseProcessor):
         return self.transformer.transform(X)
 
     @classmethod
-    def from_file(cls, path, *args, **kwargs):
-        transformer = load_file(path)
+    def from_file(cls, path, *args, s3_access_key_id=None,
+                  s3_secret_access_key=None, **kwargs):
+        transformer = load_file(path, s3_access_key_id, s3_secret_access_key)
         return cls(transformer, *args, **kwargs)
