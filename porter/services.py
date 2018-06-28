@@ -45,6 +45,9 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 class StatefulRoute:
+    """Helper class to ensure that classes defining __call__() intended to be
+    routed satisfy the flask interface.
+    """
     def __new__(cls, *args, **kwargs):
         # flask looks for the __name__ attribute of the routed callable,
         # and each name of a routed object must be unique.
@@ -194,6 +197,13 @@ def serve_root():
 
 
 class ServeAlive(StatefulRoute):
+    """Class for building stateful liveness routes.
+
+    Args:
+        app_state (object): An `AppState` instance containing the state of a
+            ModelApp. Instances of this class inspect app_state` when called to
+            determine if the app is alive.
+    """
     def __init__(self, app_state):
         self.app_state = app_state
 
@@ -203,11 +213,18 @@ class ServeAlive(StatefulRoute):
 
 
 class ServeReady(StatefulRoute):
+    """Class for building stateful readiness routes.
+
+    Args:
+        app_state (object): An `AppState` instance containing the state of a
+            ModelApp. Instances of this class inspect app_state` when called to
+            determine if the app is ready.
+    """
     def __init__(self, app_state):
         self.app_state = app_state
 
     def __call__(self):
-        """Serve liveness response."""
+        """Serve readiness response."""
         return porter_responses.make_ready_response(self.app_state)
 
 
@@ -233,12 +250,23 @@ class Schema:
 
 
 class AppState(dict):
+    """Mutable mapping object containing the state of a `ModelApp`.
+
+    Mutability of this object is a requirement. This is assumed elsewhere in
+    the code base, e.g. in `ServeAlive` and `ServeReady` instances.
+
+    The nested mapping interface of this class is also a requirement.
+    elsewhere in the code base we assume that instances of this class can be
+    "jsonified".
+    """
+
     def __init__(self):
         super().__init__([
             (APP.STATE.SERVICES, {})
         ])
 
     def update_service_status(self, name, status):
+        """Update the status of a service."""
         services = self[APP.STATE.SERVICES]
         if services.get(name, None) is None:
             services[name] = {}
