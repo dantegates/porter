@@ -130,7 +130,7 @@ class ServePrediction(StatefulRoute):
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
-            Xt = X[self.schema.input_features]
+            Xt = X.loc[:,self.schema.input_features]
         else:
             Xt = X
         if self.preprocess_model_input:
