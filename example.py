@@ -58,11 +58,11 @@ input_features = [
 # and model.
 preprocessor = WrappedTransformer.from_file(path=PREPROCESSOR_PATH)
 model = WrappedModel.from_file(path=MODEL_PATH)
+
 class Postprocessor(BaseProcessor):
     def process(self, X):
         # keras model returns an array with shape (n observations, 1)
         return X.reshape(-1)
-postprocessor = Postprocessor()
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
@@ -85,7 +85,7 @@ service_config = PredictionServiceConfig(
                                     # called on the POST request data
                                     # before predicting. Optional.
                                     #
-    postprocessor=postprocessor,    # postprocessor.process() is
+    postprocessor=Postprocessor(),  # postprocessor.process() is
                                     # called on the model's predictions before
                                     # returning to user. Optional.
                                     #
