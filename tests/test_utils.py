@@ -107,6 +107,12 @@ class TestAppEncoder(unittest.TestCase):
         expected = '[{"array": [[1, 2]], "int": 10, "exception": \"ValueError(\'a value error\',)\"}]'
         self.assertEqual(actual, expected)
 
+    def test_edge_case(self):
+        encoder = AppEncoder()
+        obj = object()
+        # just make sure this doesn't raise an Exception
+        actual = encoder.default(obj)
+
 
 class TestJSONFormatterBig(unittest.TestCase):
     def setUp(self):
