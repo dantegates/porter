@@ -16,6 +16,7 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
+import bisect
 import json
 
 import flask
@@ -93,16 +94,18 @@ class ServePrediction(StatefulRoute):
         return instance
 
     def __init__(self, model, model_id, preprocessor, postprocessor, schema,
-                 allow_nulls):
+                 allow_nulls, allow_batch_predict):
         self.model = model
         self.model_id = model_id
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = schema
         self.allow_nulls = allow_nulls
+        self.allow_batch_predict = allow_batch_predict
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
+        self.type_message = "object or array" if allow_batch_predict else "object"
 
     def __call__(self):
         """Retrive POST request data from flask and return a response
@@ -112,7 +115,7 @@ class ServePrediction(StatefulRoute):
             object: A `flask` object representing the response to return to
                 the user.
         """
-        data = flask.request.get_json(force=True)
+        data = self.request_data()
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
@@ -164,6 +167,16 @@ class ServePrediction(StatefulRoute):
             raise ValueError(
                 'request payload is missing the following fields: %s'
                 % missing)
+
+    def request_data(self):
+        data = flask.request.get_json(force=True)
+        if isinstance(data, dict):
+            data = [data]
+        elif isinstance(data, list):
+            if not self.allow_batch_predict:
+                raise ValueError('input must be a single object, not array')
+        else:
+            raise ValueError(f'input must be {self.type_message}')
 
 
 def serve_error_message(error):
@@ -301,6 +314,10 @@ class PredictionServiceConfig(BaseServiceConfig):
             used to validate the POST request if not `None`. Optional.            
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
+        allow_batch_predict (bool): Whether or not batch predictions are
+            supported or not. If `True` the API will accept an array of objects
+            to predict on. If `False` the API will only accept a single object
+            per request. Optional.
 
     Attributes:
         model (object): An object implementing the interface defined by
@@ -322,9 +339,14 @@ class PredictionServiceConfig(BaseServiceConfig):
         schema (object): An instance of `porter.services.Schema`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
+        allow_batch_predict (bool): Whether or not batch predictions are
+            supported or not. If `True` the API will accept an array of objects
+            to predict on. If `False` the API will only accept a single object
+            per request. Optional.
     """
     def __init__(self, *, model, model_id, endpoint, preprocessor=None,
-                 postprocessor=None, input_features=None, allow_nulls=False):
+                 postprocessor=None, input_features=None, allow_nulls=False,
+                 allow_batch_predict=False):
         self.model = model
         self.model_id = model_id
         self.endpoint = endpoint
@@ -332,7 +354,9 @@ class PredictionServiceConfig(BaseServiceConfig):
         self.postprocessor = postprocessor
         self.schema = Schema(input_features=input_features)
         self.allow_nulls = allow_nulls
+        self.allow_batch_predict = allow_batch_predict
         super().__init__(name=model_id)
+
 
 
 class ModelApp:
@@ -403,7 +427,8 @@ class ModelApp:
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,
-            allow_nulls=service_config.allow_nulls)
+            allow_nulls=service_config.allow_nulls,
+            allow_batch_predict=service_config.allow_batch_predict)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
 
