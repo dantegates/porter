@@ -181,8 +181,11 @@ class ServeABTest(StatefulRoute):
         self.probs = probs
 
     def __call__(self):
-        route = np.random.choice(self.routes, p=self.probs)
+        route = self.choose_route()
         return route()
+
+    def choose_route(self):
+        return np.random.choice(self.routes, p=self.probs) 
 
 
 class ServeAlive(StatefulRoute):
