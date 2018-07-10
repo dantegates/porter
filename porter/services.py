@@ -16,6 +16,8 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
+# TODO: add endpoints to alive/ready
+
 import json
 
 import flask
@@ -82,15 +84,6 @@ class ServePrediction(StatefulRoute):
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found.
     """
-
-    def __new__(cls, *args, **kwargs):
-        # flask looks for the __name__ attribute of the routed callable,
-        # and each name of a routed object must be unique.
-        # Therefore we define a unique name here to meet flask's expectations.
-        instance = super().__new__(cls)
-        cls._instances += 1
-        instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
-        return instance
 
     def __init__(self, model, model_id, preprocessor, postprocessor, schema,
                  allow_nulls):
@@ -182,6 +175,16 @@ def serve_root():
     return message, 200
 
 
+class ServeABTest(StatefulRoute):
+    def __init__(self, routes, probs):
+        self.routes = routes
+        self.probs = probs
+
+    def __call__(self):
+        route = np.random.choice(self.routes, p=self.probs)
+        return route()
+
+
 class ServeAlive(StatefulRoute):
     """Class for building stateful liveness routes.
 
@@ -214,7 +217,7 @@ class ServeReady(StatefulRoute):
         return porter_responses.make_ready_response(self.app_state)
 
 
-class Schema:
+class PredictSchema:
     """
     A simple container that represents a model's schema.
 
@@ -323,15 +326,25 @@ class PredictionServiceConfig(BaseServiceConfig):
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
     """
-    def __init__(self, *, model, model_id, endpoint, preprocessor=None,
+    def __init__(self, *, model, model_id, endpoint=None, preprocessor=None,
                  postprocessor=None, input_features=None, allow_nulls=False):
         self.model = model
         self.model_id = model_id
-        self.endpoint = endpoint
+        self.endpoint = model_id if endpoint is None else endpoint
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.schema = Schema(input_features=input_features)
+        self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
+        super().__init__(name=model_id)
+
+
+class ABTestConfig(BaseServiceConfig):
+    def __init__(self, prediction_service_configs, probs, model_id, endpoint):
+        self.prediction_service_configs = prediction_service_configs
+        assert sum(probs) == 1, 'probs must sum to 1'
+        self.probs = probs
+        self.model_id = model_id
+        self.endpoint = endpoint
         super().__init__(name=model_id)
 
 
@@ -381,6 +394,8 @@ class ModelApp:
         """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
+        elif isinstance(service_config, ABTestConfig):
+            self.add_ab_test_service(service_config)
         else:
             raise ValueError('unkown service type')
         self.update_state(service_config)
@@ -406,6 +421,23 @@ class ModelApp:
             allow_nulls=service_config.allow_nulls)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
+
+    def add_ab_test_service(self, service_config):
+        routes = []
+        for predict_config in service_config.prediction_service_configs:
+            serve_prediction = ServePrediction(
+                model=predict_config.model,
+                model_id=predict_config.model_id,
+                preprocessor=predict_config.preprocessor,
+                postprocessor=predict_config.postprocessor,
+                schema=predict_config.schema,
+                allow_nulls=predict_config.allow_nulls)
+            routes.append(serve_prediction)
+        ab_endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(
+            endpoint=service_config.endpoint)
+        serve_ab_test = ServeABTest(routes, probs=service_config.probs)
+        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
+        self.app.route(ab_endpoint, **route_kwargs)(serve_ab_test)
 
     def update_state(self, service_config):
         self.state.update_service_status(name=service_config.name, status=APP.STATE.READY)
