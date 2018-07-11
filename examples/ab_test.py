@@ -13,19 +13,19 @@ class Model(BaseModel):
         super().__init__(*args, **kwargs)
 
     def predict(self, X):
-        return [self.val for _ in range(len(X))]
+        return self.val
 
 
 service_configs = []
 for val in ['A', 'B', 'C']:
     config = PredictionServiceConfig(model=Model(val=val),
-                                     model_id=f'model_{val.lower()}',
+                                     id=f'model_{val.lower()}',
                                      input_features=[])
     service_configs.append(config)
 
-ab_test_config = ABTestConfig(service_configs, probs=[0.1, 0.2, 0.7],
-                              model_id='supa-dupa-model-1.0.0',
-                              endpoint='supa-dupa-model')
+ab_test_config = ABTestConfig(service_configs, splits=[0.1, 0.2, 0.7],
+                              endpoint_basename='supa-dupa-model',
+                              id='supa-dupa-model-ab-test')
 
 model_app.add_service(ab_test_config)
 
