@@ -67,35 +67,35 @@ class Postprocessor(BaseProcessor):
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
 service_config = PredictionServiceConfig(
-    model=model,                       # The value of model.predict() is
-                                       # returned to the client.
-                                       # Required.
-                                       #
-    endpoint='supa-dupa-model',        # Name of the model. This determines
-                                       # the route. E.g. send POST requests
-                                       # for this model to
-                                       #   host:port/supa-dupa-model/prediction/
-                                       # Required.
-                                       #
-    model_id='supa-dupa-model-1.0.0',  # Unique identifier for the model. Returned
-                                       # to client in the prediction response.
-                                       # Required.
-                                       #
-    preprocessor=preprocessor,         # preprocessor.process() is
-                                       # called on the POST request data
-                                       # before predicting. Optional.
-                                       #
-    postprocessor=Postprocessor(),     # postprocessor.process() is
-                                       # called on the model's predictions before
-                                       # returning to user. Optional.
-                                       #
-    input_features=input_features,     # The input schema is used to validate
-                                       # the payload of the POST request.
-                                       # Optional.
-                                       #
-    allow_nulls=False                  # Wether nulls are allowed in the POST
-                                       # request data. Optional and meaningless
-                                       # when validate_input=False.
+    model=model,                          # The value of model.predict() is
+                                          # returned to the client.
+                                          # Required.
+                                          #
+    endpoint_basename='supa-dupa-model',  # Name of the model. This determines
+                                          # the route. E.g. send POST requests
+                                          # for this model to
+                                          #   host:port/supa-dupa-model/prediction/
+                                          # Required.
+                                          #
+    id='supa-dupa-model-1.0.0',           # Unique identifier for the model. Returned
+                                          # to client in the prediction response.
+                                          # Required.
+                                          #
+    preprocessor=preprocessor,            # preprocessor.process() is
+                                          # called on the POST request data
+                                          # before predicting. Optional.
+                                          #
+    postprocessor=Postprocessor(),        # postprocessor.process() is
+                                          # called on the model's predictions before
+                                          # returning to user. Optional.
+                                          #
+    input_features=input_features,        # The input schema is used to validate
+                                          # the payload of the POST request.
+                                          # Optional.
+                                          #
+    allow_nulls=False                     # Wether nulls are allowed in the POST
+                                          # request data. Optional and meaningless
+                                          # when validate_input=False.
 )
 
 # The model can now be added as a service in the app.
