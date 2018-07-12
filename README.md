@@ -50,6 +50,48 @@ The basic workflow for building a model service is as follows
 
 See this [example script](./examples/example.py) for an (almost functional) example.
 
+# API
+A `porter` defines the following endpoints.
+
+**/-/alive** (Methods=`[GET]`):
+  An endpoint used to determine if the app is alive (i.e. running). This endpoint returns the
+  same JSON payload returned by **/-/ready**. Returns 200.
+  
+**/-/ready** (Methods=`[GET]`):
+  Returns a JSON object representing the app's state as follows. The object has a single key
+  `"services"`. Services is itself a JSON object with a key for every service added to the app.
+  These service objects contain keys for their respective endpoint and status. Returns 200 if
+  all services are ready and 500 otherwise.
+
+  The JSON below is the response you would get from the app defined in
+  [the AB test script](./examples/ab_test.py).
+  
+  ```javascript
+    {
+      "services": {
+        "supa-dupa-model-ab-test": {
+          "endpoint": "/supa-dupa-model/prediction",
+          "status": "READY"
+        }
+      }
+    }
+  ```
+  
+**/<model name\>/prediction**: (Methods=`[POST]`):
+  Each model added to the app will have an endpoint for accessing the model's predictions.
+  The endoint accepts `POST` requests with the input schema dependent on the model and
+  resturns a JSON object with the following schema.
+  
+  ```javascript
+    {
+      "model_id": A unique identifier for the model,
+      "predictions": [
+         {"id": ..., "prediction": ...},
+         ...
+      ]
+    }
+  ```
+
 # Tests
 To run the test suite for porter execute the command
 
