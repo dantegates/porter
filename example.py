@@ -93,9 +93,13 @@ service_config = PredictionServiceConfig(
                                           # the payload of the POST request.
                                           # Optional.
                                           #
-    allow_nulls=False                     # Wether nulls are allowed in the POST
+    allow_nulls=False,                    # Wether nulls are allowed in the POST
                                           # request data. Optional and meaningless
                                           # when validate_input=False.
+                                          #
+    allow_batch_predict=True              # Whether the API will accept an array of
+                                          # JSON objects to predict on or a single
+                                          # JSON object only. 
 )
 
 # The model can now be added as a service in the app.
@@ -103,7 +107,7 @@ model_app.add_service(service_config)
 
 
 if __name__ == '__main__':
-    # you can run this with `gunicorn app:model_app.app`, or
+    # you can run this with `gunicorn app:model_app`, or
     # simply execute this script with Python and send POST requests
     # to localhost:8000/supa-dupa-model/prediction/
     model_app.run(port=8000)
