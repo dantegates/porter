@@ -250,7 +250,10 @@ class PredictSchema:
             features expected by the preprocessor.
     """
     def __init__(self, *, input_features):
-        self.input_columns = [_ID] + input_features
+        if input_features is not None:
+            self.input_columns = [_ID] + input_features
+        else:
+            self.input_columns = input_features
         self.input_features = input_features
 
 
@@ -269,25 +272,14 @@ class AppState(dict):
         super().__init__()
         self[APP.STATE.SERVICES] = {}
 
-    def update_service_endpoint(self, id, endpoint):
-        """Update the endpoint of a service."""
+    def update_service_state(self, service_config, status):
         services = self[APP.STATE.SERVICES]
-        if services.get(id, None) is None:
-            services[id] = {}
-        services[id][APP.STATE.ENDPOINT] = endpoint
-
-    def update_service_status(self, id, status):
-        """Update the status of a service."""
-        services = self[APP.STATE.SERVICES]
-        if services.get(id, None) is None:
-            services[id] = {}
-        services[id][APP.STATE.STATUS] = status
-
-    def update_service_version(self, id, version):
-        services = self[APP.STATE.SERVICES]
-        if services.get(id, None) is None:
-            services[id] = {}
-        services[id][APP.STATE.VERSION] = version
+        if services.get(service_config.id, None) is None:
+            services[service_config.id] = {}
+        services[service_config.id][APP.STATE.NAME] = service_config.name
+        services[service_config.id][APP.STATE.VERSION] = service_config.version
+        services[service_config.id][APP.STATE.ENDPOINT] = service_config.endpoint
+        services[service_config.id][APP.STATE.STATUS] = status
 
 
 class BaseServiceConfig:
@@ -303,11 +295,12 @@ class BaseServiceConfig:
     """
     _ids = set()
 
-    def __init__(self, id, version, endpoint):
+    def __init__(self, id, name, version, endpoint):
         if id in self._ids:
             raise ValueError(f'id={id} has already been used')
         self._ids.add(id)
         self.id = id
+        self.name = name
         self.version = version
         self.endpoint = endpoint
 
@@ -373,17 +366,15 @@ class PredictionServiceConfig(BaseServiceConfig):
                  postprocessor=None, input_features=None, allow_nulls=False,
                  batch_prediction=False):
         self.model = model
-        self.name = name
-        self.version = version
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
 
-        id = f'{self.name}:{self.version}'
-        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=self.name)
-        super().__init__(id=id, endpoint=endpoint, version=version)
+        id = f'{name}:{version}'
+        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
+        super().__init__(id=id, name=name, endpoint=endpoint, version=version)
  
 
 class ABTestConfig(BaseServiceConfig):
@@ -398,9 +389,9 @@ class ABTestConfig(BaseServiceConfig):
         self.name = name
         self.version = version
 
-        id = f'{self.name}:{self.version}'
-        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=self.name)
-        super().__init__(id=id, endpoint=endpoint, version=version)
+        id = f'{name}:{version}'
+        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
+        super().__init__(id=id, name=name, endpoint=endpoint, version=version)
 
 
 class ModelApp:
@@ -457,7 +448,7 @@ class ModelApp:
             self.add_ab_test_service(service_config)
         else:
             raise ValueError('unkown service type')
-        self.update_state(service_config)
+        self.state.update_service_state(service_config, APP.STATE.READY)
 
     def add_prediction_service(self, service_config):
         """
@@ -497,14 +488,6 @@ class ModelApp:
         serve_ab_test = ServeABTest(routes, splits=service_config.splits)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_ab_test)
-
-    def update_state(self, service_config):
-        self.state.update_service_status(id=service_config.id,
-                                         status=APP.STATE.READY)
-        self.state.update_service_endpoint(id=service_config.id,
-                                           endpoint=service_config.endpoint)
-        self.state.update_service_version(id=service_config.id,
-                                          version=service_config.version)
 
     def run(self, *args, **kwargs):
         """
