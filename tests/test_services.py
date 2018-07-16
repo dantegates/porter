@@ -79,7 +79,8 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             schema=schema,
-            allow_nulls=allow_nulls
+            allow_nulls=allow_nulls,
+            allow_batch_predict=True,
         )
         actual = serve_prediction()
         expected = {
@@ -113,7 +114,8 @@ class TestServePrediction(unittest.TestCase):
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
-            postprocessor=mock_postprocessor
+            postprocessor=mock_postprocessor,
+            allow_batch_predict=True,
         )
         _ = serve_prediction()
         mock_preprocessor.process.assert_called()
@@ -133,7 +135,8 @@ class TestServePrediction(unittest.TestCase):
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=None,
-            postprocessor=None
+            postprocessor=None,
+            allow_batch_predict=True
         )
         _ = serve_prediction()
 

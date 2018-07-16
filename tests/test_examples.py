@@ -19,6 +19,15 @@ PREDICTION = KEYS.PREDICTION.PREDICTION
 HERE = os.path.dirname(__file__)
 
 
+def load_example(filename, init_namespace=None):
+    if init_namespace is None:
+        init_namespace = {}
+    with open(filename) as f:
+        example = f.read()
+    exec(example, init_namespace)
+    return init_namespace
+
+
 class TestExample(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -39,10 +48,8 @@ class TestExample(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             joblib.dump(self.preprocessor, os.path.join(tmpdirname, 'preprocessor.pkl'))
             keras.models.save_model(self.model, os.path.join(tmpdirname, 'model.h5'))
-            with open(os.path.join(HERE, '../examples/example.py')) as f:
-                example = f.read()
-            namespace = {'model_directory': tmpdirname}
-            exec(example, namespace)
+            init_namespace = {'model_directory': tmpdirname}
+            namespace = load_example(os.path.join(HERE, '../examples/example.py'), init_namespace)
         test_client = namespace['model_app'].app.test_client()
         app_input = self.X.to_dict('records')
         response = test_client.post('/supa-dupa-model/prediction', data=json.dumps(app_input, cls=NumpyEncoder))
@@ -56,6 +63,12 @@ class TestExample(unittest.TestCase):
             actual_id, actual_pred = rec[ID], rec[PREDICTION]
             expected_pred = expected_predictions[actual_id]
             self.assertTrue(np.allclose(actual_pred, expected_pred))
+
+
+class TestExampleABTest(unittest.TestCase):
+    def test(self):
+        # just testing that the example can be executed
+        namespace = load_example(os.path.join(HERE, '../examples/ab_test.py'))
 
 
 if __name__ == '__main__':

@@ -67,41 +67,38 @@ class TestAppPredictions(unittest.TestCase):
             def predict(self, X):
                 return X['feature1'] * -1
         input_features3 = ['feature1']
-        post_data3 = [
-            {ID: 1, 'feature1': 5},
-            {ID: 2, 'feature1': 4},
-            {ID: 3, 'feature1': 3},
-            {ID: 4, 'feature1': 2},
-            {ID: 5, 'feature1': 1},
-        ]
+        post_data3 = {ID: 1, 'feature1': 5}
 
         # define configs and add services to app
         service_config1 = PredictionServiceConfig(
             model=Model1(),
-            endpoint='model-1',
-            model_id='model-1-id',
+            endpoint_basename='model-1',
+            id='model-1-id',
             preprocessor=Preprocessor1(),
             postprocessor=Postprocessor1(),
             input_features=input_features1,
-            allow_nulls=False
+            allow_nulls=False,
+            allow_batch_predict=True
         )
         service_config2 = PredictionServiceConfig(
             model=Model2(),
-            endpoint='model-2',
-            model_id='model-2-id',
+            endpoint_basename='model-2',
+            id='model-2-id',
             preprocessor=Preprocessor2(),
             postprocessor=None,
             input_features=input_features2,
-            allow_nulls=False
+            allow_nulls=False,
+            allow_batch_predict=True
         )
         service_config3 = PredictionServiceConfig(
             model=Model3(),
-            endpoint='model-3',
-            model_id='model-3-id',
+            endpoint_basename='model-3',
+            id='model-3-id',
             preprocessor=None,
             postprocessor=None,
             input_features=input_features3,
-            allow_nulls=False
+            allow_nulls=False,
+            allow_batch_predict=False
         )
         self.model_app.add_service(service_config1)
         self.model_app.add_service(service_config2)
@@ -135,13 +132,7 @@ class TestAppPredictions(unittest.TestCase):
         }
         expected3 = {
             'model_id': 'model-3-id',
-            'predictions': [
-                {'id': 1, 'prediction': -5},
-                {'id': 2, 'prediction': -4},
-                {'id': 3, 'prediction': -3},
-                {'id': 4, 'prediction': -2},
-                {'id': 5, 'prediction': -1},
-            ]
+            'predictions': [{'id': 1, 'prediction': -5}]
         }
         self.assertEqual(actual1, expected1)
         self.assertEqual(actual2, expected2)
@@ -174,11 +165,13 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         cf = PredictionServiceConfig()
         cf.name = 'model1'
+        cf.id = 'model1-1.0.0'
+        cf.endpoint = '/model1/prediction'
         self.model_app.add_service(cf)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'services': {'model1': {'status': 'READY'}}
+            'services': {'model1-1.0.0': {'status': 'READY', 'endpoint': '/model1/prediction'}}
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
@@ -191,14 +184,18 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         cf1 = PredictionServiceConfig()
         cf1.name = 'model1'
+        cf1.id = 'model1-1.0.0'
+        cf1.endpoint = '/model1/prediction'
         cf2 = PredictionServiceConfig()
         cf2.name = 'model2'
+        cf2.id = 'model2-1.0.0'
+        cf2.endpoint = '/model2/prediction'
         self.model_app.add_services(cf2)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'services': {'model1': {'status': 'READY'}},
-            'services': {'model2': {'status': 'READY'}}
+            'services': {'model1-1.0.0': {'status': 'READY', 'endpoint': '/model1/prediction'}},
+            'services': {'model2-1.0.0': {'status': 'READY', 'endpoint': '/model2/prediction'}}
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
