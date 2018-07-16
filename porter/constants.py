@@ -5,12 +5,14 @@ class KEYS:
         """Keys for requests received/sent from /<model>/prediction.
 
         Attributes:
-            MODEL_ID: Model ID key.
+            MODEL_NAME: Model name.
+            MODEL_VERSION: Model version.
             PREDICTIONS: Array of predictions key.
             ID: Unique record ID key.
             PREDICTION: Prediction for a given ID key.
         """
-        MODEL_ID = 'model_id'
+        MODEL_NAME = 'model_name'
+        MODEL_VERSION = 'model_version'
         ID = 'id'
         PREDICTIONS = 'predictions'
         PREDICTION = 'prediction'
@@ -30,7 +32,7 @@ class KEYS:
 
 class ENDPOINTS:
     """Container for endpoints."""
-    PREDICTION_TEMPLATE = '/{endpoint}/prediction'
+    PREDICTION_TEMPLATE = '/{model_name}/prediction'
     LIVENESS = '/-/alive'
     READINESS = '/-/ready'
 
@@ -50,4 +52,5 @@ class APP:
         SERVICES = 'services'
         STATUS = 'status'
         ENDPOINT = 'endpoint'
+        VERSION = 'version'
         READY = 'READY'

@@ -57,7 +57,8 @@ class TestServePrediction(unittest.TestCase):
         ]
         mock_responses_flask.jsonify = lambda payload:payload
         mock_model = mock.Mock()
-        test_model_id = 'model.id'
+        test_model_name = 'model'
+        test_model_version = '1.0.0'
         mock_preprocessor = mock.Mock()
         mock_postprocessor = mock.Mock()
         schema = mock.Mock(input_features=None, input_columns=None)
@@ -75,16 +76,18 @@ class TestServePrediction(unittest.TestCase):
         mock_postprocessor.process = postprocess
         serve_prediction = ServePrediction(
             model=mock_model,
-            model_id=test_model_id,
+            model_name=test_model_name,
+            model_version=test_model_version,
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             schema=schema,
             allow_nulls=allow_nulls,
-            allow_batch_predict=True,
+            batch_prediction=True,
         )
         actual = serve_prediction()
         expected = {
-            'model_id': test_model_id,
+            'model_name': test_model_name,
+            'model_version': test_model_version,
             'predictions': [
                 {'id': 1, 'prediction': 20},
                 {'id': 2, 'prediction': 26},
@@ -93,14 +96,15 @@ class TestServePrediction(unittest.TestCase):
                 {'id': 5, 'prediction': 42},
             ]
         }
-        self.assertEqual(actual[KEYS.PREDICTION.MODEL_ID], expected[KEYS.PREDICTION.MODEL_ID])
+        self.assertEqual(actual[KEYS.PREDICTION.MODEL_NAME], expected[KEYS.PREDICTION.MODEL_NAME])
+        self.assertEqual(actual[KEYS.PREDICTION.MODEL_VERSION], expected[KEYS.PREDICTION.MODEL_VERSION])
         self.assertEqual(sorted(actual[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]),
                          sorted(expected[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]))
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
-        model = model_id = allow_nulls = mock.Mock()
+        model = model_name = model_version = allow_nulls = mock.Mock()
         mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
@@ -110,12 +114,13 @@ class TestServePrediction(unittest.TestCase):
         mock_schema = mock.Mock(input_features=None, input_columns=None)
         serve_prediction = ServePrediction(
             model=model,
-            model_id=model_id,
+            model_name=model_name,
+            model_version=model_version,
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
-            allow_batch_predict=True,
+            batch_prediction=True,
         )
         _ = serve_prediction()
         mock_preprocessor.process.assert_called()
@@ -125,18 +130,19 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('flask.jsonify')
     def test_serve_no_processing(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
-        model = model_id = allow_nulls = mock.Mock()
+        model = model_name = model_version = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
         mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
         model.predict.return_value = []
         serve_prediction = ServePrediction(
             model=model,
-            model_id=model_id,
+            model_name=model_name,
+            model_version=model_version,
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=None,
             postprocessor=None,
-            allow_batch_predict=True
+            batch_prediction=True
         )
         _ = serve_prediction()
 
