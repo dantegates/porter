@@ -76,5 +76,12 @@ class TestExampleABTest(unittest.TestCase):
         namespace = load_example(os.path.join(HERE, '../examples/ab_test.py'))
 
 
+@mock.patch('porter.services.BaseServiceConfig._ids', set())
+class TestExampleHealthCheckEndponts(unittest.TestCase):
+    def test(self):
+        # just testing that the example can be executed
+        namespace = load_example(os.path.join(HERE, '../examples/health_check_endpoints.py'))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -52,5 +52,6 @@ class APP:
         SERVICES = 'services'
         STATUS = 'status'
         ENDPOINT = 'endpoint'
+        NAME = 'name'
         VERSION = 'version'
         READY = 'READY'

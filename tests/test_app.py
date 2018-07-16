@@ -179,6 +179,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'services': {
                 'model1': {
                     'status': 'READY',
+                    'name': 'model1',
                     'version': '1.0.0',
                     'endpoint': '/model1/prediction',
                 }
@@ -210,11 +211,13 @@ class TestAppHealthChecks(unittest.TestCase):
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',
+                    'name': 'model1',
                     'version': '1.0.0',
                     'endpoint': '/model1/prediction'
                 },
                 'model2:0.0.0': {
                     'status': 'READY',
+                    'name': 'model2',
                     'version': '0.0.0',
                     'endpoint': '/model2/prediction'
                 }
