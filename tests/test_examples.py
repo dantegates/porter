@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import keras
 import numpy as np
@@ -28,6 +29,7 @@ def load_example(filename, init_namespace=None):
     return init_namespace
 
 
+@mock.patch('porter.services.BaseServiceConfig._ids', set())
 class TestExample(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -54,17 +56,20 @@ class TestExample(unittest.TestCase):
         app_input = self.X.to_dict('records')
         response = test_client.post('/supa-dupa-model/prediction', data=json.dumps(app_input, cls=NumpyEncoder))
         actual_response_data = json.loads(response.data)
-        expected_model_id = 'supa-dupa-model-1.0.0'
+        expected_model_name = 'supa-dupa-model'
+        expected_model_version = '1.0.0'
         expected_predictions = {
             id_: pred for id_, pred in zip(self.X[ID], self.predictions)
         }
-        self.assertEqual(actual_response_data['model_id'], expected_model_id)
+        self.assertEqual(actual_response_data['model_name'], expected_model_name)
+        self.assertEqual(actual_response_data['model_version'], expected_model_version)
         for rec in actual_response_data[PREDICTIONS]:
             actual_id, actual_pred = rec[ID], rec[PREDICTION]
             expected_pred = expected_predictions[actual_id]
             self.assertTrue(np.allclose(actual_pred, expected_pred))
 
 
+@mock.patch('porter.services.BaseServiceConfig._ids', set())
 class TestExampleABTest(unittest.TestCase):
     def test(self):
         # just testing that the example can be executed

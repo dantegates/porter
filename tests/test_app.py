@@ -12,7 +12,8 @@ from porter.constants import KEYS
 from porter.datascience import BaseModel, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
-MODEL_ID = KEYS.PREDICTION.MODEL_ID
+MODEL_NAME = KEYS.PREDICTION.MODEL_NAME
+MODEL_VERSION = KEYS.PREDICTION.MODEL_VERSION
 PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
 ID = KEYS.PREDICTION.ID
 PREDICTION = KEYS.PREDICTION.PREDICTION
@@ -72,46 +73,47 @@ class TestAppPredictions(unittest.TestCase):
         # define configs and add services to app
         service_config1 = PredictionServiceConfig(
             model=Model1(),
-            endpoint_basename='model-1',
-            id='model-1-id',
+            name='a-model',
+            version='0.0.0',
             preprocessor=Preprocessor1(),
             postprocessor=Postprocessor1(),
             input_features=input_features1,
             allow_nulls=False,
-            allow_batch_predict=True
+            batch_prediction=True
         )
         service_config2 = PredictionServiceConfig(
             model=Model2(),
-            endpoint_basename='model-2',
-            id='model-2-id',
+            name='another-model',
+            version='0.1.0',
             preprocessor=Preprocessor2(),
             postprocessor=None,
             input_features=input_features2,
             allow_nulls=False,
-            allow_batch_predict=True
+            batch_prediction=True
         )
         service_config3 = PredictionServiceConfig(
             model=Model3(),
-            endpoint_basename='model-3',
-            id='model-3-id',
+            name='model-3',
+            version='0.0.0-alpha',
             preprocessor=None,
             postprocessor=None,
             input_features=input_features3,
             allow_nulls=False,
-            allow_batch_predict=False
+            batch_prediction=False
         )
         self.model_app.add_service(service_config1)
         self.model_app.add_service(service_config2)
         self.model_app.add_service(service_config3)
 
-        actual1 = self.app.post('/model-1/prediction', data=json.dumps(post_data1))
+        actual1 = self.app.post('/a-model/prediction', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
-        actual2 = self.app.post('/model-2/prediction', data=json.dumps(post_data2))
+        actual2 = self.app.post('/another-model/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
         actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
-            'model_id': 'model-1-id',
+            'model_name': 'a-model',
+            'model_version': '0.0.0',
             'predictions': [
                 {'id': 1, 'prediction': 0},
                 {'id': 2, 'prediction': -2},
@@ -121,7 +123,8 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected2 = {
-            'model_id': 'model-2-id',
+            'model_name': 'another-model',
+            'model_version': '0.1.0',
             'predictions': [
                 {'id': 1, 'prediction': 10},
                 {'id': 2, 'prediction': 11},
@@ -131,7 +134,8 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected3 = {
-            'model_id': 'model-3-id',
+            'model_name': 'model-3',
+            'model_version': '0.0.0-alpha',
             'predictions': [{'id': 1, 'prediction': -5}]
         }
         self.assertEqual(actual1, expected1)
@@ -165,13 +169,20 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         cf = PredictionServiceConfig()
         cf.name = 'model1'
-        cf.id = 'model1-1.0.0'
+        cf.version = '1.0.0'
+        cf.id = 'model1'
         cf.endpoint = '/model1/prediction'
         self.model_app.add_service(cf)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'services': {'model1-1.0.0': {'status': 'READY', 'endpoint': '/model1/prediction'}}
+            'services': {
+                'model1': {
+                    'status': 'READY',
+                    'version': '1.0.0',
+                    'endpoint': '/model1/prediction',
+                }
+            }
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
@@ -184,18 +195,30 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         cf1 = PredictionServiceConfig()
         cf1.name = 'model1'
-        cf1.id = 'model1-1.0.0'
+        cf1.version = '1.0.0'
+        cf1.id = 'model1:1.0.0'
         cf1.endpoint = '/model1/prediction'
         cf2 = PredictionServiceConfig()
         cf2.name = 'model2'
-        cf2.id = 'model2-1.0.0'
+        cf2.version = '0.0.0'
+        cf2.id = 'model2:0.0.0'
         cf2.endpoint = '/model2/prediction'
-        self.model_app.add_services(cf2)
+        self.model_app.add_services(cf1, cf2)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'services': {'model1-1.0.0': {'status': 'READY', 'endpoint': '/model1/prediction'}},
-            'services': {'model2-1.0.0': {'status': 'READY', 'endpoint': '/model2/prediction'}}
+            'services': {
+                'model1:1.0.0': {
+                    'status': 'READY',
+                    'version': '1.0.0',
+                    'endpoint': '/model1/prediction'
+                },
+                'model2:0.0.0': {
+                    'status': 'READY',
+                    'version': '0.0.0',
+                    'endpoint': '/model2/prediction'
+                }
+            }
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)

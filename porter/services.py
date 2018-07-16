@@ -65,8 +65,8 @@ class ServePrediction(StatefulRoute):
     Args:
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
-        model_id (str): A unique identifier for the model. Returned to the
-            user alongside the model predictions.
+        model_name (str): The model name.
+        model_version (str): The model version.
         preprocessor (object or None): An object implementing the interface
             defined by `porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the POST
@@ -83,19 +83,20 @@ class ServePrediction(StatefulRoute):
             `False` an error is raised when nulls are found.
     """
 
-    def __init__(self, model, model_id, preprocessor, postprocessor, schema,
-                 allow_nulls, allow_batch_predict):
+    def __init__(self, model, model_name, model_version, preprocessor,
+                 postprocessor, schema, allow_nulls, batch_prediction):
         self.model = model
-        self.model_id = model_id
+        self.model_name = model_name
+        self.model_version = model_version
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = schema
         self.allow_nulls = allow_nulls
-        self.allow_batch_predict = allow_batch_predict
+        self.batch_prediction = batch_prediction
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
-        self.type_message = "object or array" if allow_batch_predict else "object"
+        self.type_message = "object or array" if batch_prediction else "object"
 
     def __call__(self):
         """Retrive POST request data from flask and return a response
@@ -117,7 +118,8 @@ class ServePrediction(StatefulRoute):
         preds = self.model.predict(Xt)
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
-        response = porter_responses.make_prediction_response(self.model_id, X[_ID], preds)
+        response = porter_responses.make_prediction_response(
+            self.model_name, self.model_version, X[_ID], preds)
         return response
 
     @staticmethod
@@ -163,7 +165,7 @@ class ServePrediction(StatefulRoute):
         if isinstance(data, dict):
             data = [data]
         elif isinstance(data, list):
-            if not self.allow_batch_predict:
+            if not self.batch_prediction:
                 raise ValueError('input must be a single object, not array')
         else:
             raise ValueError(f'input must be {self.type_message}')
@@ -264,9 +266,8 @@ class AppState(dict):
     """
 
     def __init__(self):
-        super().__init__([
-            (APP.STATE.SERVICES, {})
-        ])
+        super().__init__()
+        self[APP.STATE.SERVICES] = {}
 
     def update_service_endpoint(self, id, endpoint):
         """Update the endpoint of a service."""
@@ -282,6 +283,12 @@ class AppState(dict):
             services[id] = {}
         services[id][APP.STATE.STATUS] = status
 
+    def update_service_version(self, id, version):
+        services = self[APP.STATE.SERVICES]
+        if services.get(id, None) is None:
+            services[id] = {}
+        services[id][APP.STATE.VERSION] = version
+
 
 class BaseServiceConfig:
     """
@@ -296,11 +303,13 @@ class BaseServiceConfig:
     """
     _ids = set()
 
-    def __init__(self, id):
+    def __init__(self, id, version, endpoint):
         if id in self._ids:
             raise ValueError(f'id={id} has already been used')
         self._ids.add(id)
         self.id = id
+        self.version = version
+        self.endpoint = endpoint
 
 
 class PredictionServiceConfig(BaseServiceConfig):
@@ -311,10 +320,9 @@ class PredictionServiceConfig(BaseServiceConfig):
     Args:
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
-        id (str): A unique identifier for the model. Returned to the
-            user alongside the model predictions.
-        endpoint (str): Name of the model endpoint. The final routed endpoint
-            will become "/<endpoint>/prediction/".
+        name (str): The model name. The final routed endpoint will become
+            "/<endpoint>/prediction/".
+        version (str): The model version.
         preprocessor (object or None): An object implementing the interface
             defined by `porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the POST
@@ -330,18 +338,19 @@ class PredictionServiceConfig(BaseServiceConfig):
             used to validate the POST request if not `None`. Optional.            
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
-        allow_batch_predict (bool): Whether or not batch predictions are
+        batch_prediction (bool): Whether or not batch predictions are
             supported or not. If `True` the API will accept an array of objects
             to predict on. If `False` the API will only accept a single object
             per request. Optional.
 
     Attributes:
+        id (str): A unique ID for the model. Composed of `name` and `version`.
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
-        id (str): A unique identifier for the model. Returned to the
-            user alongside the model predictions.
-        endpoint_basename (str): The final routed endpoint will become
-            "/<endpoint_basename>/prediction/".
+        name (str): The model's name. The final routed endpoint will become
+            "/<endpoint>/prediction/".
+        version (str): The model version.
+        endpoint (str): The endpoint exposing the model predictions.
         preprocessor (object or None): An object implementing the interface
             defined by `porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the POST
@@ -355,28 +364,30 @@ class PredictionServiceConfig(BaseServiceConfig):
         schema (object): An instance of `porter.services.Schema`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
-        allow_batch_predict (bool): Whether or not batch predictions are
-            supported or not. If `True` the API will accept an array of objects
-            to predict on. If `False` the API will only accept a single object
-            per request. Optional.
+        batch_prediction (bool): Whether or not the endpoint supports batch
+            predictions or not. If `True` the API will accept an array of
+            objects to predict on. If `False` the API will only accept a
+            single object per request. Optional.
     """
-    def __init__(self, *, model, id, endpoint_basename=None,
-                 preprocessor=None, postprocessor=None, input_features=None,
-                 allow_nulls=False, allow_batch_predict=False):
+    def __init__(self, *, model, name, version, preprocessor=None,
+                 postprocessor=None, input_features=None, allow_nulls=False,
+                 batch_prediction=False):
         self.model = model
-        self.id = id
-        endpoint_basename = id if endpoint_basename is None else endpoint_basename
-        self.endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(endpoint=endpoint_basename)
+        self.name = name
+        self.version = version
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
-        self.allow_batch_predict = allow_batch_predict
-        super().__init__(id=id)
+        self.batch_prediction = batch_prediction
+
+        id = f'{self.name}:{self.version}'
+        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=self.name)
+        super().__init__(id=id, endpoint=endpoint, version=version)
  
 
 class ABTestConfig(BaseServiceConfig):
-    def __init__(self, prediction_configs, splits, *, endpoint_basename, **kwargs):
+    def __init__(self, prediction_configs, splits, *, name, version):
         warnings.warn('support for AB testing in porter is experimental and '
                       'not fully tested')
         assert len(prediction_configs) == len(splits), \
@@ -384,8 +395,12 @@ class ABTestConfig(BaseServiceConfig):
         assert sum(splits) == 1, 'splits must sum to 1'
         self.prediction_configs = prediction_configs
         self.splits = splits
-        self.endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(endpoint=endpoint_basename)
-        super().__init__(**kwargs)
+        self.name = name
+        self.version = version
+
+        id = f'{self.name}:{self.version}'
+        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=self.name)
+        super().__init__(id=id, endpoint=endpoint, version=version)
 
 
 class ModelApp:
@@ -456,12 +471,13 @@ class ModelApp:
         """
         serve_prediction = ServePrediction(
             model=service_config.model,
-            model_id=service_config.id,
+            model_name=service_config.name,
+            model_version=service_config.version,
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,
             allow_nulls=service_config.allow_nulls,
-            allow_batch_predict=service_config.allow_batch_predict)
+            batch_prediction=service_config.batch_prediction)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
 
@@ -470,12 +486,13 @@ class ModelApp:
         for predict_config in service_config.prediction_configs:
             serve_prediction = ServePrediction(
                 model=predict_config.model,
-                model_id=predict_config.id,
+                model_name=predict_config.name,
+                model_version=predict_config.version,
                 preprocessor=predict_config.preprocessor,
                 postprocessor=predict_config.postprocessor,
                 schema=predict_config.schema,
                 allow_nulls=predict_config.allow_nulls,
-                allow_batch_predict=predict_config.allow_batch_predict)
+                batch_prediction=predict_config.batch_prediction)
             routes.append(serve_prediction)
         serve_ab_test = ServeABTest(routes, splits=service_config.splits)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
@@ -486,6 +503,8 @@ class ModelApp:
                                          status=APP.STATE.READY)
         self.state.update_service_endpoint(id=service_config.id,
                                            endpoint=service_config.endpoint)
+        self.state.update_service_version(id=service_config.id,
+                                          version=service_config.version)
 
     def run(self, *args, **kwargs):
         """

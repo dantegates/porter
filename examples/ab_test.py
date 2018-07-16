@@ -19,19 +19,20 @@ class Model(BaseModel):
 service_configs = []
 for val in ['A', 'B', 'C']:
     config = PredictionServiceConfig(model=Model(val=val),
-                                     id=f'model_{val.lower()}',
+                                     name=f'model_{val.lower()}',
+                                     version='1.0.0',
                                      input_features=[])
     service_configs.append(config)
 
 ab_test_config = ABTestConfig(service_configs, splits=[0.1, 0.2, 0.7],
-                              endpoint_basename='supa-dupa-model',
-                              id='supa-dupa-model-ab-test')
+                              name='supa-dupa-model',
+                              version='1.0.0')
 
 model_app.add_service(ab_test_config)
 
 
 if __name__ == '__main__':
-    # you can run this with `gunicorn app:model_app.app`, or
+    # you can run this with `gunicorn app:model_app`, or
     # simply execute this script with Python and send POST requests
     # to localhost:8000/supa-dupa-model/prediction/
     model_app.run(port=8000)

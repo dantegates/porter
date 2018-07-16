@@ -7,9 +7,10 @@ from porter.responses import _make_error_payload, _make_prediction_payload, _is_
 
 class TestFunctions(unittest.TestCase):
     def test__make_prediction_payload(self):
-        actual = _make_prediction_payload(123, [1, 2, 3], [10.0, 11.0, 12.0])
+        actual = _make_prediction_payload('a-model', '1', [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
-            KEYS.PREDICTION.MODEL_ID: 123,
+            KEYS.PREDICTION.MODEL_NAME: 'a-model',
+            KEYS.PREDICTION.MODEL_VERSION: '1',
             KEYS.PREDICTION.PREDICTIONS: [
                 {KEYS.PREDICTION.ID: 1, KEYS.PREDICTION.PREDICTION: 10.0},
                 {KEYS.PREDICTION.ID: 2, KEYS.PREDICTION.PREDICTION: 11.0},
@@ -34,7 +35,6 @@ class TestFunctions(unittest.TestCase):
         }
         self.assertEqual(actual[KEYS.ERROR.ERROR], expected[KEYS.ERROR.ERROR])
         self.assertEqual(actual[KEYS.ERROR.MESSAGE], expected[KEYS.ERROR.MESSAGE])
-        print(actual[KEYS.ERROR.TRACEBACK])
         self.assertTrue(re.search(expected[KEYS.ERROR.TRACEBACK], actual[KEYS.ERROR.TRACEBACK]))
 
     def test__is_ready(self):

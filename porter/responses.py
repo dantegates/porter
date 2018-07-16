@@ -5,14 +5,18 @@ import flask
 from .constants import KEYS, APP
 
 
-def make_prediction_response(model_id, id_keys, predictions):
-    payload = _make_prediction_payload(model_id, id_keys, predictions)
+# NOTE: private functions make testing easier as they bypass `flask.jsonify`
+
+
+def make_prediction_response(model_name, model_version, id_keys, predictions):
+    payload = _make_prediction_payload(model_name, model_version, id_keys, predictions)
     return flask.jsonify(payload)
 
 
-def _make_prediction_payload(model_id, id_keys, predictions):
+def _make_prediction_payload(model_name, model_version, id_keys, predictions):
     return {
-        KEYS.PREDICTION.MODEL_ID: model_id,
+        KEYS.PREDICTION.MODEL_NAME: model_name,
+        KEYS.PREDICTION.MODEL_VERSION: model_version,
         KEYS.PREDICTION.PREDICTIONS: [
             {
                 KEYS.PREDICTION.ID: id,
