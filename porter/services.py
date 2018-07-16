@@ -106,7 +106,6 @@ class ServePrediction(StatefulRoute):
                 the user.
         """
         data = self.request_data()
-        print(data)
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
@@ -407,6 +406,10 @@ class ModelApp:
     def __init__(self):
         self.state = AppState()
         self.app = self._build_app()
+
+    def __call__(self, *args, **kwargs):
+        """Return a WSGI interface to the model app."""
+        return self.app(*args, **kwargs)
 
     def add_services(self, *service_configs):
         """Add services to the app from `*service_configs`.
