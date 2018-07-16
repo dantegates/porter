@@ -50,6 +50,26 @@ The basic workflow for building a model service is as follows
 
 See this [example script](./examples/example.py) for an (almost functional) example.
 
+# Running porter apps in production
+
+There are two ways to run porter apps. The first is calling the `ModelApp.run` method. This
+is just a wrapper to the underlying `flask` app which is good for development but not for
+production. A better way to run porter apps in production is through a WSGI server, such as
+`gunicorn`. To do so simply define an instance of `ModelApp` in your python script and then
+point gunicorn to it.
+
+For example, in your python script `app.py`
+
+```python
+model_app = ModelApp(...)
+```
+
+Then for production use, either in a shell script or on the command line
+
+```shell
+gunicorn app:model_app
+```
+
 # API
 A `porter` defines the following endpoints.
 
