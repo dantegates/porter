@@ -43,7 +43,7 @@ class PythonEncoder(json.JSONEncoder):
 
 
 class AppEncoder(NumpyEncoder, PythonEncoder):
-    """A JSON encoder that handles `numpy` and python datat types."""
+    """A JSON encoder that handles `numpy` and python data types."""
 
     def default(self, obj):
         try:

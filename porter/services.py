@@ -16,7 +16,7 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
-import json
+import warnings
 
 import flask
 import numpy as np
@@ -83,26 +83,19 @@ class ServePrediction(StatefulRoute):
             `False` an error is raised when nulls are found.
     """
 
-    def __new__(cls, *args, **kwargs):
-        # flask looks for the __name__ attribute of the routed callable,
-        # and each name of a routed object must be unique.
-        # Therefore we define a unique name here to meet flask's expectations.
-        instance = super().__new__(cls)
-        cls._instances += 1
-        instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
-        return instance
-
     def __init__(self, model, model_id, preprocessor, postprocessor, schema,
-                 allow_nulls):
+                 allow_nulls, allow_batch_predict):
         self.model = model
         self.model_id = model_id
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = schema
         self.allow_nulls = allow_nulls
+        self.allow_batch_predict = allow_batch_predict
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
+        self.type_message = "object or array" if allow_batch_predict else "object"
 
     def __call__(self):
         """Retrive POST request data from flask and return a response
@@ -112,7 +105,7 @@ class ServePrediction(StatefulRoute):
             object: A `flask` object representing the response to return to
                 the user.
         """
-        data = flask.request.get_json(force=True)
+        data = self.request_data()
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
@@ -165,6 +158,17 @@ class ServePrediction(StatefulRoute):
                 'request payload is missing the following fields: %s'
                 % missing)
 
+    def request_data(self):
+        data = flask.request.get_json(force=True)
+        if isinstance(data, dict):
+            data = [data]
+        elif isinstance(data, list):
+            if not self.allow_batch_predict:
+                raise ValueError('input must be a single object, not array')
+        else:
+            raise ValueError(f'input must be {self.type_message}')
+        return data
+
 
 def serve_error_message(error):
     """Return a response with JSON payload describing the most recent
@@ -180,6 +184,19 @@ def serve_root():
         'Send POST requests to /&lt model-name &gt/prediction/'
     )
     return message, 200
+
+
+class ServeABTest(StatefulRoute):
+    def __init__(self, routes, splits):
+        self.routes = routes
+        self.splits = splits
+
+    def __call__(self):
+        route = self.choose_route()
+        return route()
+
+    def choose_route(self):
+        return np.random.choice(self.routes, p=self.splits)
 
 
 class ServeAlive(StatefulRoute):
@@ -214,7 +231,7 @@ class ServeReady(StatefulRoute):
         return porter_responses.make_ready_response(self.app_state)
 
 
-class Schema:
+class PredictSchema:
     """
     A simple container that represents a model's schema.
 
@@ -251,12 +268,19 @@ class AppState(dict):
             (APP.STATE.SERVICES, {})
         ])
 
-    def update_service_status(self, name, status):
+    def update_service_endpoint(self, id, endpoint):
+        """Update the endpoint of a service."""
+        services = self[APP.STATE.SERVICES]
+        if services.get(id, None) is None:
+            services[id] = {}
+        services[id][APP.STATE.ENDPOINT] = endpoint
+
+    def update_service_status(self, id, status):
         """Update the status of a service."""
         services = self[APP.STATE.SERVICES]
-        if services.get(name, None) is None:
-            services[name] = {}
-        services[name][APP.STATE.STATUS] = status
+        if services.get(id, None) is None:
+            services[id] = {}
+        services[id][APP.STATE.STATUS] = status
 
 
 class BaseServiceConfig:
@@ -265,13 +289,18 @@ class BaseServiceConfig:
     an instance of `ModelApp`.
 
     Args:
-        name (str): The service name.
+        id (str): A unique ID for the service.
 
     Attributes:
-        name (str): The service name.
+        id (str): A unique ID for the service.
     """
-    def __init__(self, name):
-        self.name = name
+    _ids = set()
+
+    def __init__(self, id):
+        if id in self._ids:
+            raise ValueError(f'id={id} has already been used')
+        self._ids.add(id)
+        self.id = id
 
 
 class PredictionServiceConfig(BaseServiceConfig):
@@ -282,7 +311,7 @@ class PredictionServiceConfig(BaseServiceConfig):
     Args:
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
-        model_id (str): A unique identifier for the model. Returned to the
+        id (str): A unique identifier for the model. Returned to the
             user alongside the model predictions.
         endpoint (str): Name of the model endpoint. The final routed endpoint
             will become "/<endpoint>/prediction/".
@@ -301,14 +330,18 @@ class PredictionServiceConfig(BaseServiceConfig):
             used to validate the POST request if not `None`. Optional.            
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
+        allow_batch_predict (bool): Whether or not batch predictions are
+            supported or not. If `True` the API will accept an array of objects
+            to predict on. If `False` the API will only accept a single object
+            per request. Optional.
 
     Attributes:
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
-        model_id (str): A unique identifier for the model. Returned to the
+        id (str): A unique identifier for the model. Returned to the
             user alongside the model predictions.
-        endpoint (str): Name of the model endpoint. The final routed endpoint
-            will become "/<endpoint>/prediction/".
+        endpoint_basename (str): The final routed endpoint will become
+            "/<endpoint_basename>/prediction/".
         preprocessor (object or None): An object implementing the interface
             defined by `porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the POST
@@ -322,17 +355,37 @@ class PredictionServiceConfig(BaseServiceConfig):
         schema (object): An instance of `porter.services.Schema`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found. Optional.
+        allow_batch_predict (bool): Whether or not batch predictions are
+            supported or not. If `True` the API will accept an array of objects
+            to predict on. If `False` the API will only accept a single object
+            per request. Optional.
     """
-    def __init__(self, *, model, model_id, endpoint, preprocessor=None,
-                 postprocessor=None, input_features=None, allow_nulls=False):
+    def __init__(self, *, model, id, endpoint_basename=None,
+                 preprocessor=None, postprocessor=None, input_features=None,
+                 allow_nulls=False, allow_batch_predict=False):
         self.model = model
-        self.model_id = model_id
-        self.endpoint = endpoint
+        self.id = id
+        endpoint_basename = id if endpoint_basename is None else endpoint_basename
+        self.endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(endpoint=endpoint_basename)
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.schema = Schema(input_features=input_features)
+        self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
-        super().__init__(name=model_id)
+        self.allow_batch_predict = allow_batch_predict
+        super().__init__(id=id)
+ 
+
+class ABTestConfig(BaseServiceConfig):
+    def __init__(self, prediction_configs, splits, *, endpoint_basename, **kwargs):
+        warnings.warn('support for AB testing in porter is experimental and '
+                      'not fully tested')
+        assert len(prediction_configs) == len(splits), \
+            'prediction_configs and splits must have same length'
+        assert sum(splits) == 1, 'splits must sum to 1'
+        self.prediction_configs = prediction_configs
+        self.splits = splits
+        self.endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(endpoint=endpoint_basename)
+        super().__init__(**kwargs)
 
 
 class ModelApp:
@@ -353,6 +406,10 @@ class ModelApp:
     def __init__(self):
         self.state = AppState()
         self.app = self._build_app()
+
+    def __call__(self, *args, **kwargs):
+        """Return a WSGI interface to the model app."""
+        return self.app(*args, **kwargs)
 
     def add_services(self, *service_configs):
         """Add services to the app from `*service_configs`.
@@ -381,6 +438,8 @@ class ModelApp:
         """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
+        elif isinstance(service_config, ABTestConfig):
+            self.add_ab_test_service(service_config)
         else:
             raise ValueError('unkown service type')
         self.update_state(service_config)
@@ -395,20 +454,38 @@ class ModelApp:
         Returns:
             None
         """
-        prediction_endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(
-            endpoint=service_config.endpoint)
         serve_prediction = ServePrediction(
             model=service_config.model,
-            model_id=service_config.model_id,
+            model_id=service_config.id,
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,
-            allow_nulls=service_config.allow_nulls)
+            allow_nulls=service_config.allow_nulls,
+            allow_batch_predict=service_config.allow_batch_predict)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
-        self.app.route(prediction_endpoint, **route_kwargs)(serve_prediction)
+        self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
+
+    def add_ab_test_service(self, service_config):
+        routes = []
+        for predict_config in service_config.prediction_configs:
+            serve_prediction = ServePrediction(
+                model=predict_config.model,
+                model_id=predict_config.id,
+                preprocessor=predict_config.preprocessor,
+                postprocessor=predict_config.postprocessor,
+                schema=predict_config.schema,
+                allow_nulls=predict_config.allow_nulls,
+                allow_batch_predict=predict_config.allow_batch_predict)
+            routes.append(serve_prediction)
+        serve_ab_test = ServeABTest(routes, splits=service_config.splits)
+        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
+        self.app.route(service_config.endpoint, **route_kwargs)(serve_ab_test)
 
     def update_state(self, service_config):
-        self.state.update_service_status(name=service_config.name, status=APP.STATE.READY)
+        self.state.update_service_status(id=service_config.id,
+                                         status=APP.STATE.READY)
+        self.state.update_service_endpoint(id=service_config.id,
+                                           endpoint=service_config.endpoint)
 
     def run(self, *args, **kwargs):
         """

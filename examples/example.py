@@ -28,6 +28,9 @@ import os
 from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
+# Uncomment this and enter a directory with "preprocessor.pkl" and "model.h5"
+# file to make this example working.
+# 
 # model_directory = ''
 
 PREPROCESSOR_PATH = os.path.join(f'{model_directory}', 'preprocessor.pkl')
@@ -55,44 +58,48 @@ input_features = [
 # and model.
 preprocessor = WrappedTransformer.from_file(path=PREPROCESSOR_PATH)
 model = WrappedModel.from_file(path=MODEL_PATH)
+
 class Postprocessor(BaseProcessor):
     def process(self, X):
         # keras model returns an array with shape (n observations, 1)
         return X.reshape(-1)
-postprocessor = Postprocessor()
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
 service_config = PredictionServiceConfig(
-    model=model,                    # The value of model.predict() is
-                                    # returned to the client.
-                                    # Required.
-                                    #
-    endpoint='supa-dupa-model',     # Name of the model. This determines
-                                    # the route. E.g. send POST requests
-                                    # for this model to
-                                    #   host:port/supa-dupa-model/prediction/
-                                    # Required.
-                                    #
-    model_id='supa-dupa-model-v0',  # Unique identifier for the model. Returned
-                                    # to client in the prediction response.
-                                    # Required.
-                                    #
-    preprocessor=preprocessor,      # preprocessor.process() is
-                                    # called on the POST request data
-                                    # before predicting. Optional.
-                                    #
-    postprocessor=postprocessor,    # postprocessor.process() is
-                                    # called on the model's predictions before
-                                    # returning to user. Optional.
-                                    #
-    input_features=input_features,  # The input schema is used to validate
-                                    # the payload of the POST request.
-                                    # Optional.
-                                    #
-    allow_nulls=False               # Wether nulls are allowed in the POST
-                                    # request data. Optional and meaningless
-                                    # when validate_input=False.
+    model=model,                          # The value of model.predict() is
+                                          # returned to the client.
+                                          # Required.
+                                          #
+    endpoint_basename='supa-dupa-model',  # Name of the model. This determines
+                                          # the route. E.g. send POST requests
+                                          # for this model to
+                                          #   host:port/supa-dupa-model/prediction/
+                                          # Required.
+                                          #
+    id='supa-dupa-model-1.0.0',           # Unique identifier for the model. Returned
+                                          # to client in the prediction response.
+                                          # Required.
+                                          #
+    preprocessor=preprocessor,            # preprocessor.process() is
+                                          # called on the POST request data
+                                          # before predicting. Optional.
+                                          #
+    postprocessor=Postprocessor(),        # postprocessor.process() is
+                                          # called on the model's predictions before
+                                          # returning to user. Optional.
+                                          #
+    input_features=input_features,        # The input schema is used to validate
+                                          # the payload of the POST request.
+                                          # Optional.
+                                          #
+    allow_nulls=False,                    # Wether nulls are allowed in the POST
+                                          # request data. Optional and meaningless
+                                          # when validate_input=False.
+                                          #
+    allow_batch_predict=True              # Whether the API will accept an array of
+                                          # JSON objects to predict on or a single
+                                          # JSON object only. 
 )
 
 # The model can now be added as a service in the app.
@@ -100,7 +107,7 @@ model_app.add_service(service_config)
 
 
 if __name__ == '__main__':
-    # you can run this with `gunicorn app:model_app.app`, or
+    # you can run this with `gunicorn app:model_app`, or
     # simply execute this script with Python and send POST requests
     # to localhost:8000/supa-dupa-model/prediction/
     model_app.run(port=8000)
