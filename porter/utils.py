@@ -135,3 +135,26 @@ class JSONFormatter(logging.Formatter):
         if record.stack_info:
             fields.add('stack_info')
         return {field: getattr(record, field, None) for field in fields}
+
+
+def object_constants(obj):
+    return [(attr, val) for attr, val in vars(obj).items()
+            if not attr.startswith('_') and attr.isupper()]
+
+
+class Container(dict):
+    def __getattribute__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError(f'{self} has not attribute {attr}')
+
+
+class Endpoint:
+    def __init_subclass__(cls):
+        if not hasattr(cls, '_initialized'):
+            keys = getattr(cls, 'KEYS', None)
+            values = getattr(cls, 'VALUES', None)
+            cls.KEYS = Container([]) if keys is None else Container(object_constants(keys))
+            cls.VALUES = Container([]) if values is None else Container(object_constants(values))
+            cls._initialized = True

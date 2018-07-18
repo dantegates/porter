@@ -8,15 +8,8 @@ import unittest
 from unittest import mock
 
 import flask
-from porter.constants import KEYS
 from porter.datascience import BaseModel, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
-
-MODEL_NAME = KEYS.PREDICTION.MODEL_NAME
-MODEL_VERSION = KEYS.PREDICTION.MODEL_VERSION
-PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
-ID = KEYS.PREDICTION.ID
-PREDICTION = KEYS.PREDICTION.PREDICTION
 
 
 class TestAppPredictions(unittest.TestCase):
@@ -39,11 +32,11 @@ class TestAppPredictions(unittest.TestCase):
                 return X * -1
         input_features1 = ['feature1', 'feature2']
         post_data1 = [
-            {ID: 1, 'feature1': 2, 'feature2': 1},
-            {ID: 2, 'feature1': 2, 'feature2': 2},
-            {ID: 3, 'feature1': 2, 'feature2': 3},
-            {ID: 4, 'feature1': 2, 'feature2': 4},
-            {ID: 5, 'feature1': 2, 'feature2': 5},
+            {'id': 1, 'feature1': 2, 'feature2': 1},
+            {'id': 2, 'feature1': 2, 'feature2': 2},
+            {'id': 3, 'feature1': 2, 'feature2': 3},
+            {'id': 4, 'feature1': 2, 'feature2': 4},
+            {'id': 5, 'feature1': 2, 'feature2': 5},
         ]
 
         # define objects for model 2
@@ -56,11 +49,11 @@ class TestAppPredictions(unittest.TestCase):
                 return X['feature1'] + X['feature3']
         input_features2 = ['feature1']
         post_data2 = [
-            {ID: 1, 'feature1': 10},
-            {ID: 2, 'feature1': 10},
-            {ID: 3, 'feature1':  1},
-            {ID: 4, 'feature1':  3},
-            {ID: 5, 'feature1':  3},
+            {'id': 1, 'feature1': 10},
+            {'id': 2, 'feature1': 10},
+            {'id': 3, 'feature1':  1},
+            {'id': 4, 'feature1':  3},
+            {'id': 5, 'feature1':  3},
         ]
 
         # define objects for model 3
@@ -68,7 +61,7 @@ class TestAppPredictions(unittest.TestCase):
             def predict(self, X):
                 return X['feature1'] * -1
         input_features3 = ['feature1']
-        post_data3 = {ID: 1, 'feature1': 5}
+        post_data3 = {'id': 1, 'feature1': 5}
 
         # define configs and add services to app
         service_config1 = PredictionServiceConfig(
@@ -172,6 +165,7 @@ class TestAppHealthChecks(unittest.TestCase):
         cf.version = '1.0.0'
         cf.id = 'model1'
         cf.endpoint = '/model1/prediction'
+        cf.meta = {'foo': 1, 'bar': 2}
         self.model_app.add_service(cf)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
@@ -182,6 +176,7 @@ class TestAppHealthChecks(unittest.TestCase):
                     'name': 'model1',
                     'version': '1.0.0',
                     'endpoint': '/model1/prediction',
+                    'meta': {'foo': 1, 'bar': 2}
                 }
             }
         }
@@ -199,11 +194,13 @@ class TestAppHealthChecks(unittest.TestCase):
         cf1.version = '1.0.0'
         cf1.id = 'model1:1.0.0'
         cf1.endpoint = '/model1/prediction'
+        cf1.meta = {'foo': 1, 'bar': 2}
         cf2 = PredictionServiceConfig()
         cf2.name = 'model2'
         cf2.version = '0.0.0'
         cf2.id = 'model2:0.0.0'
         cf2.endpoint = '/model2/prediction'
+        cf2.meta = {'foo': 1}
         self.model_app.add_services(cf1, cf2)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
@@ -213,13 +210,15 @@ class TestAppHealthChecks(unittest.TestCase):
                     'status': 'READY',
                     'name': 'model1',
                     'version': '1.0.0',
-                    'endpoint': '/model1/prediction'
+                    'endpoint': '/model1/prediction',
+                    'meta': {'foo': 1, 'bar': 2},
                 },
                 'model2:0.0.0': {
                     'status': 'READY',
                     'name': 'model2',
                     'version': '0.0.0',
-                    'endpoint': '/model2/prediction'
+                    'endpoint': '/model2/prediction',
+                    'meta': {'foo': 1},
                 }
             }
         }

@@ -16,18 +16,18 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
-import warnings
+import json
 
 import flask
 import numpy as np
 import pandas as pd
 
+from . import config as cf
+from . import constants as cn
 from . import responses as porter_responses
-from .constants import APP, ENDPOINTS, KEYS
-from .utils import NumpyEncoder
 
 # alias for convenience
-_ID = KEYS.PREDICTION.ID
+_ID = cn.PREDICTION.KEYS.ID
 
 
 class StatefulRoute:
@@ -83,11 +83,12 @@ class ServePrediction(StatefulRoute):
             `False` an error is raised when nulls are found.
     """
 
-    def __init__(self, model, model_name, model_version, preprocessor,
+    def __init__(self, model, model_name, model_version, model_meta, preprocessor,
                  postprocessor, schema, allow_nulls, batch_prediction):
         self.model = model
         self.model_name = model_name
         self.model_version = model_version
+        self.model_meta = model_meta
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = schema
@@ -106,7 +107,7 @@ class ServePrediction(StatefulRoute):
             object: A `flask` object representing the response to return to
                 the user.
         """
-        data = self.request_data()
+        data = self.get_post_data()
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
@@ -119,7 +120,7 @@ class ServePrediction(StatefulRoute):
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
         response = porter_responses.make_prediction_response(
-            self.model_name, self.model_version, X[_ID], preds)
+            self.model_name, self.model_version, self.model_meta, X[_ID], preds)
         return response
 
     @staticmethod
@@ -160,7 +161,7 @@ class ServePrediction(StatefulRoute):
                 'request payload is missing the following fields: %s'
                 % missing)
 
-    def request_data(self):
+    def get_post_data(self):
         data = flask.request.get_json(force=True)
         if isinstance(data, dict):
             data = [data]
@@ -186,19 +187,6 @@ def serve_root():
         'Send POST requests to /&lt model-name &gt/prediction/'
     )
     return message, 200
-
-
-class ServeABTest(StatefulRoute):
-    def __init__(self, routes, splits):
-        self.routes = routes
-        self.splits = splits
-
-    def __call__(self):
-        route = self.choose_route()
-        return route()
-
-    def choose_route(self):
-        return np.random.choice(self.routes, p=self.splits)
 
 
 class ServeAlive(StatefulRoute):
@@ -270,16 +258,18 @@ class AppState(dict):
 
     def __init__(self):
         super().__init__()
-        self[APP.STATE.SERVICES] = {}
+        self[cn.HEALTH_CHECK.KEYS.SERVICES] = {}
 
-    def update_service_state(self, service_config, status):
-        services = self[APP.STATE.SERVICES]
-        if services.get(service_config.id, None) is None:
-            services[service_config.id] = {}
-        services[service_config.id][APP.STATE.NAME] = service_config.name
-        services[service_config.id][APP.STATE.VERSION] = service_config.version
-        services[service_config.id][APP.STATE.ENDPOINT] = service_config.endpoint
-        services[service_config.id][APP.STATE.STATUS] = status
+    def add_service(self, id, name, version, endpoint, meta, status):
+        if id in self[cn.HEALTH_CHECK.KEYS.SERVICES]:
+            raise ValueError(f'a service has already been added using id={id}')
+        self[cn.HEALTH_CHECK.KEYS.SERVICES][id] = {
+            cn.HEALTH_CHECK.KEYS.NAME: name,
+            cn.HEALTH_CHECK.KEYS.VERSION: version,
+            cn.HEALTH_CHECK.KEYS.ENDPOINT: endpoint,
+            cn.HEALTH_CHECK.KEYS.META: meta,
+            cn.HEALTH_CHECK.KEYS.STATUS: status,
+        }
 
 
 class BaseServiceConfig:
@@ -295,14 +285,48 @@ class BaseServiceConfig:
     """
     _ids = set()
 
-    def __init__(self, id, name, version, endpoint):
-        if id in self._ids:
-            raise ValueError(f'id={id} has already been used')
-        self._ids.add(id)
-        self.id = id
+    def __init__(self, *, name, version, meta=None):
         self.name = name
         self.version = version
-        self.endpoint = endpoint
+        self.meta = {} if meta is None else meta
+        self.check_meta(self.meta)
+
+        # Assign endpoint and ID last so they can be determined from other
+        # instance attributes.
+        self.id = self.define_id()
+        self.endpoint = self.define_endpoint()
+
+    def define_endpoint(self):
+        raise NotImplementedError
+
+    def define_id(self):
+        return f'{self.name}:{self.version}'
+
+    def check_meta(self, meta):
+        """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
+        cannot be converted to JSON properly.
+
+        Subclasses overriding this method should always use super() to call
+        this method on the superclass unless they have a good reason not to.
+        """
+        try:
+            _ = json.dumps(meta, cls=cf.json_encoder)
+        except TypeError:
+            raise ValueError('Could not jsonify meta data')
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        if value in self._ids:
+            raise ValueError(
+                f'The id={value} has already been used. '
+                'This likely means that you tried to instantiate a service '
+                'with parameters that were already used.')
+        self._ids.add(value)
+        self._id = value
 
 
 class PredictionServiceConfig(BaseServiceConfig):
@@ -362,37 +386,31 @@ class PredictionServiceConfig(BaseServiceConfig):
             objects to predict on. If `False` the API will only accept a
             single object per request. Optional.
     """
-    def __init__(self, *, model, name, version, preprocessor=None,
-                 postprocessor=None, input_features=None, allow_nulls=False,
-                 batch_prediction=False):
+
+    reserved_keys = cn.PREDICTION.KEYS
+
+    def __init__(self, *, model, preprocessor=None, postprocessor=None,
+                 input_features=None, allow_nulls=False,
+                 batch_prediction=False, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
-        self.batch_prediction = batch_prediction
+        self.batch_prediction = batch_prediction        
+        super().__init__(**kwargs)
 
-        id = f'{name}:{version}'
-        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
-        super().__init__(id=id, name=name, endpoint=endpoint, version=version)
+    def define_endpoint(self):
+        return cn.PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
+
+    def check_meta(self, meta):
+        super().check_meta(meta)
+        invalid_keys = [key for key in meta if key in self.reserved_keys]
+        if invalid_keys:
+            raise ValueError(
+                'the following keys are reserved for prediction response payloads '
+                f'and cannot be used in `meta`: {invalid_keys}')
  
-
-class ABTestConfig(BaseServiceConfig):
-    def __init__(self, prediction_configs, splits, *, name, version):
-        warnings.warn('support for AB testing in porter is experimental and '
-                      'not fully tested')
-        assert len(prediction_configs) == len(splits), \
-            'prediction_configs and splits must have same length'
-        assert sum(splits) == 1, 'splits must sum to 1'
-        self.prediction_configs = prediction_configs
-        self.splits = splits
-        self.name = name
-        self.version = version
-
-        id = f'{name}:{version}'
-        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
-        super().__init__(id=id, name=name, endpoint=endpoint, version=version)
-
 
 class ModelApp:
     """
@@ -444,11 +462,11 @@ class ModelApp:
         """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
-        elif isinstance(service_config, ABTestConfig):
-            self.add_ab_test_service(service_config)
         else:
             raise ValueError('unkown service type')
-        self.state.update_service_state(service_config, APP.STATE.READY)
+        self.state.add_service(id=service_config.id, name=service_config.name,
+            version=service_config.version, endpoint=service_config.endpoint,
+            meta=service_config.meta, status=cn.HEALTH_CHECK.VALUES.STATUS_IS_READY)
 
     def add_prediction_service(self, service_config):
         """
@@ -464,6 +482,7 @@ class ModelApp:
             model=service_config.model,
             model_name=service_config.name,
             model_version=service_config.version,
+            model_meta=service_config.meta,
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,
@@ -471,23 +490,6 @@ class ModelApp:
             batch_prediction=service_config.batch_prediction)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
-
-    def add_ab_test_service(self, service_config):
-        routes = []
-        for predict_config in service_config.prediction_configs:
-            serve_prediction = ServePrediction(
-                model=predict_config.model,
-                model_name=predict_config.name,
-                model_version=predict_config.version,
-                preprocessor=predict_config.preprocessor,
-                postprocessor=predict_config.postprocessor,
-                schema=predict_config.schema,
-                allow_nulls=predict_config.allow_nulls,
-                batch_prediction=predict_config.batch_prediction)
-            routes.append(serve_prediction)
-        serve_ab_test = ServeABTest(routes, splits=service_config.splits)
-        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
-        self.app.route(service_config.endpoint, **route_kwargs)(serve_ab_test)
 
     def run(self, *args, **kwargs):
         """
@@ -510,13 +512,13 @@ class ModelApp:
         """
         app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.
-        app.json_encoder = NumpyEncoder
+        app.json_encoder = cf.json_encoder
         # register error handlers
         for error in self._error_codes:
             app.register_error_handler(error, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route(ENDPOINTS.LIVENESS, methods=['GET'])(ServeAlive(self.state))
-        app.route(ENDPOINTS.READINESS, methods=['GET'])(ServeReady(self.state))
+        app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self.state))
+        app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self.state))
         return app

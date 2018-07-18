@@ -9,13 +9,10 @@ import numpy as np
 import pandas as pd
 import sklearn.preprocessing
 
-from porter.constants import KEYS
-from porter.services import NumpyEncoder
 from sklearn.externals import joblib
 
-ID = KEYS.PREDICTION.ID
-PREDICTIONS = KEYS.PREDICTION.PREDICTIONS
-PREDICTION = KEYS.PREDICTION.PREDICTION
+from porter.utils import NumpyEncoder
+
 
 HERE = os.path.dirname(__file__)
 
@@ -35,16 +32,16 @@ class TestExample(unittest.TestCase):
     def setUpClass(cls):
         cls.X = pd.DataFrame(
             data=np.random.randint(0, 100, size=(10, 4)),
-            columns=[ID] + ['feature1', 'feature2', 'column3'])
+            columns=['id', 'feature1', 'feature2', 'column3'])
         cls.y = np.random.randint(1, 10, size=10)   
-        cls.preprocessor = sklearn.preprocessing.StandardScaler().fit(cls.X.drop(ID, axis=1))
+        cls.preprocessor = sklearn.preprocessing.StandardScaler().fit(cls.X.drop('id', axis=1))
         cls.model = keras.models.Sequential([
             keras.layers.Dense(20, input_shape=(3,)),
             keras.layers.Dense(1)
         ])
         cls.model.compile(loss='mean_squared_error', optimizer='sgd')
-        cls.model.fit(cls.preprocessor.transform(cls.X.drop(ID, axis=1)), cls.y, verbose=0)
-        cls.predictions = cls.model.predict(cls.preprocessor.transform(cls.X.drop(ID, axis=1))).reshape(-1)
+        cls.model.fit(cls.preprocessor.transform(cls.X.drop('id', axis=1)), cls.y, verbose=0)
+        cls.predictions = cls.model.predict(cls.preprocessor.transform(cls.X.drop('id', axis=1))).reshape(-1)
 
     def test(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -59,21 +56,14 @@ class TestExample(unittest.TestCase):
         expected_model_name = 'supa-dupa-model'
         expected_model_version = '1.0.0'
         expected_predictions = {
-            id_: pred for id_, pred in zip(self.X[ID], self.predictions)
+            id_: pred for id_, pred in zip(self.X['id'], self.predictions)
         }
         self.assertEqual(actual_response_data['model_name'], expected_model_name)
         self.assertEqual(actual_response_data['model_version'], expected_model_version)
-        for rec in actual_response_data[PREDICTIONS]:
-            actual_id, actual_pred = rec[ID], rec[PREDICTION]
+        for rec in actual_response_data['predictions']:
+            actual_id, actual_pred = rec['id'], rec['prediction']
             expected_pred = expected_predictions[actual_id]
             self.assertTrue(np.allclose(actual_pred, expected_pred))
-
-
-@mock.patch('porter.services.BaseServiceConfig._ids', set())
-class TestExampleABTest(unittest.TestCase):
-    def test(self):
-        # just testing that the example can be executed
-        namespace = load_example(os.path.join(HERE, '../examples/ab_test.py'))
 
 
 @mock.patch('porter.services.BaseServiceConfig._ids', set())

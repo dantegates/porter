@@ -4,10 +4,9 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-
-from porter.constants import KEYS
-from porter.services import (ModelApp, NumpyEncoder, ServePrediction,
-                             serve_error_message, StatefulRoute)
+from porter.services import (BaseServiceConfig, ModelApp,
+                             PredictionServiceConfig, ServePrediction,
+                             StatefulRoute, serve_error_message)
 
 
 class TestFuntionsUnit(unittest.TestCase):
@@ -49,11 +48,11 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('porter.responses.flask')
     def test_serve_success(self, mock_responses_flask, mock_flask_request):
         mock_flask_request.get_json.return_value = [
-            {KEYS.PREDICTION.ID: 1, 'feature1': 10, 'feature2': 0},
-            {KEYS.PREDICTION.ID: 2, 'feature1': 11, 'feature2': 1},
-            {KEYS.PREDICTION.ID: 3, 'feature1': 12, 'feature2': 2},
-            {KEYS.PREDICTION.ID: 4, 'feature1': 13, 'feature2': 3},
-            {KEYS.PREDICTION.ID: 5, 'feature1': 14, 'feature2': 3},
+            {'id': 1, 'feature1': 10, 'feature2': 0},
+            {'id': 2, 'feature1': 11, 'feature2': 1},
+            {'id': 3, 'feature1': 12, 'feature2': 2},
+            {'id': 4, 'feature1': 13, 'feature2': 3},
+            {'id': 5, 'feature1': 14, 'feature2': 3},
         ]
         mock_responses_flask.jsonify = lambda payload:payload
         mock_model = mock.Mock()
@@ -78,6 +77,7 @@ class TestServePrediction(unittest.TestCase):
             model=mock_model,
             model_name=test_model_name,
             model_version=test_model_version,
+            model_meta={1: '2', '3': 4},
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             schema=schema,
@@ -88,6 +88,7 @@ class TestServePrediction(unittest.TestCase):
         expected = {
             'model_name': test_model_name,
             'model_version': test_model_version,
+            'meta': {1: '2', '3': 4},
             'predictions': [
                 {'id': 1, 'prediction': 20},
                 {'id': 2, 'prediction': 26},
@@ -96,16 +97,16 @@ class TestServePrediction(unittest.TestCase):
                 {'id': 5, 'prediction': 42},
             ]
         }
-        self.assertEqual(actual[KEYS.PREDICTION.MODEL_NAME], expected[KEYS.PREDICTION.MODEL_NAME])
-        self.assertEqual(actual[KEYS.PREDICTION.MODEL_VERSION], expected[KEYS.PREDICTION.MODEL_VERSION])
-        self.assertEqual(sorted(actual[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]),
-                         sorted(expected[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]))
+        self.assertEqual(actual['model_name'], expected['model_name'])
+        self.assertEqual(actual['model_version'], expected['model_version'])
+        self.assertEqual(sorted(actual['predictions'], key=lambda x: x['id']),
+                         sorted(expected['predictions'], key=lambda x: x['id']))
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
         model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
+        mock_flask_request.get_json.return_value = {'id': []}
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
         mock_preprocessor.process.return_value = {}
@@ -116,6 +117,7 @@ class TestServePrediction(unittest.TestCase):
             model=model,
             model_name=model_name,
             model_version=model_version,
+            model_meta={},
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
@@ -132,12 +134,13 @@ class TestServePrediction(unittest.TestCase):
         # make sure it doesn't break when processors are None
         model = model_name = model_version = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
-        mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
+        mock_flask_request.get_json.return_value = {'id': []}
         model.predict.return_value = []
         serve_prediction = ServePrediction(
             model=model,
             model_name=model_name,
             model_version=model_version,
+            model_meta={},
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=None,
@@ -151,41 +154,41 @@ class TestServePrediction(unittest.TestCase):
         # no error should be raised
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
-            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
-        ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            columns=['id', 'one', 'two', 'three'])
+        ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaises(ValueError):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id_column(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*id'):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_input_columns(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
-            columns=[KEYS.PREDICTION.ID, 'missing', 'missing', 'three'])
+            columns=['id', 'missing', 'missing', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*one.*two'):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_nulls(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
-            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            columns=['id', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'null.*two.*three'):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_ignore_nulls_pass(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
-            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            columns=['id', 'one', 'two', 'three'])
         # no error shoudl be raised
         ServePrediction.check_request(X, ['one', 'two', 'three'], True)
 
@@ -197,34 +200,6 @@ class TestServePrediction(unittest.TestCase):
         mock_X.isnull.assert_not_called()
 
 
-
-class TestNumpyEncoder(unittest.TestCase):
-    def test_default(self):
-        encoder = NumpyEncoder()
-        actual_type = type(encoder.default(np.int32(1)))
-        expected_type = int
-        self.assertIs(actual_type, expected_type)
-
-        actual_type = type(encoder.default(np.float32(1)))
-        expected_type = float
-        self.assertIs(actual_type, expected_type)
-
-        actual_type = type(encoder.default(np.array([[1]])))
-        expected_type = list
-        self.assertIs(actual_type, expected_type)
-
-        with self.assertRaises(TypeError):
-            actual_type = type(encoder.default(1))
-            expected_type = list
-            self.assertIs(actual_type, expected_type)
-
-    def test_with_json_dumps(self):
-        x = np.array([[np.float32(4.0)], [np.int32(0)]])
-        actual = json.dumps(x, cls=NumpyEncoder)
-        expected = '[[4.0], [0.0]]'
-        self.assertEqual(actual, expected)
-
-
 class TestModelApp(unittest.TestCase):
     @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.ModelApp.add_service')
@@ -234,6 +209,40 @@ class TestModelApp(unittest.TestCase):
         model_app.add_services(configs[0], configs[1], configs[2])
         expected_calls = [mock.call(obj) for obj in configs]
         mock_add_service.assert_has_calls(expected_calls)
+
+
+class TestBaseServiceConfig(unittest.TestCase):
+    @mock.patch('porter.services.BaseServiceConfig.define_endpoint')
+    def test_constructor(self, mock_define_endpoint):
+        mock_define_endpoint.return_value = '/an-endpoint'
+        with self.assertRaisesRegexp(ValueError, 'Could not jsonify meta data'):
+            BaseServiceConfig(name='foo', version='bar', meta=object())
+        service_config = BaseServiceConfig(name='foo', version='bar', meta=None)
+        self.assertEqual(service_config.endpoint, '/an-endpoint')
+        # make sure this gets set -- shouldn't raise AttributeError
+        service_config.id
+        # make sure that creating a config with same name and version raises
+        # error
+        with self.assertRaisesRegexp(ValueError, '.*likely means that you tried to instantiate a service.*'):
+            service_config = BaseServiceConfig(name='foo', version='bar', meta=None)
+
+
+class TestPredictionServiceConfig(unittest.TestCase):
+    @mock.patch('porter.services.PredictionServiceConfig.reserved_keys', [])
+    @mock.patch('porter.services.BaseServiceConfig._ids', set())
+    def test_constructor(self):
+        service_config = PredictionServiceConfig(
+            model=None, name='foo', version='bar', meta={1: '2', '3': 4})
+
+    @mock.patch('porter.services.PredictionServiceConfig.reserved_keys', [1, 2])
+    @mock.patch('porter.services.BaseServiceConfig._ids', set())
+    def test_constructor_fail(self):
+        with self.assertRaisesRegexp(ValueError, 'Could not jsonify meta data'):
+            service_config = PredictionServiceConfig(
+                model=None, name='foo', version='bar', meta=object())
+        with self.assertRaisesRegexp(ValueError, '.*keys are reserved for prediction.*'):
+            service_config = PredictionServiceConfig(
+                model=None, name='foo', version='bar', meta={1: '2', '3': 4})
 
 
 if __name__ == '__main__':
