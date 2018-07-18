@@ -12,14 +12,14 @@ _IS_READY = cn.HEALTH_CHECK.VALUES.STATUS_IS_READY
 # NOTE: private functions make testing easier as they bypass `flask.jsonify`
 
 
-def make_prediction_response(model_name, model_version, id_keys, predictions):
-    payload = _make_prediction_payload(model_name, model_version, id_keys, predictions)
+def make_prediction_response(model_name, model_version, model_meta, id_keys, predictions):
+    payload = _make_prediction_payload(model_name, model_version, model_meta,
+                                       id_keys, predictions)
     return flask.jsonify(payload)
 
 
-def _make_prediction_payload(model_name, model_version, id_keys, predictions):
-
-    return {
+def _make_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+    payload = {
         cn.PREDICTION.KEYS.MODEL_NAME: model_name,
         cn.PREDICTION.KEYS.MODEL_VERSION: model_version,
         cn.PREDICTION.KEYS.PREDICTIONS: [
@@ -29,6 +29,8 @@ def _make_prediction_payload(model_name, model_version, id_keys, predictions):
             }
             for id, p in zip(id_keys, predictions)]
     }
+    payload.update(model_meta)
+    return payload
 
 
 def make_error_response(error):

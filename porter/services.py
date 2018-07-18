@@ -16,6 +16,8 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
+import json
+
 import flask
 import numpy as np
 import pandas as pd
@@ -81,11 +83,12 @@ class ServePrediction(StatefulRoute):
             `False` an error is raised when nulls are found.
     """
 
-    def __init__(self, model, model_name, model_version, preprocessor,
+    def __init__(self, model, model_name, model_version, model_meta, preprocessor,
                  postprocessor, schema, allow_nulls, batch_prediction):
         self.model = model
         self.model_name = model_name
         self.model_version = model_version
+        self.model_meta = model_meta
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = schema
@@ -117,7 +120,7 @@ class ServePrediction(StatefulRoute):
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
         response = porter_responses.make_prediction_response(
-            self.model_name, self.model_version, X[_ID], preds)
+            self.model_name, self.model_version, self.model_meta, X[_ID], preds)
         return response
 
     @staticmethod
@@ -282,10 +285,11 @@ class BaseServiceConfig:
     """
     _ids = set()
 
-    def __init__(self, *, name, version, additional_meta=None):
+    def __init__(self, *, name, version, meta=None):
         self.name = name
         self.version = version
-        self.meta = {} if additional_meta is None else additional_meta
+        self.meta = {} if meta is None else meta
+        self.check_meta(self.meta)
 
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes.
@@ -298,12 +302,17 @@ class BaseServiceConfig:
     def define_id(self):
         return f'{self.name}:{self.version}'
 
-    def check_additional_meta(self, meta):
-        """Raise `ValueError` if `meta` contains invalid values."""
+    def check_meta(self, meta):
+        """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
+        cannot be converted to JSON properly.
+
+        Subclasses overriding this method should always use super() to call
+        this method on the superclass unless they have a good reason not to.
+        """
         try:
             _ = json.dumps(meta, cls=cf.json_encoder)
-        except Exception:
-            raise ValueError('Could not jsonify data')
+        except TypeError:
+            raise ValueError('Could not jsonify meta data')
 
     @property
     def id(self):
@@ -312,7 +321,10 @@ class BaseServiceConfig:
     @id.setter
     def id(self, value):
         if value in self._ids:
-            raise ValueError(f'id={value} has already been used')
+            raise ValueError(
+                f'The id={value} has already been used. '
+                'This likely means that you tried to instantiate a service '
+                'with parameters that were already used.')
         self._ids.add(value)
         self._id = value
 
@@ -391,8 +403,13 @@ class PredictionServiceConfig(BaseServiceConfig):
     def define_endpoint(self):
         return cn.PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
 
-    def check_additional_meta(self, meta):
-        assert any(key in self.reserved_keys for key in meta) is False
+    def check_meta(self, meta):
+        super().check_meta(meta)
+        invalid_keys = [key for key in meta if key in self.reserved_keys]
+        if invalid_keys:
+            raise ValueError(
+                'the following keys are reserved for prediction response payloads '
+                f'and cannot be used in `meta`: {invalid_keys}')
  
 
 class ModelApp:
@@ -465,6 +482,7 @@ class ModelApp:
             model=service_config.model,
             model_name=service_config.name,
             model_version=service_config.version,
+            model_meta=service_config.meta,
             preprocessor=service_config.preprocessor,
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,

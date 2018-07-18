@@ -22,7 +22,8 @@ service_config_2 = PredictionServiceConfig(
 service_config_3 = PredictionServiceConfig(
     model=None,
     name='yet-another-yet-another-model',
-    version='1.0.0-alpha'
+    version='1.0.0-alpha',
+    meta={'arbitrary details': 'about the model'}
 )
 
 model_app = ModelApp()
@@ -35,8 +36,7 @@ def get(url):
 
 
 def run_app(model_app):
-    t = threading.Thread(target=model_app.run)
-    t.daemon = True
+    t = threading.Thread(target=model_app.run, daemon=True)
     t.start()
 
 

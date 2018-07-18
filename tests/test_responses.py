@@ -6,10 +6,12 @@ from porter.responses import _make_error_payload, _make_prediction_payload, _is_
 
 class TestFunctions(unittest.TestCase):
     def test__make_prediction_payload(self):
-        actual = _make_prediction_payload('a-model', '1', [1, 2, 3], [10.0, 11.0, 12.0])
+        actual = _make_prediction_payload('a-model', '1', {1: '2', '3': 4}, [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'model_name': 'a-model',
             'model_version': '1',
+            1: '2',
+            '3': 4,
             'predictions': [
                 {'id': 1, 'prediction': 10.0},
                 {'id': 2, 'prediction': 11.0},

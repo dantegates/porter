@@ -4,10 +4,9 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-
-from porter import constants as cn
-from porter.services import (ModelApp, ServePrediction,
-                             serve_error_message, StatefulRoute)
+from porter.services import (BaseServiceConfig, ModelApp,
+                             PredictionServiceConfig, ServePrediction,
+                             StatefulRoute, serve_error_message)
 
 
 class TestFuntionsUnit(unittest.TestCase):
@@ -49,11 +48,11 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('porter.responses.flask')
     def test_serve_success(self, mock_responses_flask, mock_flask_request):
         mock_flask_request.get_json.return_value = [
-            {cn.PREDICTION.KEYS.ID: 1, 'feature1': 10, 'feature2': 0},
-            {cn.PREDICTION.KEYS.ID: 2, 'feature1': 11, 'feature2': 1},
-            {cn.PREDICTION.KEYS.ID: 3, 'feature1': 12, 'feature2': 2},
-            {cn.PREDICTION.KEYS.ID: 4, 'feature1': 13, 'feature2': 3},
-            {cn.PREDICTION.KEYS.ID: 5, 'feature1': 14, 'feature2': 3},
+            {'id': 1, 'feature1': 10, 'feature2': 0},
+            {'id': 2, 'feature1': 11, 'feature2': 1},
+            {'id': 3, 'feature1': 12, 'feature2': 2},
+            {'id': 4, 'feature1': 13, 'feature2': 3},
+            {'id': 5, 'feature1': 14, 'feature2': 3},
         ]
         mock_responses_flask.jsonify = lambda payload:payload
         mock_model = mock.Mock()
@@ -78,6 +77,7 @@ class TestServePrediction(unittest.TestCase):
             model=mock_model,
             model_name=test_model_name,
             model_version=test_model_version,
+            model_meta={1: '2', '3': 4},
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             schema=schema,
@@ -88,6 +88,7 @@ class TestServePrediction(unittest.TestCase):
         expected = {
             'model_name': test_model_name,
             'model_version': test_model_version,
+            'meta': {1: '2', '3': 4},
             'predictions': [
                 {'id': 1, 'prediction': 20},
                 {'id': 2, 'prediction': 26},
@@ -116,6 +117,7 @@ class TestServePrediction(unittest.TestCase):
             model=model,
             model_name=model_name,
             model_version=model_version,
+            model_meta={},
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
@@ -138,6 +140,7 @@ class TestServePrediction(unittest.TestCase):
             model=model,
             model_name=model_name,
             model_version=model_version,
+            model_meta={},
             schema=mock_schema,
             allow_nulls=allow_nulls,
             preprocessor=None,
@@ -206,6 +209,40 @@ class TestModelApp(unittest.TestCase):
         model_app.add_services(configs[0], configs[1], configs[2])
         expected_calls = [mock.call(obj) for obj in configs]
         mock_add_service.assert_has_calls(expected_calls)
+
+
+class TestBaseServiceConfig(unittest.TestCase):
+    @mock.patch('porter.services.BaseServiceConfig.define_endpoint')
+    def test_constructor(self, mock_define_endpoint):
+        mock_define_endpoint.return_value = '/an-endpoint'
+        with self.assertRaisesRegexp(ValueError, 'Could not jsonify meta data'):
+            BaseServiceConfig(name='foo', version='bar', meta=object())
+        service_config = BaseServiceConfig(name='foo', version='bar', meta=None)
+        self.assertEqual(service_config.endpoint, '/an-endpoint')
+        # make sure this gets set -- shouldn't raise AttributeError
+        service_config.id
+        # make sure that creating a config with same name and version raises
+        # error
+        with self.assertRaisesRegexp(ValueError, '.*likely means that you tried to instantiate a service.*'):
+            service_config = BaseServiceConfig(name='foo', version='bar', meta=None)
+
+
+class TestPredictionServiceConfig(unittest.TestCase):
+    @mock.patch('porter.services.PredictionServiceConfig.reserved_keys', [])
+    @mock.patch('porter.services.BaseServiceConfig._ids', set())
+    def test_constructor(self):
+        service_config = PredictionServiceConfig(
+            model=None, name='foo', version='bar', meta={1: '2', '3': 4})
+
+    @mock.patch('porter.services.PredictionServiceConfig.reserved_keys', [1, 2])
+    @mock.patch('porter.services.BaseServiceConfig._ids', set())
+    def test_constructor_fail(self):
+        with self.assertRaisesRegexp(ValueError, 'Could not jsonify meta data'):
+            service_config = PredictionServiceConfig(
+                model=None, name='foo', version='bar', meta=object())
+        with self.assertRaisesRegexp(ValueError, '.*keys are reserved for prediction.*'):
+            service_config = PredictionServiceConfig(
+                model=None, name='foo', version='bar', meta={1: '2', '3': 4})
 
 
 if __name__ == '__main__':
