@@ -20,12 +20,12 @@ import flask
 import numpy as np
 import pandas as pd
 
+from . import config as cf
+from . import constants as cn
 from . import responses as porter_responses
-from .constants import APP, ENDPOINTS, KEYS
-from .utils import NumpyEncoder
 
 # alias for convenience
-_ID = KEYS.PREDICTION.ID
+_ID = cn.PREDICTION.KEYS.ID
 
 
 class StatefulRoute:
@@ -255,17 +255,17 @@ class AppState(dict):
 
     def __init__(self):
         super().__init__()
-        self[APP.STATE.SERVICES] = {}
+        self[cn.HEALTH_CHECK.KEYS.SERVICES] = {}
 
     def add_service(self, id, name, version, endpoint, meta, status):
-        if id in self[APP.STATE.SERVICES]:
+        if id in self[cn.HEALTH_CHECK.KEYS.SERVICES]:
             raise ValueError(f'a service has already been added using id={id}')
-        self[APP.STATE.SERVICES][id] = {
-            APP.STATE.NAME: name,
-            APP.STATE.VERSION: version,
-            APP.STATE.ENDPOINT: endpoint,
-            APP.STATE.META: meta,
-            APP.STATE.STATUS: status,
+        self[cn.HEALTH_CHECK.KEYS.SERVICES][id] = {
+            cn.HEALTH_CHECK.KEYS.NAME: name,
+            cn.HEALTH_CHECK.KEYS.VERSION: version,
+            cn.HEALTH_CHECK.KEYS.ENDPOINT: endpoint,
+            cn.HEALTH_CHECK.KEYS.META: meta,
+            cn.HEALTH_CHECK.KEYS.STATUS: status,
         }
 
 
@@ -298,9 +298,12 @@ class BaseServiceConfig:
     def define_id(self):
         return f'{self.name}:{self.version}'
 
-    @staticmethod
-    def _check_additional_meta(meta):
-        pass
+    def check_additional_meta(self, meta):
+        """Raise `ValueError` if `meta` contains invalid values."""
+        try:
+            _ = json.dumps(meta, cls=cf.json_encoder)
+        except Exception:
+            raise ValueError('Could not jsonify data')
 
     @property
     def id(self):
@@ -371,6 +374,9 @@ class PredictionServiceConfig(BaseServiceConfig):
             objects to predict on. If `False` the API will only accept a
             single object per request. Optional.
     """
+
+    reserved_keys = cn.PREDICTION.KEYS
+
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False,
                  batch_prediction=False, **kwargs):
@@ -383,7 +389,10 @@ class PredictionServiceConfig(BaseServiceConfig):
         super().__init__(**kwargs)
 
     def define_endpoint(self):
-        return ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=self.name)
+        return cn.PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
+
+    def check_additional_meta(self, meta):
+        assert any(key in self.reserved_keys for key in meta) is False
  
 
 class ModelApp:
@@ -440,7 +449,7 @@ class ModelApp:
             raise ValueError('unkown service type')
         self.state.add_service(id=service_config.id, name=service_config.name,
             version=service_config.version, endpoint=service_config.endpoint,
-            meta=service_config.meta, status=APP.STATE.READY)
+            meta=service_config.meta, status=cn.HEALTH_CHECK.VALUES.STATUS_IS_READY)
 
     def add_prediction_service(self, service_config):
         """
@@ -485,13 +494,13 @@ class ModelApp:
         """
         app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.
-        app.json_encoder = NumpyEncoder
+        app.json_encoder = cf.json_encoder
         # register error handlers
         for error in self._error_codes:
             app.register_error_handler(error, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route(ENDPOINTS.LIVENESS, methods=['GET'])(ServeAlive(self.state))
-        app.route(ENDPOINTS.READINESS, methods=['GET'])(ServeReady(self.state))
+        app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self.state))
+        app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self.state))
         return app

@@ -5,8 +5,8 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 
-from porter.constants import KEYS
-from porter.services import (ModelApp, NumpyEncoder, ServePrediction,
+from porter import constants as cn
+from porter.services import (ModelApp, ServePrediction,
                              serve_error_message, StatefulRoute)
 
 
@@ -49,11 +49,11 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('porter.responses.flask')
     def test_serve_success(self, mock_responses_flask, mock_flask_request):
         mock_flask_request.get_json.return_value = [
-            {KEYS.PREDICTION.ID: 1, 'feature1': 10, 'feature2': 0},
-            {KEYS.PREDICTION.ID: 2, 'feature1': 11, 'feature2': 1},
-            {KEYS.PREDICTION.ID: 3, 'feature1': 12, 'feature2': 2},
-            {KEYS.PREDICTION.ID: 4, 'feature1': 13, 'feature2': 3},
-            {KEYS.PREDICTION.ID: 5, 'feature1': 14, 'feature2': 3},
+            {cn.PREDICTION.KEYS.ID: 1, 'feature1': 10, 'feature2': 0},
+            {cn.PREDICTION.KEYS.ID: 2, 'feature1': 11, 'feature2': 1},
+            {cn.PREDICTION.KEYS.ID: 3, 'feature1': 12, 'feature2': 2},
+            {cn.PREDICTION.KEYS.ID: 4, 'feature1': 13, 'feature2': 3},
+            {cn.PREDICTION.KEYS.ID: 5, 'feature1': 14, 'feature2': 3},
         ]
         mock_responses_flask.jsonify = lambda payload:payload
         mock_model = mock.Mock()
@@ -96,16 +96,16 @@ class TestServePrediction(unittest.TestCase):
                 {'id': 5, 'prediction': 42},
             ]
         }
-        self.assertEqual(actual[KEYS.PREDICTION.MODEL_NAME], expected[KEYS.PREDICTION.MODEL_NAME])
-        self.assertEqual(actual[KEYS.PREDICTION.MODEL_VERSION], expected[KEYS.PREDICTION.MODEL_VERSION])
-        self.assertEqual(sorted(actual[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]),
-                         sorted(expected[KEYS.PREDICTION.PREDICTIONS], key=lambda x: x[KEYS.PREDICTION.ID]))
+        self.assertEqual(actual['model_name'], expected['model_name'])
+        self.assertEqual(actual['model_version'], expected['model_version'])
+        self.assertEqual(sorted(actual['predictions'], key=lambda x: x['id']),
+                         sorted(expected['predictions'], key=lambda x: x['id']))
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
         model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
+        mock_flask_request.get_json.return_value = {'id': []}
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
         mock_preprocessor.process.return_value = {}
@@ -132,7 +132,7 @@ class TestServePrediction(unittest.TestCase):
         # make sure it doesn't break when processors are None
         model = model_name = model_version = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
-        mock_flask_request.get_json.return_value = {KEYS.PREDICTION.ID: []}
+        mock_flask_request.get_json.return_value = {'id': []}
         model.predict.return_value = []
         serve_prediction = ServePrediction(
             model=model,
@@ -151,41 +151,41 @@ class TestServePrediction(unittest.TestCase):
         # no error should be raised
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
-            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
-        ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            columns=['id', 'one', 'two', 'three'])
+        ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaises(ValueError):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id_column(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*id'):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_input_columns(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
-            columns=[KEYS.PREDICTION.ID, 'missing', 'missing', 'three'])
+            columns=['id', 'missing', 'missing', 'three'])
         with self.assertRaisesRegexp(ValueError, 'missing.*one.*two'):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_nulls(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
-            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            columns=['id', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(ValueError, 'null.*two.*three'):
-            ServePrediction.check_request(X, [KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_ignore_nulls_pass(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
-            columns=[KEYS.PREDICTION.ID, 'one', 'two', 'three'])
+            columns=['id', 'one', 'two', 'three'])
         # no error shoudl be raised
         ServePrediction.check_request(X, ['one', 'two', 'three'], True)
 
@@ -195,34 +195,6 @@ class TestServePrediction(unittest.TestCase):
         # no error shoudl be raised
         ServePrediction.check_request(mock_X, ['one', 'two', 'three'], True)
         mock_X.isnull.assert_not_called()
-
-
-
-class TestNumpyEncoder(unittest.TestCase):
-    def test_default(self):
-        encoder = NumpyEncoder()
-        actual_type = type(encoder.default(np.int32(1)))
-        expected_type = int
-        self.assertIs(actual_type, expected_type)
-
-        actual_type = type(encoder.default(np.float32(1)))
-        expected_type = float
-        self.assertIs(actual_type, expected_type)
-
-        actual_type = type(encoder.default(np.array([[1]])))
-        expected_type = list
-        self.assertIs(actual_type, expected_type)
-
-        with self.assertRaises(TypeError):
-            actual_type = type(encoder.default(1))
-            expected_type = list
-            self.assertIs(actual_type, expected_type)
-
-    def test_with_json_dumps(self):
-        x = np.array([[np.float32(4.0)], [np.int32(0)]])
-        actual = json.dumps(x, cls=NumpyEncoder)
-        expected = '[[4.0], [0.0]]'
-        self.assertEqual(actual, expected)
 
 
 class TestModelApp(unittest.TestCase):

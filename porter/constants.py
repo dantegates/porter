@@ -1,7 +1,25 @@
-class KEYS:
-    """Container for key names of JSON objects for app input/output."""
+from .utils import Endpoint
 
-    class PREDICTION:
+
+class ERROR_KEYS:
+    """Keys for for error responses.
+
+    Attributes:
+        ERROR: Name of error key.
+        MESSAGE: Error message key.
+        TRACEBACK: Error traceback key.
+    """
+    ERROR = 'error'
+    MESSAGE = 'message'
+    TRACEBACK = 'traceback'
+
+
+class PREDICTION(Endpoint):
+    """Container prediction endpoint constants."""
+
+    ENDPOINT_TEMPLATE = '/{model_name}/prediction'
+
+    class KEYS:
         """Keys for requests received/sent from /<model>/prediction.
 
         Attributes:
@@ -17,30 +35,9 @@ class KEYS:
         PREDICTIONS = 'predictions'
         PREDICTION = 'prediction'
 
-    class ERROR:
-        """Keys for for error responses.
 
-        Attributes:
-            ERROR: Name of error key.
-            MESSAGE: Error message key.
-            TRACEBACK: Error traceback key.
-        """
-        ERROR = 'error'
-        MESSAGE = 'message'
-        TRACEBACK = 'traceback'
-
-
-class ENDPOINTS:
-    """Container for endpoints."""
-    PREDICTION_TEMPLATE = '/{model_name}/prediction'
-    LIVENESS = '/-/alive'
-    READINESS = '/-/ready'
-
-
-class APP:
-    """Container for app constants."""
-
-    class STATE:
+class HEALTH_CHECK(Endpoint):
+    class KEYS:
         """Container for keys and values of an applications state.
 
         Attributes:
@@ -55,4 +52,14 @@ class APP:
         NAME = 'name'
         VERSION = 'version'
         META = 'meta'
-        READY = 'READY'
+
+    class VALUES:
+        STATUS_IS_READY = 'READY'
+
+
+class LIVENESS(HEALTH_CHECK):
+     ENDPOINT = '/-/alive'
+
+
+class READINESS(HEALTH_CHECK):
+     ENDPOINT = '/-/ready'
