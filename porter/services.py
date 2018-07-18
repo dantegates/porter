@@ -16,8 +16,6 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
-import warnings
-
 import flask
 import numpy as np
 import pandas as pd
@@ -188,19 +186,6 @@ def serve_root():
     return message, 200
 
 
-class ServeABTest(StatefulRoute):
-    def __init__(self, routes, splits):
-        self.routes = routes
-        self.splits = splits
-
-    def __call__(self):
-        route = self.choose_route()
-        return route()
-
-    def choose_route(self):
-        return np.random.choice(self.routes, p=self.splits)
-
-
 class ServeAlive(StatefulRoute):
     """Class for building stateful liveness routes.
 
@@ -364,35 +349,19 @@ class PredictionServiceConfig(BaseServiceConfig):
     """
     def __init__(self, *, model, name, version, preprocessor=None,
                  postprocessor=None, input_features=None, allow_nulls=False,
-                 batch_prediction=False):
+                 batch_prediction=False, meta=None):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
+        self.meta = {} if meta is None else meta
 
         id = f'{name}:{version}'
         endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
         super().__init__(id=id, name=name, endpoint=endpoint, version=version)
  
-
-class ABTestConfig(BaseServiceConfig):
-    def __init__(self, prediction_configs, splits, *, name, version):
-        warnings.warn('support for AB testing in porter is experimental and '
-                      'not fully tested')
-        assert len(prediction_configs) == len(splits), \
-            'prediction_configs and splits must have same length'
-        assert sum(splits) == 1, 'splits must sum to 1'
-        self.prediction_configs = prediction_configs
-        self.splits = splits
-        self.name = name
-        self.version = version
-
-        id = f'{name}:{version}'
-        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
-        super().__init__(id=id, name=name, endpoint=endpoint, version=version)
-
 
 class ModelApp:
     """
@@ -444,8 +413,6 @@ class ModelApp:
         """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
-        elif isinstance(service_config, ABTestConfig):
-            self.add_ab_test_service(service_config)
         else:
             raise ValueError('unkown service type')
         self.state.update_service_state(service_config, APP.STATE.READY)
@@ -472,22 +439,9 @@ class ModelApp:
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
 
-    def add_ab_test_service(self, service_config):
-        routes = []
-        for predict_config in service_config.prediction_configs:
-            serve_prediction = ServePrediction(
-                model=predict_config.model,
-                model_name=predict_config.name,
-                model_version=predict_config.version,
-                preprocessor=predict_config.preprocessor,
-                postprocessor=predict_config.postprocessor,
-                schema=predict_config.schema,
-                allow_nulls=predict_config.allow_nulls,
-                batch_prediction=predict_config.batch_prediction)
-            routes.append(serve_prediction)
-        serve_ab_test = ServeABTest(routes, splits=service_config.splits)
-        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
-        self.app.route(service_config.endpoint, **route_kwargs)(serve_ab_test)
+    def update_state(self, service_config):
+        self.state.update_service_state(id=service_config.id,
+                                        status=APP.STATE.READY)
 
     def run(self, *args, **kwargs):
         """
