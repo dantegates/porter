@@ -54,4 +54,5 @@ class APP:
         ENDPOINT = 'endpoint'
         NAME = 'name'
         VERSION = 'version'
+        META = 'meta'
         READY = 'READY'

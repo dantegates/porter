@@ -104,7 +104,7 @@ class ServePrediction(StatefulRoute):
             object: A `flask` object representing the response to return to
                 the user.
         """
-        data = self.request_data()
+        data = self.get_post_data()
         X = pd.DataFrame(data)
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
@@ -158,7 +158,7 @@ class ServePrediction(StatefulRoute):
                 'request payload is missing the following fields: %s'
                 % missing)
 
-    def request_data(self):
+    def get_post_data(self):
         data = flask.request.get_json(force=True)
         if isinstance(data, dict):
             data = [data]
@@ -257,14 +257,16 @@ class AppState(dict):
         super().__init__()
         self[APP.STATE.SERVICES] = {}
 
-    def update_service_state(self, service_config, status):
-        services = self[APP.STATE.SERVICES]
-        if services.get(service_config.id, None) is None:
-            services[service_config.id] = {}
-        services[service_config.id][APP.STATE.NAME] = service_config.name
-        services[service_config.id][APP.STATE.VERSION] = service_config.version
-        services[service_config.id][APP.STATE.ENDPOINT] = service_config.endpoint
-        services[service_config.id][APP.STATE.STATUS] = status
+    def add_service(self, id, name, version, endpoint, meta, status):
+        if id in self[APP.STATE.SERVICES]:
+            raise ValueError(f'a service has already been added using id={id}')
+        self[APP.STATE.SERVICES][id] = {
+            APP.STATE.NAME: name,
+            APP.STATE.VERSION: version,
+            APP.STATE.ENDPOINT: endpoint,
+            APP.STATE.META: meta,
+            APP.STATE.STATUS: status,
+        }
 
 
 class BaseServiceConfig:
@@ -280,14 +282,36 @@ class BaseServiceConfig:
     """
     _ids = set()
 
-    def __init__(self, id, name, version, endpoint):
-        if id in self._ids:
-            raise ValueError(f'id={id} has already been used')
-        self._ids.add(id)
-        self.id = id
+    def __init__(self, *, name, version, additional_meta=None):
         self.name = name
         self.version = version
-        self.endpoint = endpoint
+        self.meta = {} if additional_meta is None else additional_meta
+
+        # Assign endpoint and ID last so they can be determined from other
+        # instance attributes.
+        self.id = self.define_id()
+        self.endpoint = self.define_endpoint()
+
+    def define_endpoint(self):
+        raise NotImplementedError
+
+    def define_id(self):
+        return f'{self.name}:{self.version}'
+
+    @staticmethod
+    def _check_additional_meta(meta):
+        pass
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        if value in self._ids:
+            raise ValueError(f'id={value} has already been used')
+        self._ids.add(value)
+        self._id = value
 
 
 class PredictionServiceConfig(BaseServiceConfig):
@@ -347,20 +371,19 @@ class PredictionServiceConfig(BaseServiceConfig):
             objects to predict on. If `False` the API will only accept a
             single object per request. Optional.
     """
-    def __init__(self, *, model, name, version, preprocessor=None,
-                 postprocessor=None, input_features=None, allow_nulls=False,
-                 batch_prediction=False, meta=None):
+    def __init__(self, *, model, preprocessor=None, postprocessor=None,
+                 input_features=None, allow_nulls=False,
+                 batch_prediction=False, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
-        self.batch_prediction = batch_prediction
-        self.meta = {} if meta is None else meta
+        self.batch_prediction = batch_prediction        
+        super().__init__(**kwargs)
 
-        id = f'{name}:{version}'
-        endpoint = ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=name)
-        super().__init__(id=id, name=name, endpoint=endpoint, version=version)
+    def define_endpoint(self):
+        return ENDPOINTS.PREDICTION_TEMPLATE.format(model_name=self.name)
  
 
 class ModelApp:
@@ -415,7 +438,9 @@ class ModelApp:
             self.add_prediction_service(service_config)
         else:
             raise ValueError('unkown service type')
-        self.state.update_service_state(service_config, APP.STATE.READY)
+        self.state.add_service(id=service_config.id, name=service_config.name,
+            version=service_config.version, endpoint=service_config.endpoint,
+            meta=service_config.meta, status=APP.STATE.READY)
 
     def add_prediction_service(self, service_config):
         """
@@ -438,10 +463,6 @@ class ModelApp:
             batch_prediction=service_config.batch_prediction)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
-
-    def update_state(self, service_config):
-        self.state.update_service_state(id=service_config.id,
-                                        status=APP.STATE.READY)
 
     def run(self, *args, **kwargs):
         """

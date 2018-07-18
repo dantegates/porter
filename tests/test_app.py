@@ -172,6 +172,7 @@ class TestAppHealthChecks(unittest.TestCase):
         cf.version = '1.0.0'
         cf.id = 'model1'
         cf.endpoint = '/model1/prediction'
+        cf.meta = {'foo': 1, 'bar': 2}
         self.model_app.add_service(cf)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
@@ -182,6 +183,7 @@ class TestAppHealthChecks(unittest.TestCase):
                     'name': 'model1',
                     'version': '1.0.0',
                     'endpoint': '/model1/prediction',
+                    'meta': {'foo': 1, 'bar': 2}
                 }
             }
         }
@@ -199,11 +201,13 @@ class TestAppHealthChecks(unittest.TestCase):
         cf1.version = '1.0.0'
         cf1.id = 'model1:1.0.0'
         cf1.endpoint = '/model1/prediction'
+        cf1.meta = {'foo': 1, 'bar': 2}
         cf2 = PredictionServiceConfig()
         cf2.name = 'model2'
         cf2.version = '0.0.0'
         cf2.id = 'model2:0.0.0'
         cf2.endpoint = '/model2/prediction'
+        cf2.meta = {'foo': 1}
         self.model_app.add_services(cf1, cf2)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
@@ -213,13 +217,15 @@ class TestAppHealthChecks(unittest.TestCase):
                     'status': 'READY',
                     'name': 'model1',
                     'version': '1.0.0',
-                    'endpoint': '/model1/prediction'
+                    'endpoint': '/model1/prediction',
+                    'meta': {'foo': 1, 'bar': 2},
                 },
                 'model2:0.0.0': {
                     'status': 'READY',
                     'name': 'model2',
                     'version': '0.0.0',
-                    'endpoint': '/model2/prediction'
+                    'endpoint': '/model2/prediction',
+                    'meta': {'foo': 1},
                 }
             }
         }
