@@ -70,13 +70,6 @@ class TestExample(unittest.TestCase):
 
 
 @mock.patch('porter.services.BaseServiceConfig._ids', set())
-class TestExampleABTest(unittest.TestCase):
-    def test(self):
-        # just testing that the example can be executed
-        namespace = load_example(os.path.join(HERE, '../examples/ab_test.py'))
-
-
-@mock.patch('porter.services.BaseServiceConfig._ids', set())
 class TestExampleHealthCheckEndponts(unittest.TestCase):
     def test(self):
         # just testing that the example can be executed
