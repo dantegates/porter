@@ -58,8 +58,8 @@ class HEALTH_CHECK(Endpoint):
 
 
 class LIVENESS(HEALTH_CHECK):
-     ENDPOINT = '/-/alive'
+    ENDPOINT = '/-/alive'
 
 
 class READINESS(HEALTH_CHECK):
-     ENDPOINT = '/-/ready'
+    ENDPOINT = '/-/ready'
