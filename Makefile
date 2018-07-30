@@ -16,3 +16,6 @@ coverage:
 	coverage run --source porter -m unittest discover -s tests
 	coverage html
 	open htmlcov/index.html
+
+install:
+	python3.6 setup.py install

@@ -5,3 +5,4 @@ if [ "$1" == "install" ]; then
     exit 0
 fi
 make test
+make install
