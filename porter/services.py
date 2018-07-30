@@ -17,6 +17,7 @@ For example,
 """
 
 import json
+import logging
 
 import flask
 import numpy as np
@@ -197,11 +198,15 @@ class ServeAlive(StatefulRoute):
             ModelApp. Instances of this class inspect app_state` when called to
             determine if the app is alive.
     """
+
+    logger = logging.getLogger(__name__)
+
     def __init__(self, app_state):
         self.app_state = app_state
 
     def __call__(self):
         """Serve liveness response."""
+        self.logger.info(self.app_state)
         return porter_responses.make_alive_response(self.app_state)
 
 
@@ -213,11 +218,15 @@ class ServeReady(StatefulRoute):
             ModelApp. Instances of this class inspect app_state` when called to
             determine if the app is ready.
     """
+
+    logger = logging.getLogger(__name__)
+
     def __init__(self, app_state):
         self.app_state = app_state
 
     def __call__(self):
         """Serve readiness response."""
+        self.logger.info(self.app_state)
         return porter_responses.make_ready_response(self.app_state)
 
 
