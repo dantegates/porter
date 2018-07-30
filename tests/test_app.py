@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 import flask
+from porter import __version__
 from porter.datascience import BaseModel, BaseProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
@@ -149,6 +150,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'porter_version': __version__,
             'services': {}
         }
         self.assertEqual(resp_alive.status_code, 200)
@@ -170,6 +172,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'porter_version': __version__,
             'services': {
                 'model1': {
                     'status': 'READY',
@@ -205,6 +208,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'porter_version': __version__,
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',

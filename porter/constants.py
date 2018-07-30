@@ -50,8 +50,9 @@ class HEALTH_CHECK(Endpoint):
         STATUS = 'status'
         ENDPOINT = 'endpoint'
         NAME = 'name'
-        VERSION = 'version'
+        MODEL_VERSION = 'version'
         META = 'meta'
+        PORTER_VERSION = 'porter_version'
 
     class VALUES:
         STATUS_IS_READY = 'READY'

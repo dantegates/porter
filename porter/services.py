@@ -17,11 +17,13 @@ For example,
 """
 
 import json
+import logging
 
 import flask
 import numpy as np
 import pandas as pd
 
+from . import __version__ as VERSION
 from . import config as cf
 from . import constants as cn
 from . import responses as porter_responses
@@ -197,11 +199,15 @@ class ServeAlive(StatefulRoute):
             ModelApp. Instances of this class inspect app_state` when called to
             determine if the app is alive.
     """
+
+    logger = logging.getLogger(__name__)
+
     def __init__(self, app_state):
         self.app_state = app_state
 
     def __call__(self):
         """Serve liveness response."""
+        self.logger.info(self.app_state)
         return porter_responses.make_alive_response(self.app_state)
 
 
@@ -213,11 +219,15 @@ class ServeReady(StatefulRoute):
             ModelApp. Instances of this class inspect app_state` when called to
             determine if the app is ready.
     """
+
+    logger = logging.getLogger(__name__)
+
     def __init__(self, app_state):
         self.app_state = app_state
 
     def __call__(self):
         """Serve readiness response."""
+        self.logger.info(self.app_state)
         return porter_responses.make_ready_response(self.app_state)
 
 
@@ -258,6 +268,7 @@ class AppState(dict):
 
     def __init__(self):
         super().__init__()
+        self[cn.HEALTH_CHECK.KEYS.PORTER_VERSION] = VERSION
         self[cn.HEALTH_CHECK.KEYS.SERVICES] = {}
 
     def add_service(self, id, name, version, endpoint, meta, status):
@@ -265,7 +276,7 @@ class AppState(dict):
             raise ValueError(f'a service has already been added using id={id}')
         self[cn.HEALTH_CHECK.KEYS.SERVICES][id] = {
             cn.HEALTH_CHECK.KEYS.NAME: name,
-            cn.HEALTH_CHECK.KEYS.VERSION: version,
+            cn.HEALTH_CHECK.KEYS.MODEL_VERSION: version,
             cn.HEALTH_CHECK.KEYS.ENDPOINT: endpoint,
             cn.HEALTH_CHECK.KEYS.META: meta,
             cn.HEALTH_CHECK.KEYS.STATUS: status,
