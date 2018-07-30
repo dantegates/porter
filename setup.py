@@ -33,7 +33,7 @@ REQUIRED = [
 EXTRAS_REQUIRED = {
     'keras-utils': ['keras>=2.2.2,<2.3.0', 'tensorflow>=1.9.0,<1.10.0'],
     'sklearn-utils': ['scikit-learn>=0.19.2,<0.20.0'],
-    's3-utils': ['boto3>=1.10.65,<1.11.0'],
+    's3-utils': ['boto3>=1.7.65,<1.8.0'],
 }
 
 
