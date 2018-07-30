@@ -4,5 +4,6 @@ if [ "$1" == "install" ]; then
     cp $0 ./.git/hooks/pre-commit
     exit 0
 fi
+set -e
 make test
 make install
