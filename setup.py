@@ -1,6 +1,8 @@
 # Adapted from
 # https://github.com/kennethreitz/setup.py
 
+import os
+
 from setuptools import find_packages, setup
 
 # Package meta-data.
@@ -8,7 +10,6 @@ NAME = 'porter'
 DESCRIPTION = 'porter is a framework for exposing machine learning models via REST APIs.'
 URL = 'https://github.com/CadentTech/porter'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.5.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -35,8 +36,18 @@ EXTRAS_REQUIRED = {
     's3-utils': ['boto3>=1.7.35,<1.8.0'],
 }
 
+
 # The rest you shouldn't have to touch too much :)
 # ------------------------------------------------
+
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+about = {}
+with open(os.path.join(here, NAME, '__init__.py')) as f:
+    exec(f.read(), about)
+VERSION = about['__version__']
+
 
 # Where the magic happens:
 setup(
