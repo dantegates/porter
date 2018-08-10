@@ -22,6 +22,7 @@ import logging
 import flask
 import numpy as np
 import pandas as pd
+import werkzeug.exceptions
 
 from . import __version__ as VERSION
 from . import config as cf
@@ -443,13 +444,6 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
-    _error_codes = (
-        400,  # bad request
-        404,  # not found
-        405,  # method not allowed
-        500,  # internal server error
-    )
-
     def __init__(self):
         self.state = AppState()
         self.app = self._build_app()
@@ -536,8 +530,8 @@ class ModelApp:
         app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.
         app.json_encoder = cf.json_encoder
-        # register error handlers
-        for error in self._error_codes:
+        # register error handler for all werkzeug default exceptions
+        for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
