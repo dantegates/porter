@@ -10,16 +10,21 @@ from porter.services import (BaseServiceConfig, ModelApp,
 
 
 class TestFuntionsUnit(unittest.TestCase):
+    @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-    def test_serve_error_message_status_codes(self, mock_flask_jsonify):
+    def test_serve_error_message_status_codes_arbitrary_error(self, mock_flask_request, mock_flask_jsonify):
+        # if the current error does not have an error code make sure
+        # the response gets a 500
         error = ValueError('an error message')
         actual = serve_error_message(error)
         actual_status_code = 500
         expected_status_code = 500
         self.assertEqual(actual_status_code, expected_status_code)
 
+    @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-    def test_serve_error_message_status_codes(self, mock_flask_jsonify):
+    def test_serve_error_message_status_codes_werkzeug_error(self, mock_flask_request, mock_flask_jsonify):
+        # make sure that workzeug error codes get passed on to response
         error = ValueError('an error message')
         error.code = 123
         actual = serve_error_message(error)
@@ -106,7 +111,7 @@ class TestServePrediction(unittest.TestCase):
     @mock.patch('flask.jsonify')
     def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
         model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_flask_request.get_json.return_value = {'id': []}
+        mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
         mock_preprocessor.process.return_value = {}
@@ -122,7 +127,7 @@ class TestServePrediction(unittest.TestCase):
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
-            batch_prediction=True,
+            batch_prediction=False,
         )
         _ = serve_prediction()
         mock_preprocessor.process.assert_called()
@@ -134,7 +139,7 @@ class TestServePrediction(unittest.TestCase):
         # make sure it doesn't break when processors are None
         model = model_name = model_version = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
-        mock_flask_request.get_json.return_value = {'id': []}
+        mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = []
         serve_prediction = ServePrediction(
             model=model,
@@ -145,10 +150,9 @@ class TestServePrediction(unittest.TestCase):
             allow_nulls=allow_nulls,
             preprocessor=None,
             postprocessor=None,
-            batch_prediction=True
+            batch_prediction=False
         )
         _ = serve_prediction()
-
 
     def test_check_request_pass(self):
         # no error should be raised
@@ -198,6 +202,82 @@ class TestServePrediction(unittest.TestCase):
         # no error shoudl be raised
         ServePrediction.check_request(mock_X, ['one', 'two', 'three'], True)
         mock_X.isnull.assert_not_called()
+
+    @mock.patch('flask.request')
+    @mock.patch('flask.jsonify')
+    def test_get_post_data_batch_prediction(self, mock_flask_jsonify, mock_flask_request):
+        model = model_name = model_version = allow_nulls = mock.Mock()
+        mock_schema = mock.Mock(input_features=None, input_columns=None)
+        model.predict.return_value = []
+
+        # Succeed
+        mock_flask_request.get_json.return_value = [{'id': None}]
+        serve_prediction = ServePrediction(
+            model=model,
+            model_name=model_name,
+            model_version=model_version,
+            model_meta={},
+            schema=mock_schema,
+            allow_nulls=allow_nulls,
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=True
+        )
+        _ = serve_prediction()
+
+        # Fail
+        mock_flask_request.get_json.return_value = {'id': None}
+        serve_prediction = ServePrediction(
+            model=model,
+            model_name=model_name,
+            model_version=model_version,
+            model_meta={},
+            schema=mock_schema,
+            allow_nulls=allow_nulls,
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=True
+        )
+        with self.assertRaises(ValueError):
+            _ = serve_prediction()
+
+    @mock.patch('flask.request')
+    @mock.patch('flask.jsonify')
+    def test_get_post_data_instance_prediction(self, mock_flask_jsonify, mock_flask_request):
+        model = model_name = model_version = allow_nulls = mock.Mock()
+        mock_schema = mock.Mock(input_features=None, input_columns=None)
+        model.predict.return_value = []
+
+        # Succeed
+        mock_flask_request.get_json.return_value = {'id': None}
+        serve_prediction = ServePrediction(
+            model=model,
+            model_name=model_name,
+            model_version=model_version,
+            model_meta={},
+            schema=mock_schema,
+            allow_nulls=allow_nulls,
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=False
+        )
+        _ = serve_prediction()
+
+        # Fail
+        mock_flask_request.get_json.return_value = [{'id': None}]
+        serve_prediction = ServePrediction(
+            model=model,
+            model_name=model_name,
+            model_version=model_version,
+            model_meta={},
+            schema=mock_schema,
+            allow_nulls=allow_nulls,
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=False
+        )
+        with self.assertRaises(ValueError):
+            _ = serve_prediction()
 
 
 class TestModelApp(unittest.TestCase):

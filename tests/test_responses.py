@@ -25,14 +25,15 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error)
+            actual = _make_error_payload(error, 'foo')
         expected = {
             'error': 'Exception',
             'message': ('foo bar baz',),
             'traceback': ('.*'
                           'line [0-9]*, in test__make_error_payload\n'
                           '    raise error\n'
-                          'Exception: foo bar baz.*')
+                          'Exception: foo bar baz.*'),
+            'user_data': 'foo'
         }
         self.assertEqual(actual['error'], expected['error'])
         self.assertEqual(actual['message'], expected['message'])

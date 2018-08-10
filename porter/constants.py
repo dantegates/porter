@@ -12,6 +12,7 @@ class ERROR_KEYS:
     ERROR = 'error'
     MESSAGE = 'message'
     TRACEBACK = 'traceback'
+    USER_DATA = 'user_data'
 
 
 class PREDICTION(Endpoint):

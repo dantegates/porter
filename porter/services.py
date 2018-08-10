@@ -22,6 +22,7 @@ import logging
 import flask
 import numpy as np
 import pandas as pd
+import werkzeug.exceptions
 
 from . import __version__ as VERSION
 from . import config as cf
@@ -164,14 +165,26 @@ class ServePrediction(StatefulRoute):
                 % missing)
 
     def get_post_data(self):
+        """Return data from the most recent POST request.
+
+        Returns:
+            `list` of `dicts`. Each `dict` represents a single instance to
+            predict on. If `self.batch_prediction` is `False` the `list` will
+            only contain one `dict`.
+
+        Raises:
+            ValueError: If the request data does not follow the API format.
+        """
         data = flask.request.get_json(force=True)
-        if isinstance(data, dict):
+        if not self.batch_prediction:
+            # if API is not supporting batch prediction user's must send
+            # a single JSON object.
+            if not isinstance(data, dict):
+                raise ValueError(f'input must be {self.type_message}')
+            # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
-        elif isinstance(data, list):
-            if not self.batch_prediction:
-                raise ValueError('input must be a single object, not array')
-        else:
-            raise ValueError(f'input must be {self.type_message}')
+        elif not isinstance(data, list):
+            raise ValueError(f'input must be {self.type_message}')            
         return data
 
 
@@ -431,13 +444,6 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
-    _error_codes = (
-        400,  # bad request
-        404,  # not found
-        405,  # method not allowed
-        500,  # internal server error
-    )
-
     def __init__(self):
         self.state = AppState()
         self.app = self._build_app()
@@ -524,8 +530,8 @@ class ModelApp:
         app = flask.Flask(__name__)
         # register a custom JSON encoder that handles numpy data types.
         app.json_encoder = cf.json_encoder
-        # register error handlers
-        for error in self._error_codes:
+        # register error handler for all werkzeug default exceptions
+        for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
