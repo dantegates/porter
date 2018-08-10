@@ -81,7 +81,7 @@ A `porter` defines the following endpoints.
   Returns a JSON object representing the app's state as follows. The object has a single key
   `"services"`. Services is itself a JSON object with a key for every service added to the app.
   These service objects contain keys for their respective endpoint and status. Returns 200 if
-  all services are ready and 500 otherwise.
+  all services are ready and 503 otherwise.
 
   The JSON below is the response you would get from the app defined in
   [the AB test script](./examples/ab_test.py).
