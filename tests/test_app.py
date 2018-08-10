@@ -255,8 +255,9 @@ class TestAppErrorHandling(unittest.TestCase):
 
     def test_bad_request(self):
         # note data is unreadable JSON, thus a BadRequest
-        resp = self.app.post('/test-error-handling/', data='')
-        self.validate_error_response(resp, 'BadRequest', 400)
+        resp = self.app.post('/test-error-handling/', data='bad data')
+        # user_data is None when not passed or unreadable
+        self.validate_error_response(resp, 'BadRequest', 400, user_data=None)
 
     def test_not_found(self):
         resp = self.app.get('/not-found/')
@@ -267,11 +268,13 @@ class TestAppErrorHandling(unittest.TestCase):
         self.validate_error_response(resp, 'MethodNotAllowed', 405)
 
     def test_internal_server_error(self):
-        resp = self.app.post('/test-error-handling/', data='{}')
-        self.validate_error_response(resp, 'Exception', 500, 'exceptional', 'raise Exception')
+        user_data = {"valid": "json"}
+        resp = self.app.post('/test-error-handling/', data=json.dumps(user_data))
+        self.validate_error_response(resp, 'Exception', 500, 'exceptional', 'raise Exception',
+                                     user_data=user_data)
 
     def validate_error_response(self, response, error, status_code, message_substr=None,
-                                traceback_substr=None):
+                                traceback_substr=None, user_data=None):
         data = json.loads(response.data)
         self.assertEqual(data['error'], error)
         self.assertEqual(response.status_code, status_code)
@@ -288,6 +291,7 @@ class TestAppErrorHandling(unittest.TestCase):
                 self.assertIn(message_substr, data['message'])
         if not traceback_substr is None:
             self.assertIn(traceback_substr, data['traceback'])
+        self.assertEqual(data['user_data'], user_data)
 
 
 if __name__ == '__main__':

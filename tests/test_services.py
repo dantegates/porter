@@ -10,16 +10,21 @@ from porter.services import (BaseServiceConfig, ModelApp,
 
 
 class TestFuntionsUnit(unittest.TestCase):
+    @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-    def test_serve_error_message_status_codes(self, mock_flask_jsonify):
+    def test_serve_error_message_status_codes_arbitrary_error(self, mock_flask_request, mock_flask_jsonify):
+        # if the current error does not have an error code make sure
+        # the response gets a 500
         error = ValueError('an error message')
         actual = serve_error_message(error)
         actual_status_code = 500
         expected_status_code = 500
         self.assertEqual(actual_status_code, expected_status_code)
 
+    @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-    def test_serve_error_message_status_codes(self, mock_flask_jsonify):
+    def test_serve_error_message_status_codes_werkzeug_error(self, mock_flask_request, mock_flask_jsonify):
+        # make sure that workzeug error codes get passed on to response
         error = ValueError('an error message')
         error.code = 123
         actual = serve_error_message(error)
