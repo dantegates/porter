@@ -34,13 +34,16 @@ def _make_prediction_payload(model_name, model_version, model_meta, id_keys, pre
 
 
 def make_error_response(error):
-    payload = _make_error_payload(error)
+    # silent=True -> flask.request.get_json(...) returns None if user did not
+    # provide data
+    user_data = flask.request.get_json(silent=True, force=True)
+    payload = _make_error_payload(error, user_data)
     response = flask.jsonify(payload)
     response.status_code = getattr(error, 'code', 500)
     return response
 
 
-def _make_error_payload(error):
+def _make_error_payload(error, user_data):
     return {
         cn.ERROR_KEYS.ERROR: type(error).__name__,
         # getattr() is used to work around werkzeug's bad implementation
@@ -48,7 +51,8 @@ def _make_error_payload(error):
         # exposes a different API, namely
         # Exception.message -> HTTPException.description).
         cn.ERROR_KEYS.MESSAGE: getattr(error, 'description', error.args),
-        cn.ERROR_KEYS.TRACEBACK: traceback.format_exc()}
+        cn.ERROR_KEYS.TRACEBACK: traceback.format_exc(),
+        cn.ERROR_KEYS.USER_DATA: user_data}
 
 
 def make_alive_response(app_state):
