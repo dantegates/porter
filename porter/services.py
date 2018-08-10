@@ -164,14 +164,26 @@ class ServePrediction(StatefulRoute):
                 % missing)
 
     def get_post_data(self):
+        """Return data from the most recent POST request.
+
+        Returns:
+            `list` of `dicts`. Each `dict` represents a single instance to
+            predict on. If `self.batch_prediction` is `False` the `list` will
+            only contain one `dict`.
+
+        Raises:
+            ValueError: If the request data does not follow the API format.
+        """
         data = flask.request.get_json(force=True)
-        if isinstance(data, dict):
+        if not self.batch_prediction:
+            # if API is not supporting batch prediction user's must send
+            # a single JSON object.
+            if not isinstance(data, dict):
+                raise ValueError(f'input must be {self.type_message}')
+            # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
-        elif isinstance(data, list):
-            if not self.batch_prediction:
-                raise ValueError('input must be a single object, not array')
-        else:
-            raise ValueError(f'input must be {self.type_message}')
+        elif not isinstance(data, list):
+            raise ValueError(f'input must be {self.type_message}')            
         return data
 
 
