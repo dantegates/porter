@@ -111,6 +111,17 @@ A `porter` defines the following endpoints.
       ]
     }
   ```
+  
+## Errors
+If an error occurs while processing a request the user will receive a response with a non-200 status
+code and JSON payload with the following keys
+
+- "error": `string`. A simple name describing the error.
+- "message": `string`. A more detailed error message.
+- "traceback": `string`. The traceback of the `Exception` causing the error.
+- "user_data": `object` or `null`. If the request contained a JSON payload it is returned to
+  the user in this field. Otherwise, if no data was passed or the data was not valid JSON `null`
+  is returned.
 
 # Tests
 To run the test suite for porter execute the command
