@@ -81,7 +81,7 @@ A `porter` defines the following endpoints.
   Returns a JSON object representing the app's state as follows. The object has a single key
   `"services"`. Services is itself a JSON object with a key for every service added to the app.
   These service objects contain keys for their respective endpoint and status. Returns 200 if
-  all services are ready and 500 otherwise.
+  all services are ready and 503 otherwise.
 
   The JSON below is the response you would get from the app defined in
   [the AB test script](./examples/ab_test.py).
@@ -111,6 +111,17 @@ A `porter` defines the following endpoints.
       ]
     }
   ```
+  
+## Errors
+If an error occurs while processing a request the user will receive a response with a non-200 status
+code and JSON payload with the following keys
+
+- "error": `string`. A simple name describing the error.
+- "message": `string`. A more detailed error message.
+- "traceback": `string`. The traceback of the `Exception` causing the error.
+- "user_data": `object` or `null`. If the request contained a JSON payload it is returned to
+  the user in this field. Otherwise, if no data was passed or the data was not valid JSON `null`
+  is returned.
 
 # Tests
 To run the test suite for porter execute the command
