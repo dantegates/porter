@@ -1,12 +1,14 @@
 import re
 import unittest
 
-from porter.responses import _make_error_payload, _make_prediction_payload, _is_ready
+from porter.responses import (_is_ready, _make_batch_prediction_payload,
+                              _make_error_payload,
+                              _make_single_prediction_payload)
 
 
 class TestFunctions(unittest.TestCase):
-    def test__make_prediction_payload(self):
-        actual = _make_prediction_payload('a-model', '1', {1: '2', '3': 4}, [1, 2, 3], [10.0, 11.0, 12.0])
+    def test__make_batch_prediction_payload(self):
+        actual = _make_batch_prediction_payload('a-model', '1', {1: '2', '3': 4}, [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'model_name': 'a-model',
             'model_version': '1',
@@ -17,6 +19,17 @@ class TestFunctions(unittest.TestCase):
                 {'id': 2, 'prediction': 11.0},
                 {'id': 3, 'prediction': 12.0}
             ]
+        }
+        self.assertEqual(actual, expected)
+
+    def test__make_single_prediction_payload(self):
+        actual = _make_single_prediction_payload('a-model', '1', {1: '2', '3': 4}, [1], [10.0])
+        expected = {
+            'model_name': 'a-model',
+            'model_version': '1',
+            1: '2',
+            '3': 4,
+            'predictions': {'id': 1, 'prediction': 10.0}
         }
         self.assertEqual(actual, expected)
 
