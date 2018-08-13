@@ -100,7 +100,6 @@ class ServePrediction(StatefulRoute):
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
-        self.type_message = "object or array" if batch_prediction else "object"
 
     def __call__(self):
         """Retrive POST request data from flask and return a response
@@ -110,8 +109,7 @@ class ServePrediction(StatefulRoute):
             object: A `flask` object representing the response to return to
                 the user.
         """
-        data = self.get_post_data()
-        X = pd.DataFrame(data)
+        X = self.get_post_data()
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
             Xt = X.loc[:,self.schema.input_features]
@@ -123,7 +121,8 @@ class ServePrediction(StatefulRoute):
         if self.postprocess_model_output:
             preds = self.postprocessor.process(preds)
         response = porter_responses.make_prediction_response(
-            self.model_name, self.model_version, self.model_meta, X[_ID], preds)
+            self.model_name, self.model_version, self.model_meta, X[_ID], preds,
+            self.batch_prediction)
         return response
 
     @staticmethod
@@ -165,12 +164,12 @@ class ServePrediction(StatefulRoute):
                 % missing)
 
     def get_post_data(self):
-        """Return data from the most recent POST request.
+        """Return data from the most recent POST request as a `pandas.DataFrame`.
 
         Returns:
-            `list` of `dicts`. Each `dict` represents a single instance to
-            predict on. If `self.batch_prediction` is `False` the `list` will
-            only contain one `dict`.
+            `pandas.DataFrame`. Each `row` represents a single instance to
+            predict on. If `self.batch_prediction` is `False` the `DataFrame`
+            will only contain one `row`.
 
         Raises:
             ValueError: If the request data does not follow the API format.
@@ -180,12 +179,12 @@ class ServePrediction(StatefulRoute):
             # if API is not supporting batch prediction user's must send
             # a single JSON object.
             if not isinstance(data, dict):
-                raise ValueError(f'input must be {self.type_message}')
+                raise ValueError(f'input must be a single JSON object')
             # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
         elif not isinstance(data, list):
-            raise ValueError(f'input must be {self.type_message}')            
-        return data
+            raise ValueError(f'input must be an array of objects')
+        return pd.DataFrame(data)
 
 
 def serve_error_message(error):

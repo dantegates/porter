@@ -51,7 +51,7 @@ class TestStatefulRoute(unittest.TestCase):
 class TestServePrediction(unittest.TestCase):
     @mock.patch('flask.request')
     @mock.patch('porter.responses.flask')
-    def test_serve_success(self, mock_responses_flask, mock_flask_request):
+    def test_serve_success_batch(self, mock_responses_flask, mock_flask_request):
         mock_flask_request.get_json.return_value = [
             {'id': 1, 'feature1': 10, 'feature2': 0},
             {'id': 2, 'feature1': 11, 'feature2': 1},
@@ -93,7 +93,8 @@ class TestServePrediction(unittest.TestCase):
         expected = {
             'model_name': test_model_name,
             'model_version': test_model_version,
-            'meta': {1: '2', '3': 4},
+            1: '2',
+            '3': 4,
             'predictions': [
                 {'id': 1, 'prediction': 20},
                 {'id': 2, 'prediction': 26},
@@ -102,21 +103,109 @@ class TestServePrediction(unittest.TestCase):
                 {'id': 5, 'prediction': 42},
             ]
         }
-        self.assertEqual(actual['model_name'], expected['model_name'])
-        self.assertEqual(actual['model_version'], expected['model_version'])
-        self.assertEqual(sorted(actual['predictions'], key=lambda x: x['id']),
-                         sorted(expected['predictions'], key=lambda x: x['id']))
+        self.assertEqual(actual, expected)
+
+    @mock.patch('flask.request')
+    @mock.patch('porter.responses.flask')
+    def test_serve_success_single(self, mock_responses_flask, mock_flask_request):
+        mock_flask_request.get_json.return_value = {'id': 1, 'feature1': 10, 'feature2': 0}
+        mock_responses_flask.jsonify = lambda payload:payload
+        mock_model = mock.Mock()
+        test_model_name = 'model'
+        test_model_version = '1.0.0'
+        mock_preprocessor = mock.Mock()
+        mock_postprocessor = mock.Mock()
+        schema = mock.Mock(input_features=None, input_columns=None)
+        allow_nulls = False
+
+        feature_values = {str(x): x for x in range(5)}
+        mock_model.predict = lambda X: X['feature1'] + X['feature2'].map(feature_values) + X['feature3']
+        def preprocess(X):
+            X['feature2'] = X.feature2.astype(str)
+            X['feature3'] = range(len(X))
+            return X
+        mock_preprocessor.process = preprocess
+        def postprocess(X):
+            return X * 2
+        mock_postprocessor.process = postprocess
+        serve_prediction = ServePrediction(
+            model=mock_model,
+            model_name=test_model_name,
+            model_version=test_model_version,
+            model_meta={1: '2', '3': 4},
+            preprocessor=mock_preprocessor,
+            postprocessor=mock_postprocessor,
+            schema=schema,
+            allow_nulls=allow_nulls,
+            batch_prediction=False,
+        )
+        actual = serve_prediction()
+        expected = {
+            'model_name': test_model_name,
+            'model_version': test_model_version,
+            1: '2',
+            '3': 4,
+            'predictions': {'id': 1, 'prediction': 20}
+        }
+        self.assertEqual(actual, expected)
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-    def test_serve_with_processing(self, mock_flask_jsonify, mock_flask_request):
+    def test_serve_with_processing_batch(self, mock_flask_jsonify, mock_flask_request):
         model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_flask_request.get_json.return_value = {'id': None}
+        mock_flask_request.get_json.return_value = [{'id': None}]
         model.predict.return_value = []
         mock_preprocessor = mock.Mock()
         mock_preprocessor.process.return_value = {}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = []
+        mock_schema = mock.Mock(input_features=None, input_columns=None)
+        serve_prediction = ServePrediction(
+            model=model,
+            model_name=model_name,
+            model_version=model_version,
+            model_meta={},
+            schema=mock_schema,
+            allow_nulls=allow_nulls,
+            preprocessor=mock_preprocessor,
+            postprocessor=mock_postprocessor,
+            batch_prediction=True,
+        )
+        _ = serve_prediction()
+        mock_preprocessor.process.assert_called()
+        mock_postprocessor.process.assert_called()
+
+    @mock.patch('flask.request')
+    @mock.patch('flask.jsonify')
+    def test_serve_no_processing_batch(self, mock_flask_jsonify, mock_flask_request):
+        # make sure it doesn't break when processors are None
+        model = model_name = model_version = allow_nulls = mock.Mock()
+        mock_schema = mock.Mock(input_features=None, input_columns=None)
+        mock_flask_request.get_json.return_value = [{'id': None}]
+        model.predict.return_value = []
+        serve_prediction = ServePrediction(
+            model=model,
+            model_name=model_name,
+            model_version=model_version,
+            model_meta={},
+            schema=mock_schema,
+            allow_nulls=allow_nulls,
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=True
+        )
+        _ = serve_prediction()
+
+    @mock.patch('flask.request')
+    @mock.patch('flask.jsonify')
+    def test_serve_with_processing_single(self, mock_flask_jsonify, mock_flask_request):
+        model = model_name = model_version = allow_nulls = mock.Mock()
+        mock_flask_request.get_json.return_value = {'id': None}
+        model.predict.return_value = [1]
+        mock_preprocessor = mock.Mock()
+        mock_preprocessor.process.return_value = {}
+        mock_postprocessor = mock.Mock()
+        mock_postprocessor.process.return_value = [1]
         mock_schema = mock.Mock(input_features=None, input_columns=None)
         serve_prediction = ServePrediction(
             model=model,
@@ -135,12 +224,12 @@ class TestServePrediction(unittest.TestCase):
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-    def test_serve_no_processing(self, mock_flask_jsonify, mock_flask_request):
+    def test_serve_no_processing_single(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
         model = model_name = model_version = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
         mock_flask_request.get_json.return_value = {'id': None}
-        model.predict.return_value = []
+        model.predict.return_value = [1]
         serve_prediction = ServePrediction(
             model=model,
             model_name=model_name,
@@ -246,7 +335,7 @@ class TestServePrediction(unittest.TestCase):
     def test_get_post_data_instance_prediction(self, mock_flask_jsonify, mock_flask_request):
         model = model_name = model_version = allow_nulls = mock.Mock()
         mock_schema = mock.Mock(input_features=None, input_columns=None)
-        model.predict.return_value = []
+        model.predict.return_value = [1]
 
         # Succeed
         mock_flask_request.get_json.return_value = {'id': None}

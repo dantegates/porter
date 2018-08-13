@@ -9,16 +9,22 @@ from . import constants as cn
 _IS_READY = cn.HEALTH_CHECK.VALUES.STATUS_IS_READY
 
 
-# NOTE: private functions make testing easier as they bypass `flask.jsonify`
+# NOTE: private functions make testing easier as they bypass `flask` methods
+# that require a context, e.g. `flask.jsonify`
 
 
-def make_prediction_response(model_name, model_version, model_meta, id_keys, predictions):
-    payload = _make_prediction_payload(model_name, model_version, model_meta,
-                                       id_keys, predictions)
+def make_prediction_response(model_name, model_version, model_meta, id_keys,
+                             predictions, batch_prediction):
+    if batch_prediction:
+        payload = _make_batch_prediction_payload(model_name, model_version, model_meta,
+                                                 id_keys, predictions)
+    else:
+        payload = _make_single_prediction_payload(model_name, model_version, model_meta,
+                                                  id_keys, predictions)
     return flask.jsonify(payload)
 
 
-def _make_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+def _make_batch_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
     payload = {
         cn.PREDICTION.KEYS.MODEL_NAME: model_name,
         cn.PREDICTION.KEYS.MODEL_VERSION: model_version,
@@ -28,6 +34,20 @@ def _make_prediction_payload(model_name, model_version, model_meta, id_keys, pre
                 cn.PREDICTION.KEYS.PREDICTION: p
             }
             for id, p in zip(id_keys, predictions)]
+    }
+    payload.update(model_meta)
+    return payload
+
+
+def _make_single_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+    payload = {
+        cn.PREDICTION.KEYS.MODEL_NAME: model_name,
+        cn.PREDICTION.KEYS.MODEL_VERSION: model_version,
+        cn.PREDICTION.KEYS.PREDICTIONS:
+            {
+                cn.PREDICTION.KEYS.ID: id_keys[0],
+                cn.PREDICTION.KEYS.PREDICTION: predictions[0]
+            }
     }
     payload.update(model_meta)
     return payload

@@ -130,7 +130,7 @@ class TestAppPredictions(unittest.TestCase):
         expected3 = {
             'model_name': 'model-3',
             'model_version': '0.0.0-alpha',
-            'predictions': [{'id': 1, 'prediction': -5}]
+            'predictions': {'id': 1, 'prediction': -5}
         }
         self.assertEqual(actual1, expected1)
         self.assertEqual(actual2, expected2)
