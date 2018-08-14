@@ -2,7 +2,7 @@ class PorterError(Exception):
     """Base Exception class for error's raised by `porter`."""
 
 
-class PredictionError(PorterError):
+class PorterPredictionError(PorterError):
     """Exception raised when an error occurs during prediction."""
 
     def __init__(self, *args, model_name, model_version, model_meta, **kwargs):

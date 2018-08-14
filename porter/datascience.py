@@ -1,23 +1,25 @@
 """Definitions of interfaces for data science objects expected by `porter.services`."""
 
+import abc
 
 from porter.loading import load_file
+from porter import utils
 
 
-class BaseModel(object):
+class BaseModel(abc.ABC):
     """Class defining the model interface required by
         `porter.services.ModelApp.add_service`."""
+    @abc.abstractmethod
     def predict(self, X):
-        raise NotImplementedError(
-            '%s must implement .predict()' % self.__class__.__name__)
+        """Return predictions corresponding to the data in `X`."""
 
 
-class BaseProcessor(object):
+class BaseProcessor(abc.ABC):
     """Class defining the [pre|post]processor interface required by
         `porter.services.ModelApp.add_service`."""
+    @abc.abstractmethod
     def process(self, X):
-        raise NotImplementedError(
-            '%s must implement .process()' % self.__class__.__name__)
+        """Process and return `X`."""
 
 
 class WrappedModel(BaseModel):

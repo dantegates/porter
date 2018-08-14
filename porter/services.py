@@ -16,6 +16,7 @@ For example,
     >>> model_app.add_services(service_config1, service_config2)
 """
 
+import abc
 import json
 import logging
 
@@ -111,7 +112,7 @@ class ServePrediction(StatefulRoute):
                 the user.
 
         Raises:
-            `porter.exceptions.PredictionError`: Raised whenever an error
+            porter.exceptions.PorterPredictionError: Raised whenever an error
                 occurs during prediction. The error contains information
                 about the model context which a custom error handler can
                 use to add to the errors response.
@@ -119,7 +120,7 @@ class ServePrediction(StatefulRoute):
         try:
             response = self._predict()
         except Exception as err:
-            error = exc.PredictionError('an error occurred during prediction',
+            error = exc.PorterPredictionError('an error occurred during prediction',
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
@@ -162,7 +163,7 @@ class ServePrediction(StatefulRoute):
             None
 
         Raises:
-            ValueError: If a given check fails.
+            porter.exceptions.PorterError: If a given check fails.
         """
         # checks that all columns are present and no nulls sent
         # (or missing values)
@@ -171,12 +172,12 @@ class ServePrediction(StatefulRoute):
             if not allow_nulls and X[input_columns].isnull().any().any():
                 null_counts = X[input_columns].isnull().sum()
                 null_columns = null_counts[null_counts > 0].index.tolist()
-                raise ValueError(
+                raise exc.PorterError(
                     'request payload had null values in the following fields: %s'
                     % null_columns)
         except KeyError:
             missing = [c for c in input_columns if not c in X.columns]
-            raise ValueError(
+            raise exc.PorterError(
                 'request payload is missing the following fields: %s'
                 % missing)
 
@@ -189,18 +190,19 @@ class ServePrediction(StatefulRoute):
             will only contain one `row`.
 
         Raises:
-            ValueError: If the request data does not follow the API format.
+            porter.exceptions.PorterError: If the request data does not
+                follow the API format.
         """
         data = flask.request.get_json(force=True)
         if not self.batch_prediction:
             # if API is not supporting batch prediction user's must send
             # a single JSON object.
             if not isinstance(data, dict):
-                raise ValueError(f'input must be a single JSON object')
+                raise exc.PorterError(f'input must be a single JSON object')
             # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
         elif not isinstance(data, list):
-            raise ValueError(f'input must be an array of objects')
+            raise exc.PorterError(f'input must be an array of objects')
         return pd.DataFrame(data)
 
 
@@ -302,7 +304,7 @@ class AppState(dict):
 
     def add_service(self, id, name, version, endpoint, meta, status):
         if id in self[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES]:
-            raise ValueError(f'a service has already been added using id={id}')
+            raise exc.PorterError(f'a service has already been added using id={id}')
         self[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES][id] = {
             cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: name,
             cn.HEALTH_CHECK.RESPONSE.KEYS.MODEL_VERSION: version,
@@ -312,7 +314,7 @@ class AppState(dict):
         }
 
 
-class BaseServiceConfig:
+class BaseServiceConfig(abc.ABC):
     """
     Base container that holds configurations for services that can be added to
     an instance of `ModelApp`.
@@ -335,8 +337,9 @@ class BaseServiceConfig:
         self.id = self.define_id()
         self.endpoint = self.define_endpoint()
 
+    @abc.abstractmethod
     def define_endpoint(self):
-        raise NotImplementedError
+        """Return the service endpoint derived from instance attributes."""
 
     def define_id(self):
         return f'{self.name}:{self.version}'
@@ -348,11 +351,13 @@ class BaseServiceConfig:
         Subclasses overriding this method should always use super() to call
         this method on the superclass unless they have a good reason not to.
         """
-        assert all(isinstance(k, str) for k in meta), 'meta keys must be str'
         try:
-            _ = json.dumps(meta, cls=cf.json_encoder)
+            # sort_keys=True tests the flask.jsonify implementation
+            _ = json.dumps(meta, cls=cf.json_encoder, sort_keys=True)
         except TypeError:
-            raise ValueError('Could not jsonify meta data')
+            raise exc.PorterError(
+                'Could not jsonify meta data. Make sure that meta data is '
+                'valid JSON and that all keys are of the same type.')
 
     @property
     def id(self):
@@ -361,7 +366,7 @@ class BaseServiceConfig:
     @id.setter
     def id(self, value):
         if value in self._ids:
-            raise ValueError(
+            raise exc.PorterError(
                 f'The id={value} has already been used. '
                 'This likely means that you tried to instantiate a service '
                 'with parameters that were already used.')
@@ -451,7 +456,7 @@ class PredictionServiceConfig(BaseServiceConfig):
         super().check_meta(meta)
         invalid_keys = [key for key in meta if key in self.reserved_keys]
         if invalid_keys:
-            raise ValueError(
+            raise exc.PorterError(
                 'the following keys are reserved for prediction response payloads '
                 f'and cannot be used in `meta`: {invalid_keys}')
  
@@ -495,12 +500,13 @@ class ModelApp:
             None
 
         Raises:
-            ValueError: If the type of `service_config` is not recognized.         
+            porter.exceptions.PorterError: If the type of
+                `service_config` is not recognized.
         """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
         else:
-            raise ValueError('unkown service type')
+            raise exc.PorterError('unkown service type')
         self.state.add_service(id=service_config.id, name=service_config.name,
             version=service_config.version, endpoint=service_config.endpoint,
             meta=service_config.meta,
@@ -554,7 +560,7 @@ class ModelApp:
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(exc.PredictionError, serve_error_message)
+        app.register_error_handler(exc.PorterPredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
