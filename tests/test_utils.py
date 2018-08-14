@@ -7,7 +7,7 @@ from unittest import mock
 
 import io
 import numpy as np
-from porter.utils import (AppEncoder, Endpoint, JSONFormatter, NumpyEncoder,
+from porter.utils import (AppEncoder, JSONFormatter, NumpyEncoder,
                           PythonEncoder)
 
 NOW = datetime.datetime.now()
@@ -201,33 +201,6 @@ class TestJSONFormatterSmall(unittest.TestCase):
         for k, v in expected_kvps.items():
             self.assertEqual(actual[k], v)
         self.assertRegex(repr(actual['exc_text']), 'Traceback.*raise Exception')
-
-
-class TestEndpoint(unittest.TestCase):
-    def test(self):
-        # instantiating without KEYS/VALUES does not raise error
-        # i.e. these attrs are optional
-        class X(Endpoint):
-            pass
-
-        class X(Endpoint):
-            class KEYS:
-                A = 'a'
-                B = 'b'
-
-            class VALUES:
-                C = 'c'
-                D = 'd'
-
-        # test that dotted lookups don't fail
-        X.KEYS.A
-        X.KEYS.B
-        X.VALUES.C
-        X.VALUES.D
-        self.assertTrue('A' in X.KEYS)
-        self.assertTrue('B' in X.KEYS)
-        self.assertTrue('C' in X.VALUES)
-        self.assertTrue('D' in X.VALUES)
 
 
 if __name__ == '__main__':

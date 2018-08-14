@@ -1,6 +1,7 @@
 import re
 import unittest
 
+from porter.exceptions import PorterPredictionError
 from porter.responses import (_is_ready, _make_batch_prediction_payload,
                               _make_error_payload,
                               _make_single_prediction_payload)
@@ -33,24 +34,52 @@ class TestFunctions(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
-    def test__make_error_payload(self):
+    def test__make_error_payload_non_porter_error(self):
         error = Exception('foo bar baz')
         try:
             raise error
         except Exception:
             actual = _make_error_payload(error, 'foo')
         expected = {
-            'error': 'Exception',
-            'message': ('foo bar baz',),
-            'traceback': ('.*'
-                          'line [0-9]*, in test__make_error_payload\n'
-                          '    raise error\n'
-                          'Exception: foo bar baz.*'),
-            'user_data': 'foo'
+            'error': {
+                'name': 'Exception',
+                'messages': ('foo bar baz',),
+                'traceback': ('.*'
+                              'line [0-9]*, in test__make_error_payload_non_porter_error\n'
+                              '    raise error\n'
+                              'Exception: foo bar baz.*'),
+                'user_data': 'foo'
+            }
         }
-        self.assertEqual(actual['error'], expected['error'])
-        self.assertEqual(actual['message'], expected['message'])
-        self.assertTrue(re.search(expected['traceback'], actual['traceback']))
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
+
+    def test__make_error_payload_porter_error(self):
+        error = PorterPredictionError('foo bar baz', model_name='M', model_version='V',
+            model_meta={1: '1', '2': 2})
+        try:
+            raise error
+        except Exception:
+            actual = _make_error_payload(error, 'foo')
+        expected = {
+            'model_name': 'M',
+            'model_version': 'V',
+            1: '1',
+            '2': 2,
+            'error': {
+                'name': 'PorterPredictionError',
+                'messages': ('foo bar baz',),
+                'traceback': ('.*'
+                              'line [0-9]*, in test__make_error_payload_porter_error\n'
+                              '    raise error\n'
+                              'porter.exceptions.PorterPredictionError: foo bar baz.*'),
+                'user_data': 'foo'
+            }
+        }
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
 
     def test__is_ready(self):
         app_state = {

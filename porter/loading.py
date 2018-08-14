@@ -5,13 +5,15 @@ import io
 import os
 import tempfile
 
+from . import exceptions as exc
+
 
 def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
     """Load a file and return the result."""
     extension = os.path.splitext(path)[-1]
     if path.startswith('s3://'):
         if s3_access_key_id is None or s3_secret_access_key is None:
-            raise ValueError(
+            raise exc.PorterError(
                 's3_access_key_id and s3_secret_access_key cannot be None '
                 'when loading a resource from S3.')
         path_or_stream = load_s3(path, s3_access_key_id, s3_secret_access_key)
@@ -36,7 +38,7 @@ def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
         else:
             obj = load_h5(path_or_stream)
     else:
-        raise Exception('unkown file type')
+        raise exc.PorterError('unkown file type')
     return obj
 
 # on the reasonableness of imports inside a function, see
@@ -66,9 +68,9 @@ def load_s3(path, s3_access_key_id, s3_secret_access_key):
         _ = s3_client.download_fileobj(bucket, key, stream)
     except botocore.exceptions.ClientError as err:
         if err.response['Error']['Code'] == "404":  # not found
-            raise RuntimeError(
-                'The object bucket=%s, key=%s does not exist in S3'
-                % (bucket, key))
+            raise exc.PorterError(
+                'tried to read an object in S3 that does not exist: '
+                f'bucket={bucket}, key={key}')
         else:
             raise err
     stream.seek(0)

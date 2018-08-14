@@ -4,6 +4,7 @@ Tests for the `.app` attribute belonging to an instance of `porter.ModelService`
 
 
 import json
+import re
 import unittest
 from unittest import mock
 
@@ -246,52 +247,121 @@ class TestAppErrorHandling(unittest.TestCase):
         # In this class we actually want to test the applications error handling
         # and thus do not set this attribute.
         # See, http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
-        app = ModelApp().app
-        @app.route('/test-error-handling/', methods=['POST'])
+        cls.model_app = ModelApp()
+        flask_app = cls.model_app.app
+        @flask_app.route('/test-error-handling/', methods=['POST'])
         def test_error():
             flask.request.get_json(force=True)
             raise Exception('exceptional testing of exceptions')
-        cls.app = app.test_client()
+        cls.app_test_client = flask_app.test_client()
+        cls.add_failing_model_service()
 
     def test_bad_request(self):
         # note data is unreadable JSON, thus a BadRequest
-        resp = self.app.post('/test-error-handling/', data='bad data')
-        # user_data is None when not passed or unreadable
-        self.validate_error_response(resp, 'BadRequest', 400, user_data=None)
+        resp = self.app_test_client.post('/test-error-handling/', data='bad data')
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'BadRequest',
+                'messages': ['The browser (or proxy) sent a request that this server could not understand.'],
+                # user_data is None when not passed or unreadable
+                'user_data': None,
+                'traceback': re.compile('.*raise\sBadRequest.*')
+            }
+        }
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     def test_not_found(self):
-        resp = self.app.get('/not-found/')
-        self.validate_error_response(resp, 'NotFound', 404)
+        resp = self.app_test_client.get('/not-found/')
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'NotFound',
+                'messages': ['The requested URL was not found on the server.  '
+                             'If you entered the URL manually please check your spelling and '
+                             'try again.'],
+                'user_data': None,
+                'traceback': re.compile('.*raise\sNotFound.*')
+            }
+        }
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     def test_method_not_allowed(self):
-        resp = self.app.get('/test-error-handling/')
-        self.validate_error_response(resp, 'MethodNotAllowed', 405)
+        resp = self.app_test_client.get('/test-error-handling/')
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'MethodNotAllowed',
+                'messages': ['The method is not allowed for the requested URL.'],
+                'user_data': None,
+                'traceback': re.compile('.*raise\sMethodNotAllowed.*')
+            }
+        }
+        self.assertEqual(resp.status_code, 405)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     def test_internal_server_error(self):
         user_data = {"valid": "json"}
-        resp = self.app.post('/test-error-handling/', data=json.dumps(user_data))
-        self.validate_error_response(resp, 'Exception', 500, 'exceptional', 'raise Exception',
-                                     user_data=user_data)
+        resp = self.app_test_client.post('/test-error-handling/', data=json.dumps(user_data))
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'Exception',
+                'messages': ['exceptional testing of exceptions'],
+                'user_data': user_data,
+                'traceback': re.compile('.*raise\sException')
+            }
+        }
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
-    def validate_error_response(self, response, error, status_code, message_substr=None,
-                                traceback_substr=None, user_data=None):
-        data = json.loads(response.data)
-        self.assertEqual(data['error'], error)
-        self.assertEqual(response.status_code, status_code)
-        # even if we don't check the values of message or traceback at least
-        # make sure that these keys are returned to the user.
-        self.assertIn('message', data)
-        self.assertIn('traceback', data)
-        if not message_substr is None:
-            if isinstance(data['message'], list):
-                # if error is a builtin, it does not have a description. Thus
-                # data['message'] is Exception().args, i.e. a list once jsonified
-                self.assertTrue(any(message_substr in arg for arg in data['message']))
-            else:
-                self.assertIn(message_substr, data['message'])
-        if not traceback_substr is None:
-            self.assertIn(traceback_substr, data['traceback'])
-        self.assertEqual(data['user_data'], user_data)
+    @mock.patch('porter.services.ServePrediction._predict')
+    def test_prediction_fails(self, mock__predict):
+        mock__predict.side_effect = Exception('testing a failing model')
+        user_data = {'some test': 'data'}
+        resp = self.app_test_client.post('/failing-model/prediction', data=json.dumps(user_data))
+        actual = json.loads(resp.data)
+        expected = {
+            'model_name': 'failing-model',
+            'model_version': 'B',
+            '1': 'one',
+            'two': 2,
+            'error': {
+                'name': 'PorterPredictionError',
+                'messages': ['an error occurred during prediction'],
+                'user_data': user_data,
+                'traceback': re.compile(".*testing\sa\sfailing\smodel.*"),
+            }
+        }
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(actual['model_name'], expected['model_name'])
+        self.assertEqual(actual['model_version'], expected['model_version'])
+        self.assertEqual(actual['1'], expected['1'])
+        self.assertEqual(actual['two'], expected['two'])
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
+
+    @classmethod
+    def add_failing_model_service(cls):
+        service_config = PredictionServiceConfig(name='failing-model',
+            version='B', model=None, meta={'1': 'one', 'two': 2})
+        cls.model_app.add_service(service_config)
 
 
 if __name__ == '__main__':
