@@ -99,8 +99,8 @@ A `porter` defines the following endpoints.
   
 **/<model name\>/prediction**: (Methods=`[POST]`):
   Each model added to the app will have an endpoint for accessing the model's predictions.
-  The endoint accepts `POST` requests with the input schema dependent on the model and
-  resturns a JSON object with the following schema.
+  The endpoint accepts `POST` requests with the input schema dependent on the model and
+  resturns a JSON object with the following schema for batch predictions.
   
   ```javascript
     {
@@ -109,6 +109,15 @@ A `porter` defines the following endpoints.
          {"id": ..., "prediction": ...},
          ...
       ]
+    }
+  ```
+  
+  Single instance predictions return a JSON object with the schema
+  
+   ```javascript
+    {
+      "model_id": A unique identifier for the model,
+      "predictions": {"id": ..., "prediction": ...}
     }
   ```
   
