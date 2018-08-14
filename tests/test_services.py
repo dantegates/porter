@@ -150,6 +150,16 @@ class TestServePrediction(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
+    @mock.patch('porter.services.ServePrediction._predict')
+    def test_serve_fail(self, mock__predict):
+        mock__predict.side_effect = Exception
+        with self.assertRaises(PredictionError):
+            sp = ServePrediction(
+                model=mock.Mock(), model_name=mock.Mock(), model_version=mock.Mock(),
+                model_meta=mock.Mock(), preprocessor=mock.Mock(), postprocessor=mock.Mock(),
+                schema=mock.Mock(), allow_nulls=mock.Mock(), batch_prediction=mock.Mock())
+            sp()
+
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing_batch(self, mock_flask_jsonify, mock_flask_request):

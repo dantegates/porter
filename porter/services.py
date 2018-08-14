@@ -111,13 +111,13 @@ class ServePrediction(StatefulRoute):
                 the user.
         """
         try:
-            predict_response = self._predict()
+            response = self._predict()
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediciton',
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
-        return predict_response
+        return response
 
     def _predict(self):
         X = self.get_post_data()
