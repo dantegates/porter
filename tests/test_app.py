@@ -259,22 +259,75 @@ class TestAppErrorHandling(unittest.TestCase):
     def test_bad_request(self):
         # note data is unreadable JSON, thus a BadRequest
         resp = self.app_test_client.post('/test-error-handling/', data='bad data')
-        # user_data is None when not passed or unreadable
-        self.validate_error_response(resp, 'BadRequest', 400, user_data=None)
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'BadRequest',
+                'messages': ['The browser (or proxy) sent a request that this server could not understand.'],
+                # user_data is None when not passed or unreadable
+                'user_data': None,
+                'traceback': re.compile('.*raise\sBadRequest.*')
+            }
+        }
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     def test_not_found(self):
         resp = self.app_test_client.get('/not-found/')
-        self.validate_error_response(resp, 'NotFound', 404)
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'NotFound',
+                'messages': ['The requested URL was not found on the server.  '
+                             'If you entered the URL manually please check your spelling and '
+                             'try again.'],
+                'user_data': None,
+                'traceback': re.compile('.*raise\sNotFound.*')
+            }
+        }
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     def test_method_not_allowed(self):
         resp = self.app_test_client.get('/test-error-handling/')
-        self.validate_error_response(resp, 'MethodNotAllowed', 405)
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'MethodNotAllowed',
+                'messages': ['The method is not allowed for the requested URL.'],
+                'user_data': None,
+                'traceback': re.compile('.*raise\sMethodNotAllowed.*')
+            }
+        }
+        self.assertEqual(resp.status_code, 405)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     def test_internal_server_error(self):
         user_data = {"valid": "json"}
         resp = self.app_test_client.post('/test-error-handling/', data=json.dumps(user_data))
-        self.validate_error_response(resp, 'Exception', 500, 'exceptional', 'raise Exception',
-                                     user_data=user_data)
+        actual = json.loads(resp.data)
+        expected = {
+            'error': {
+                'name': 'Exception',
+                'messages': ['exceptional testing of exceptions'],
+                'user_data': user_data,
+                'traceback': re.compile('.*raise\sException')
+            }
+        }
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+        self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
     @mock.patch('porter.services.ServePrediction._predict')
     def test_prediction_fails(self, mock__predict):
@@ -294,6 +347,7 @@ class TestAppErrorHandling(unittest.TestCase):
                 'traceback': re.compile(".*testing\sa\sfailing\smodel.*"),
             }
         }
+        self.assertEqual(resp.status_code, 500)
         self.assertEqual(actual['model_name'], expected['model_name'])
         self.assertEqual(actual['model_version'], expected['model_version'])
         self.assertEqual(actual['1'], expected['1'])
@@ -302,26 +356,6 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
-
-    def validate_error_response(self, response, error, status_code, message_substr=None,
-                                traceback_substr=None, user_data=None):
-        data = json.loads(response.data)
-        self.assertEqual(data['error']['name'], error)
-        self.assertEqual(response.status_code, status_code)
-        # even if we don't check the values of message or traceback at least
-        # make sure that these keys are returned to the user.
-        self.assertIn('messages', data['error'])
-        self.assertIn('traceback', data['error'])
-        if not message_substr is None:
-            if isinstance(data['error']['messages'], list):
-                # if error is a builtin, it does not have a description. Thus
-                # data['error']['message'] is Exception().args, i.e. a list once jsonified
-                self.assertTrue(any(message_substr in arg for arg in data['error']['messages']))
-            else:
-                self.assertIn(message_substr, data['error']['messages'])
-        if not traceback_substr is None:
-            self.assertIn(traceback_substr, data['error']['traceback'])
-        self.assertEqual(data['error']['user_data'], user_data)
 
     @classmethod
     def add_failing_model_service(cls):
