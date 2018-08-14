@@ -109,11 +109,17 @@ class ServePrediction(StatefulRoute):
         Returns:
             object: A `flask` object representing the response to return to
                 the user.
+
+        Raises:
+            `porter.exceptions.PredictionError`: Raised whenever an error
+                occurs during prediction. The error contains information
+                about the model context which a custom error handler can
+                use to add to the errors response.
         """
         try:
             response = self._predict()
         except Exception as err:
-            error = exc.PredictionError('an error occurred during prediciton',
+            error = exc.PredictionError('an error occurred during prediction',
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
@@ -324,7 +330,6 @@ class BaseServiceConfig:
         self.version = version
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
-
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes.
         self.id = self.define_id()
@@ -343,6 +348,7 @@ class BaseServiceConfig:
         Subclasses overriding this method should always use super() to call
         this method on the superclass unless they have a good reason not to.
         """
+        assert all(isinstance(k, str) for k in meta), 'meta keys must be str'
         try:
             _ = json.dumps(meta, cls=cf.json_encoder)
         except TypeError:
