@@ -3,7 +3,7 @@ import traceback
 import flask
 
 from . import constants as cn
-
+from . import exceptions as exc
 
 # alias for convenience
 _IS_READY = cn.HEALTH_CHECK.VALUES.STATUS_IS_READY
@@ -64,15 +64,21 @@ def make_error_response(error):
 
 
 def _make_error_payload(error, user_data):
-    return {
-        cn.ERROR_KEYS.ERROR: type(error).__name__,
-        # getattr() is used to work around werkzeug's bad implementation
-        # of HTTPException (i.e. HTTPException inherits from Exception but
-        # exposes a different API, namely
-        # Exception.message -> HTTPException.description).
-        cn.ERROR_KEYS.MESSAGE: getattr(error, 'description', error.args),
+    # getattr() is used to work around werkzeug's bad implementation of
+    # HTTPException (i.e. HTTPException inherits from Exception but exposes a
+    # different API, namely Exception.message -> HTTPException.description).
+    messages = [error.description] if hasattr(error, 'description') else error.args
+    payload = {
+        cn.ERROR_KEYS.NAME: type(error).__name__,
+        cn.ERROR_KEYS.MESSAGES: messages,
         cn.ERROR_KEYS.TRACEBACK: traceback.format_exc(),
         cn.ERROR_KEYS.USER_DATA: user_data}
+    # if the error was generated while predicting add model meta data to error
+    # message
+    if isinstance(error, exc.PredictionError):
+        payload[cn.PREDICTION.KEYS.MODEL_NAME] = error.model_name
+        payload[cn.PREDICTION.KEYS.MODEL_VERSION] = error.model_version
+        payload.update(error.model_meta)
 
 
 def make_alive_response(app_state):

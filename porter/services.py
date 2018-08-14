@@ -27,6 +27,7 @@ import werkzeug.exceptions
 from . import __version__ as VERSION
 from . import config as cf
 from . import constants as cn
+from . import exceptions as exc
 from . import responses as porter_responses
 
 # alias for convenience
@@ -109,6 +110,15 @@ class ServePrediction(StatefulRoute):
             object: A `flask` object representing the response to return to
                 the user.
         """
+        try:
+            self._predict()
+        except Exception as err:
+            error = exc.PredictionError('an error occurred during prediciton',
+                model_name=self.model_name, model_version=self.model_version,
+                model_meta=self.model_meta)
+            raise error from err
+
+    def _predict(self):
         X = self.get_post_data()
         if self.validate_input:
             self.check_request(X, self.schema.input_columns, self.allow_nulls)
@@ -532,6 +542,7 @@ class ModelApp:
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
+        app.register_error_handler(PredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)

@@ -5,12 +5,13 @@ class ERROR_KEYS:
     """Keys for for error responses.
 
     Attributes:
-        ERROR: Name of error key.
-        MESSAGE: Error message key.
+        NAME: Name of error key.
+        MESSAGES: Error messages key.
         TRACEBACK: Error traceback key.
+        USER_DATA: Key for user data.
     """
-    ERROR = 'error'
-    MESSAGE = 'message'
+    NAME = 'name'
+    MESSAGES = 'messages'
     TRACEBACK = 'traceback'
     USER_DATA = 'user_data'
 
