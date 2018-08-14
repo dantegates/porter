@@ -10,6 +10,7 @@ class ERRORS:
                 TRACEBACK: Error traceback key.
                 USER_DATA: Key for user data.
             """
+            ERROR = 'error'
             NAME = 'name'
             MESSAGES = 'messages'
             TRACEBACK = 'traceback'
@@ -37,7 +38,7 @@ class PREDICTION:
             ID = 'id'
             PREDICTIONS = 'predictions'
             PREDICTION = 'prediction'
-            ERROR = 'error'
+            ERROR = ERRORS.RESPONSE.KEYS.ERROR
 
 
 class HEALTH_CHECK:

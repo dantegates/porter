@@ -69,10 +69,11 @@ def _make_error_payload(error, user_data):
     # different API, namely Exception.message -> HTTPException.description).
     messages = [error.description] if hasattr(error, 'description') else error.args
     payload = {
-        cn.ERRORS.RESPONSE.KEYS.NAME: type(error).__name__,
-        cn.ERRORS.RESPONSE.KEYS.MESSAGES: messages,
-        cn.ERRORS.RESPONSE.KEYS.TRACEBACK: traceback.format_exc(),
-        cn.ERRORS.RESPONSE.KEYS.USER_DATA: user_data}
+        cn.ERRORS.RESPONSE.KEYS.ERROR: {
+            cn.ERRORS.RESPONSE.KEYS.NAME: type(error).__name__,
+            cn.ERRORS.RESPONSE.KEYS.MESSAGES: messages,
+            cn.ERRORS.RESPONSE.KEYS.TRACEBACK: traceback.format_exc(),
+            cn.ERRORS.RESPONSE.KEYS.USER_DATA: user_data}}
     # if the error was generated while predicting add model meta data to error
     # message
     if isinstance(error, exc.PredictionError):
@@ -96,5 +97,5 @@ def make_ready_response(app_state):
 def _is_ready(app_state):
     services = app_state[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES]
     # app must define services and all services must be ready
-    return services and all(svc[cn.HEALTH_CHECK.KEYS.STATUS] is _IS_READY
+    return services and all(svc[cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS] is _IS_READY
                             for svc in services.values())
