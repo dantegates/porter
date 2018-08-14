@@ -4,6 +4,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from porter.exceptions import PredictionError
 from porter.services import (BaseServiceConfig, ModelApp,
                              PredictionServiceConfig, ServePrediction,
                              StatefulRoute, serve_error_message)
@@ -327,7 +328,7 @@ class TestServePrediction(unittest.TestCase):
             postprocessor=None,
             batch_prediction=True
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(PredictionError):
             _ = serve_prediction()
 
     @mock.patch('flask.request')
@@ -365,7 +366,7 @@ class TestServePrediction(unittest.TestCase):
             postprocessor=None,
             batch_prediction=False
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(PredictionError):
             _ = serve_prediction()
 
 
