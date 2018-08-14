@@ -6,7 +6,7 @@ from . import constants as cn
 from . import exceptions as exc
 
 # alias for convenience
-_IS_READY = cn.HEALTH_CHECK.VALUES.STATUS_IS_READY
+_IS_READY = cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
 
 
 # NOTE: private functions make testing easier as they bypass `flask` methods
@@ -26,12 +26,12 @@ def make_prediction_response(model_name, model_version, model_meta, id_keys,
 
 def _make_batch_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
     payload = {
-        cn.PREDICTION.KEYS.MODEL_NAME: model_name,
-        cn.PREDICTION.KEYS.MODEL_VERSION: model_version,
-        cn.PREDICTION.KEYS.PREDICTIONS: [
+        cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME: model_name,
+        cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION: model_version,
+        cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS: [
             {
-                cn.PREDICTION.KEYS.ID: id,
-                cn.PREDICTION.KEYS.PREDICTION: p
+                cn.PREDICTION.RESPONSE.KEYS.ID: id,
+                cn.PREDICTION.RESPONSE.KEYS.PREDICTION: p
             }
             for id, p in zip(id_keys, predictions)]
     }
@@ -41,12 +41,12 @@ def _make_batch_prediction_payload(model_name, model_version, model_meta, id_key
 
 def _make_single_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
     payload = {
-        cn.PREDICTION.KEYS.MODEL_NAME: model_name,
-        cn.PREDICTION.KEYS.MODEL_VERSION: model_version,
-        cn.PREDICTION.KEYS.PREDICTIONS:
+        cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME: model_name,
+        cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION: model_version,
+        cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS:
             {
-                cn.PREDICTION.KEYS.ID: id_keys[0],
-                cn.PREDICTION.KEYS.PREDICTION: predictions[0]
+                cn.PREDICTION.RESPONSE.KEYS.ID: id_keys[0],
+                cn.PREDICTION.RESPONSE.KEYS.PREDICTION: predictions[0]
             }
     }
     payload.update(model_meta)
@@ -69,16 +69,17 @@ def _make_error_payload(error, user_data):
     # different API, namely Exception.message -> HTTPException.description).
     messages = [error.description] if hasattr(error, 'description') else error.args
     payload = {
-        cn.ERROR_KEYS.NAME: type(error).__name__,
-        cn.ERROR_KEYS.MESSAGES: messages,
-        cn.ERROR_KEYS.TRACEBACK: traceback.format_exc(),
-        cn.ERROR_KEYS.USER_DATA: user_data}
+        cn.ERRORS.RESPONSE.KEYS.NAME: type(error).__name__,
+        cn.ERRORS.RESPONSE.KEYS.MESSAGES: messages,
+        cn.ERRORS.RESPONSE.KEYS.TRACEBACK: traceback.format_exc(),
+        cn.ERRORS.RESPONSE.KEYS.USER_DATA: user_data}
     # if the error was generated while predicting add model meta data to error
     # message
     if isinstance(error, exc.PredictionError):
-        payload[cn.PREDICTION.KEYS.MODEL_NAME] = error.model_name
-        payload[cn.PREDICTION.KEYS.MODEL_VERSION] = error.model_version
+        payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME] = error.model_name
+        payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION] = error.model_version
         payload.update(error.model_meta)
+    return payload
 
 
 def make_alive_response(app_state):
@@ -93,7 +94,7 @@ def make_ready_response(app_state):
 
 
 def _is_ready(app_state):
-    services = app_state[cn.HEALTH_CHECK.KEYS.SERVICES]
+    services = app_state[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES]
     # app must define services and all services must be ready
-    return services and all(
-        svc[cn.HEALTH_CHECK.KEYS.STATUS] is _IS_READY for svc in services.values())
+    return services and all(svc[cn.HEALTH_CHECK.KEYS.STATUS] is _IS_READY
+                            for svc in services.values())

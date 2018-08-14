@@ -31,7 +31,7 @@ from . import exceptions as exc
 from . import responses as porter_responses
 
 # alias for convenience
-_ID = cn.PREDICTION.KEYS.ID
+_ID = cn.PREDICTION.RESPONSE.KEYS.ID
 
 
 class StatefulRoute:
@@ -111,12 +111,13 @@ class ServePrediction(StatefulRoute):
                 the user.
         """
         try:
-            self._predict()
+            predict_response = self._predict()
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediciton',
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
+        return predict_response
 
     def _predict(self):
         X = self.get_post_data()
@@ -290,18 +291,18 @@ class AppState(dict):
 
     def __init__(self):
         super().__init__()
-        self[cn.HEALTH_CHECK.KEYS.PORTER_VERSION] = VERSION
-        self[cn.HEALTH_CHECK.KEYS.SERVICES] = {}
+        self[cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION] = VERSION
+        self[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES] = {}
 
     def add_service(self, id, name, version, endpoint, meta, status):
-        if id in self[cn.HEALTH_CHECK.KEYS.SERVICES]:
+        if id in self[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES]:
             raise ValueError(f'a service has already been added using id={id}')
-        self[cn.HEALTH_CHECK.KEYS.SERVICES][id] = {
-            cn.HEALTH_CHECK.KEYS.NAME: name,
-            cn.HEALTH_CHECK.KEYS.MODEL_VERSION: version,
-            cn.HEALTH_CHECK.KEYS.ENDPOINT: endpoint,
-            cn.HEALTH_CHECK.KEYS.META: meta,
-            cn.HEALTH_CHECK.KEYS.STATUS: status,
+        self[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES][id] = {
+            cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: name,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.MODEL_VERSION: version,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.ENDPOINT: endpoint,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.META: meta,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: status,
         }
 
 
@@ -420,7 +421,11 @@ class PredictionServiceConfig(BaseServiceConfig):
             single object per request. Optional.
     """
 
-    reserved_keys = cn.PREDICTION.KEYS
+    # response keys that model meta data cannot override
+    reserved_keys = (cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME,
+                     cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION,
+                     cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS,
+                     cn.PREDICTION.RESPONSE.KEYS.ERROR)
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False,
@@ -492,7 +497,8 @@ class ModelApp:
             raise ValueError('unkown service type')
         self.state.add_service(id=service_config.id, name=service_config.name,
             version=service_config.version, endpoint=service_config.endpoint,
-            meta=service_config.meta, status=cn.HEALTH_CHECK.VALUES.STATUS_IS_READY)
+            meta=service_config.meta,
+            status=cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY)
 
     def add_prediction_service(self, service_config):
         """
@@ -542,7 +548,7 @@ class ModelApp:
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(PredictionError, serve_error_message)
+        app.register_error_handler(exc.PredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
