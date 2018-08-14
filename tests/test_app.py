@@ -341,7 +341,7 @@ class TestAppErrorHandling(unittest.TestCase):
             '1': 'one',
             'two': 2,
             'error': {
-                'name': 'PredictionError',
+                'name': 'PorterPredictionError',
                 'messages': ['an error occurred during prediction'],
                 'user_data': user_data,
                 'traceback': re.compile(".*testing\sa\sfailing\smodel.*"),
