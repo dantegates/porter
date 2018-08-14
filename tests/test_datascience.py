@@ -8,8 +8,8 @@ from porter.datascience import (BaseProcessor, BaseModel,
 class TestBaseModel(unittest.TestCase):
     def test_abc(self):
         class A(BaseModel): pass
-        with self.assertRaises(NotImplementedError):
-            A().predict(None)
+        with self.assertRaises(TypeError):
+            A()
 
 
 class TestWrappedModel(unittest.TestCase):
@@ -31,8 +31,8 @@ class TestWrappedModel(unittest.TestCase):
 class TestBaseProcessor(unittest.TestCase):
     def test_abc(self):
         class A(BaseProcessor): pass
-        with self.assertRaises(NotImplementedError):
-            A().process(None)
+        with self.assertRaises(TypeError):
+            A()
 
 
 class TestWrappedTransformer(unittest.TestCase):
