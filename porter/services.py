@@ -14,6 +14,9 @@ For example,
     >>> service_config1 = ServiceConfig(...)
     >>> service_config2 = ServiceConfig(...)
     >>> model_app.add_services(service_config1, service_config2)
+
+Now the model app can be run with `model_app.run()` for development, or as an
+example of running the app in production `$ gunicorn my_module:model_app`.
 """
 
 import abc
@@ -21,7 +24,6 @@ import json
 import logging
 
 import flask
-import numpy as np
 import pandas as pd
 import werkzeug.exceptions
 
@@ -127,21 +129,24 @@ class ServePrediction(StatefulRoute):
         return response
 
     def _predict(self):
-        X = self.get_post_data()
+        X_input = self.get_post_data()
         if self.validate_input:
-            self.check_request(X, self.schema.input_columns, self.allow_nulls)
-            Xt = X.loc[:,self.schema.input_features]
+            self.check_request(X_input, self.schema.input_columns, self.allow_nulls)
+            X_preprocessed = X_input.loc[:,self.schema.input_features]
         else:
-            Xt = X
+            X_preprocessed = X_input
         if self.preprocess_model_input:
-            Xt = self.preprocessor.process(Xt)
-        preds = self.model.predict(Xt)
+            X_preprocessed = self.preprocessor.process(X_preprocessed)
+        preds = self.model.predict(X_preprocessed)
         if self.postprocess_model_output:
-            preds = self.postprocessor.process(preds)
-        response = porter_responses.make_prediction_response(
+            preds = self.postprocessor.process(X_input, X_preprocessed, preds)
+        response = self.make_response(X_input, preds)
+        return response
+
+    def make_response(self, X, preds):
+        return porter_responses.make_prediction_response(
             self.model_name, self.model_version, self.model_meta, X[_ID], preds,
             self.batch_prediction)
-        return response
 
     @staticmethod
     def check_request(X, input_columns, allow_nulls=False):
@@ -153,7 +158,7 @@ class ServePrediction(StatefulRoute):
         2. `X` does not contain nulls (only if allow_nulls == True).
 
         Args:
-            X (pandas.DataFrame): A `pandas.DataFrame` created from the POST
+            X (`pandas.DataFrame`): A `pandas.DataFrame` created from the POST
                 request.
             feature_names (list): All feature names expected in `X`.
             allow_nulls (bool): Whether nulls are allowed in `X`. False by
@@ -446,7 +451,7 @@ class PredictionServiceConfig(BaseServiceConfig):
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
-        self.batch_prediction = batch_prediction        
+        self.batch_prediction = batch_prediction
         super().__init__(**kwargs)
 
     def define_endpoint(self):

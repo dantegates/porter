@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
 
-from porter.datascience import (BaseProcessor, BaseModel,
-                                WrappedTransformer, WrappedModel)
+from porter.datascience import (BaseModel, BasePostProcessor, BasePreProcessor,
+                                WrappedModel, WrappedTransformer)
 
 
 class TestBaseModel(unittest.TestCase):
@@ -28,9 +28,16 @@ class TestWrappedModel(unittest.TestCase):
         pass
 
 
-class TestBaseProcessor(unittest.TestCase):
+class TestBasePreProcessor(unittest.TestCase):
     def test_abc(self):
-        class A(BaseProcessor): pass
+        class A(BasePreProcessor): pass
+        with self.assertRaises(TypeError):
+            A()
+
+
+class TestBasePostProcessor(unittest.TestCase):
+    def test_abc(self):
+        class A(BasePostProcessor): pass
         with self.assertRaises(TypeError):
             A()
 

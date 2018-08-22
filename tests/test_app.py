@@ -10,7 +10,7 @@ from unittest import mock
 
 import flask
 from porter import __version__
-from porter.datascience import BaseModel, BaseProcessor
+from porter.datascience import BaseModel, BasePreProcessor, BasePostProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
 
@@ -21,7 +21,7 @@ class TestAppPredictions(unittest.TestCase):
 
     def test(self):
         # define objects for model 1
-        class Preprocessor1(BaseProcessor):
+        class Preprocessor1(BasePreProcessor):
             def process(self, X):
                 X['feature2'] = X.feature2.astype(str)
                 return X
@@ -29,9 +29,9 @@ class TestAppPredictions(unittest.TestCase):
             feature2_map = {str(x+1): x for x in range(5)}
             def predict(self, X):
                 return X['feature1'] * X.feature2.map(self.feature2_map)
-        class Postprocessor1(BaseProcessor):
-            def process(self, X):
-                return X * -1
+        class Postprocessor1(BasePostProcessor):
+            def process(self, X_input, X_preprocessed, predictions):
+                return predictions * -1
         input_features1 = ['feature1', 'feature2']
         post_data1 = [
             {'id': 1, 'feature1': 2, 'feature2': 1},
@@ -42,7 +42,7 @@ class TestAppPredictions(unittest.TestCase):
         ]
 
         # define objects for model 2
-        class Preprocessor2(BaseProcessor):
+        class Preprocessor2(BasePreProcessor):
             def process(self, X):
                 X['feature3'] = range(len(X))
                 return X

@@ -76,8 +76,8 @@ class TestServePrediction(unittest.TestCase):
             X['feature3'] = range(len(X))
             return X
         mock_preprocessor.process = preprocess
-        def postprocess(X):
-            return X * 2
+        def postprocess(X_in, X_pre, preds):
+            return preds * 2
         mock_postprocessor.process = postprocess
         serve_prediction = ServePrediction(
             model=mock_model,
@@ -126,8 +126,8 @@ class TestServePrediction(unittest.TestCase):
             X['feature3'] = range(len(X))
             return X
         mock_preprocessor.process = preprocess
-        def postprocess(X):
-            return X * 2
+        def postprocess(X_in, X_pre, preds):
+            return preds * 2
         mock_postprocessor.process = postprocess
         serve_prediction = ServePrediction(
             model=mock_model,
