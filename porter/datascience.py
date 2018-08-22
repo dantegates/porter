@@ -14,12 +14,41 @@ class BaseModel(abc.ABC):
         """Return predictions corresponding to the data in `X`."""
 
 
-class BaseProcessor(abc.ABC):
-    """Class defining the [pre|post]processor interface required by
+class BasePreProcessor(abc.ABC):
+    """Class defining the preprocessor interface required by
         `porter.services.ModelApp.add_service`."""
     @abc.abstractmethod
-    def process(self, X):
-        """Process and return `X`."""
+    def process(self, X_input):
+        """Process and return `X_input`.
+
+        Args:
+            X_input (`pandas.DataFrame`): The raw input from a POST request
+                converted to a `pandas.DataFrame`.
+
+        Returns:
+            `X_input` processed as desired.
+        """
+
+
+class BasePostProcessor(abc.ABC):
+    """Class defining the postprocessor interface required by
+        `porter.services.ModelApp.add_service`."""
+    @abc.abstractmethod
+    def process(self, X_input, X_preprocessed, predictions):
+        """Process and return `predictions`.
+
+        Args:
+            X_input (`pandas.DataFrame`): The raw input from a POST request
+                converted to a `pandas.DataFrame`.
+            X_preprocessed: The POST request data with preprocessing applied.
+            predictions: The output of an instance of `BaseModel`.
+
+        Returns:
+            `predictions` processed as desired.
+
+        Note: `X_input` and `X_preprocessed` are included to provide additional
+        context for postprocessing predictions if necessary.
+        """
 
 
 class WrappedModel(BaseModel):
@@ -40,9 +69,9 @@ class WrappedModel(BaseModel):
         return cls(model, *args, **kwargs)
 
 
-class WrappedTransformer(BaseProcessor):
+class WrappedTransformer(BasePreProcessor):
     """A convenience class that exposes a transformer persisted to disk with
-    the `BaseProcessor` interface.
+    the `BasePreProcessor` interface.
     """
     def __init__(self, transformer):
         self.transformer = transformer

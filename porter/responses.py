@@ -64,22 +64,22 @@ def make_error_response(error):
 
 
 def _make_error_payload(error, user_data):
-    # getattr() is used to work around werkzeug's bad implementation of
-    # HTTPException (i.e. HTTPException inherits from Exception but exposes a
-    # different API, namely Exception.message -> HTTPException.description).
-    messages = [error.description] if hasattr(error, 'description') else error.args
-    payload = {
-        cn.ERRORS.RESPONSE.KEYS.ERROR: {
-            cn.ERRORS.RESPONSE.KEYS.NAME: type(error).__name__,
-            cn.ERRORS.RESPONSE.KEYS.MESSAGES: messages,
-            cn.ERRORS.RESPONSE.KEYS.TRACEBACK: traceback.format_exc(),
-            cn.ERRORS.RESPONSE.KEYS.USER_DATA: user_data}}
+    payload = {}
     # if the error was generated while predicting add model meta data to error
     # message
     if isinstance(error, exc.PorterPredictionError):
         payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME] = error.model_name
         payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION] = error.model_version
         payload.update(error.model_meta)
+    # getattr() is used to work around werkzeug's bad implementation of
+    # HTTPException (i.e. HTTPException inherits from Exception but exposes a
+    # different API, namely Exception.message -> HTTPException.description).
+    messages = [error.description] if hasattr(error, 'description') else error.args
+    payload[cn.ERRORS.RESPONSE.KEYS.ERROR] = {
+        cn.ERRORS.RESPONSE.KEYS.NAME: type(error).__name__,
+        cn.ERRORS.RESPONSE.KEYS.MESSAGES: messages,
+        cn.ERRORS.RESPONSE.KEYS.TRACEBACK: traceback.format_exc(),
+        cn.ERRORS.RESPONSE.KEYS.USER_DATA: user_data}
     return payload
 
 

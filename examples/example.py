@@ -25,7 +25,7 @@ The corresponding output has the format
 
 import os
 
-from porter.datascience import WrappedModel, WrappedTransformer, BaseProcessor
+from porter.datascience import WrappedModel, WrappedTransformer, BasePostProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
 # Uncomment this and enter a directory with "preprocessor.pkl" and "model.h5"
@@ -59,10 +59,10 @@ input_features = [
 preprocessor = WrappedTransformer.from_file(path=PREPROCESSOR_PATH)
 model = WrappedModel.from_file(path=MODEL_PATH)
 
-class Postprocessor(BaseProcessor):
-    def process(self, X):
+class Postprocessor(BasePostProcessor):
+    def process(self, X_input, X_preprocessed, predictions):
         # keras model returns an array with shape (n observations, 1)
-        return X.reshape(-1)
+        return predictions.reshape(-1)
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
