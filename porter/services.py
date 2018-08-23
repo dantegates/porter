@@ -36,6 +36,7 @@ from . import responses as porter_responses
 # alias for convenience
 _ID = cn.PREDICTION.RESPONSE.KEYS.ID
 
+_logger = logging.getLogger(__name__)
 
 class StatefulRoute:
     """Helper class to ensure that classes defining __call__() intended to be
@@ -227,6 +228,7 @@ def serve_error_message(error):
     """Return a response with JSON payload describing the most recent
     exception."""
     response = porter_responses.make_error_response(error)
+    _logger.exception(response.data)
     return response
 
 
