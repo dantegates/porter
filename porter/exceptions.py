@@ -2,7 +2,7 @@ class PorterError(Exception):
     """Base Exception class for error's raised by `porter`."""
 
 
-class PorterBadRequest(PorterError):
+class InvalidModelInput(PorterError):
     """Exception class to raise when the POST JSON is not valid for
     predicting.
     """
@@ -19,7 +19,7 @@ class PredictionError(PorterError):
         super().__init__(*args, **kwargs)
 
 
-class RequestMissingFields(PorterBadRequest):
+class RequestMissingFields(InvalidModelInput):
     """Exception raised when POST request is missing required fields."""
     def __init__(self, fields):
         super().__init__(
@@ -27,7 +27,7 @@ class RequestMissingFields(PorterBadRequest):
             .format(fields))
 
 
-class RequestContainsNulls(PorterBadRequest):
+class RequestContainsNulls(InvalidModelInput):
     """Exception raised when POST request contains null values."""
     def __init__(self, fields):
         super().__init__(

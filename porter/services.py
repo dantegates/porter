@@ -88,10 +88,13 @@ class ServePrediction(StatefulRoute):
             if not `None`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found.
+        check_request (callable): Raises `InvalidModelInput` or subclass thereof
+            if POST request is invalid.
     """
 
-    def __init__(self, model, model_name, model_version, model_meta, preprocessor,
-                 postprocessor, schema, allow_nulls, batch_prediction):
+    def __init__(self, model, model_name, model_version, model_meta,
+                 preprocessor, postprocessor, schema, allow_nulls,
+                 batch_prediction, check_request):
         self.model = model
         self.model_name = model_name
         self.model_version = model_version
@@ -101,6 +104,7 @@ class ServePrediction(StatefulRoute):
         self.schema = schema
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
+        self.user_check_request = check_request
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
@@ -133,7 +137,8 @@ class ServePrediction(StatefulRoute):
     def _predict(self):
         X_input = self.get_post_data()
         if self.validate_input:
-            self.check_request(X_input, self.schema.input_columns, self.allow_nulls)
+            self.check_request(X_input, self.schema.input_columns,
+                self.allow_nulls, self.user_check_request)
             X_preprocessed = X_input.loc[:,self.schema.input_features]
         else:
             X_preprocessed = X_input
@@ -150,8 +155,8 @@ class ServePrediction(StatefulRoute):
             self.model_name, self.model_version, self.model_meta, X[_ID], preds,
             self.batch_prediction)
 
-    @staticmethod
-    def check_request(X, input_columns, allow_nulls=False, user_validations=None):
+    @classmethod
+    def check_request(cls, X, input_columns, allow_nulls=False, additional_checks=None):
         """Check the POST request data raising an error if a check fails.
 
         Checks include
@@ -172,6 +177,15 @@ class ServePrediction(StatefulRoute):
         Raises:
             porter.exceptions.PorterError: If a given check fails.
         """
+        cls._default_check_request(X, input_columns, allow_nulls)
+        # Only perform user checks after the standard checks have been passed.
+        # This allows the user to assume that all columns are present and there
+        # are no nulls present (if allow_nulls is False).
+        if additional_checks is not None:
+            additional_checks(X)
+
+    @staticmethod
+    def _default_check_request(X, input_columns, allow_nulls):
         # checks that all columns are present and no nulls sent
         # (or missing values)
         try:
@@ -201,11 +215,11 @@ class ServePrediction(StatefulRoute):
             # if API is not supporting batch prediction user's must send
             # a single JSON object.
             if not isinstance(data, dict):
-                raise exc.PorterBadRequest(f'input must be a single JSON object')
+                raise exc.InvalidModelInput(f'input must be a single JSON object')
             # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
         elif not isinstance(data, list):
-            raise exc.PorterBadRequest(f'input must be an array of objects')
+            raise exc.InvalidModelInput(f'input must be an array of objects')
         return pd.DataFrame(data)
 
 
@@ -407,6 +421,8 @@ class PredictionServiceConfig(BaseServiceConfig):
             supported or not. If `True` the API will accept an array of objects
             to predict on. If `False` the API will only accept a single object
             per request. Optional.
+        check_request (callable): Raises `InvalidModelInput` or subclass thereof
+            if POST request is invalid.
 
     Attributes:
         id (str): A unique ID for the model. Composed of `name` and `version`.
@@ -433,6 +449,8 @@ class PredictionServiceConfig(BaseServiceConfig):
             predictions or not. If `True` the API will accept an array of
             objects to predict on. If `False` the API will only accept a
             single object per request. Optional.
+        check_request (callable): Raises `InvalidModelInput` or subclass thereof
+            if POST request is invalid.
     """
 
     # response keys that model meta data cannot override
@@ -443,13 +461,16 @@ class PredictionServiceConfig(BaseServiceConfig):
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False,
-                 batch_prediction=False, **kwargs):
+                 batch_prediction=False, check_request=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
+        if check_request is not None and not callable(check_request):
+            raise exc.PorterError('`check_request` must be callable')
+        self.check_request = check_request
         super().__init__(**kwargs)
 
     def define_endpoint(self):
@@ -534,7 +555,8 @@ class ModelApp:
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,
             allow_nulls=service_config.allow_nulls,
-            batch_prediction=service_config.batch_prediction)
+            batch_prediction=service_config.batch_prediction,
+            check_request=service_config.check_request)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
 

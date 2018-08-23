@@ -9,8 +9,9 @@ import unittest
 from unittest import mock
 
 import flask
+from porter import exceptions as exc
 from porter import __version__
-from porter.datascience import BaseModel, BasePreProcessor, BasePostProcessor
+from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
 from porter.services import ModelApp, PredictionServiceConfig
 
 
@@ -42,6 +43,9 @@ class TestAppPredictions(unittest.TestCase):
             def predict(self, X):
                 return X['feature1'] + X['feature3']
         input_features2 = ['feature1']
+        def user_check(X):
+            if (X.feature1 == 0).any():
+                raise exc.InvalidModelInput
 
         # define objects for model 3
         class Model3(BaseModel):
@@ -68,7 +72,8 @@ class TestAppPredictions(unittest.TestCase):
             postprocessor=None,
             input_features=input_features2,
             allow_nulls=False,
-            batch_prediction=True
+            batch_prediction=True,
+            check_request=user_check
         )
         service_config3 = PredictionServiceConfig(
             model=Model3(),
@@ -151,23 +156,29 @@ class TestAppPredictions(unittest.TestCase):
         # contains nulls 
         post_data5 = [{'id': 1, 'feature1': 1, 'feature2': 1},
                       {'id': 1, 'feature1': 1, 'feature2': None}]
-        actual1 = self.app.post('/a-model/prediction', data=json.dumps(post_data1))
-        actual2 = self.app.post('/model-3/prediction', data=json.dumps(post_data2))
-        actual3 = self.app.post('/another-model/prediction', data=json.dumps(post_data3))
-        actual4 = self.app.post('/model-3/prediction', data=json.dumps(post_data4))
-        actual5 = self.app.post('/a-model/prediction', data=json.dumps(post_data5))
+        # contains 0 values that don't pass user check
+        post_data6 = [{'id': 1, 'feature1': 1, 'feature2': 1},
+                      {'id': 1, 'feature1': 0, 'feature2': 1}]
+        actuals = [
+            self.app.post('/a-model/prediction', data=json.dumps(post_data1)),
+            self.app.post('/model-3/prediction', data=json.dumps(post_data2)),
+            self.app.post('/another-model/prediction', data=json.dumps(post_data3)),
+            self.app.post('/model-3/prediction', data=json.dumps(post_data4)),
+            self.app.post('/a-model/prediction', data=json.dumps(post_data5)),
+            self.app.post('/another-model/prediction', data=json.dumps(post_data6)),
+        ]
         # check status codes
-        actuals = [actual1, actual2, actual3, actual4, actual5]
         self.assertTrue(all(actual.status_code == 400 for actual in actuals))
         # check that all objects have error key
         self.assertTrue(all('error' in json.loads(actual.data) for actual in actuals))
         # check response values
         expected_error_values = [
-            {'name': 'PorterBadRequest'},
-            {'name': 'PorterBadRequest'},
+            {'name': 'InvalidModelInput'},
+            {'name': 'InvalidModelInput'},
             {'name': 'RequestMissingFields'},
             {'name': 'RequestContainsNulls'},
             {'name': 'RequestContainsNulls'},
+            {'name': 'InvalidModelInput'},
         ]
         for actual, expectations in zip(actuals, expected_error_values):
             actual_error_obj = json.loads(actual.data)['error']
