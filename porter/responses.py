@@ -66,8 +66,9 @@ def make_error_response(error):
 def _make_error_payload(error, user_data):
     payload = {}
     # if the error was generated while predicting add model meta data to error
-    # message
-    if isinstance(error, exc.PorterPredictionError):
+    # message - note that isinstance(obj, cls) is True if obj is an instance
+    # of a subclass of cls
+    if isinstance(error, exc.PredictionError):
         payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME] = error.model_name
         payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION] = error.model_version
         payload.update(error.model_meta)

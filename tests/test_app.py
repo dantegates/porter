@@ -15,11 +15,10 @@ from porter.services import ModelApp, PredictionServiceConfig
 
 
 class TestAppPredictions(unittest.TestCase):
-    def setUp(self):
-        self.model_app = ModelApp()
-        self.app = self.model_app.app.test_client()
-
-    def test(self):
+    @classmethod
+    def setUpClass(cls):
+        cls.model_app = ModelApp()
+        cls.app = cls.model_app.app.test_client()
         # define objects for model 1
         class Preprocessor1(BasePreProcessor):
             def process(self, X):
@@ -33,13 +32,6 @@ class TestAppPredictions(unittest.TestCase):
             def process(self, X_input, X_preprocessed, predictions):
                 return predictions * -1
         input_features1 = ['feature1', 'feature2']
-        post_data1 = [
-            {'id': 1, 'feature1': 2, 'feature2': 1},
-            {'id': 2, 'feature1': 2, 'feature2': 2},
-            {'id': 3, 'feature1': 2, 'feature2': 3},
-            {'id': 4, 'feature1': 2, 'feature2': 4},
-            {'id': 5, 'feature1': 2, 'feature2': 5},
-        ]
 
         # define objects for model 2
         class Preprocessor2(BasePreProcessor):
@@ -50,20 +42,12 @@ class TestAppPredictions(unittest.TestCase):
             def predict(self, X):
                 return X['feature1'] + X['feature3']
         input_features2 = ['feature1']
-        post_data2 = [
-            {'id': 1, 'feature1': 10},
-            {'id': 2, 'feature1': 10},
-            {'id': 3, 'feature1':  1},
-            {'id': 4, 'feature1':  3},
-            {'id': 5, 'feature1':  3},
-        ]
 
         # define objects for model 3
         class Model3(BaseModel):
             def predict(self, X):
                 return X['feature1'] * -1
         input_features3 = ['feature1']
-        post_data3 = {'id': 1, 'feature1': 5}
 
         # define configs and add services to app
         service_config1 = PredictionServiceConfig(
@@ -96,10 +80,26 @@ class TestAppPredictions(unittest.TestCase):
             allow_nulls=False,
             batch_prediction=False
         )
-        self.model_app.add_service(service_config1)
-        self.model_app.add_service(service_config2)
-        self.model_app.add_service(service_config3)
+        cls.model_app.add_service(service_config1)
+        cls.model_app.add_service(service_config2)
+        cls.model_app.add_service(service_config3)
 
+    def test_prediction_success(self):
+        post_data1 = [
+            {'id': 1, 'feature1': 2, 'feature2': 1},
+            {'id': 2, 'feature1': 2, 'feature2': 2},
+            {'id': 3, 'feature1': 2, 'feature2': 3},
+            {'id': 4, 'feature1': 2, 'feature2': 4},
+            {'id': 5, 'feature1': 2, 'feature2': 5},
+        ]
+        post_data2 = [
+            {'id': 1, 'feature1': 10},
+            {'id': 2, 'feature1': 10},
+            {'id': 3, 'feature1':  1},
+            {'id': 4, 'feature1':  3},
+            {'id': 5, 'feature1':  3},
+        ]
+        post_data3 = {'id': 1, 'feature1': 5}
         actual1 = self.app.post('/a-model/prediction', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
         actual2 = self.app.post('/another-model/prediction', data=json.dumps(post_data2))
@@ -137,6 +137,43 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(actual2, expected2)
         self.assertEqual(actual3, expected3)
 
+    def test_prediction_bad_requests(self):
+        # should be array when sent to model1
+        post_data1 = {'id': 1, 'feature1': 2, 'feature2': 1}
+        # should be single object when sent to model3
+        post_data2 = [{'id': 1, 'feature1': 2}, {'id': 2, 'feature1': 2}]
+        # missing model2 features
+        post_data3 = [{'id': 1, 'feature2': 1},
+                      {'id': 2, 'feature2': 2},
+                      {'id': 3, 'feature2': 3}]
+        # contains nulls 
+        post_data4 = {'id': 1, 'feature1': None}
+        # contains nulls 
+        post_data5 = [{'id': 1, 'feature1': 1, 'feature2': 1},
+                      {'id': 1, 'feature1': 1, 'feature2': None}]
+        actual1 = self.app.post('/a-model/prediction', data=json.dumps(post_data1))
+        actual2 = self.app.post('/model-3/prediction', data=json.dumps(post_data2))
+        actual3 = self.app.post('/another-model/prediction', data=json.dumps(post_data3))
+        actual4 = self.app.post('/model-3/prediction', data=json.dumps(post_data4))
+        actual5 = self.app.post('/a-model/prediction', data=json.dumps(post_data5))
+        # check status codes
+        actuals = [actual1, actual2, actual3, actual4, actual5]
+        self.assertTrue(all(actual.status_code == 400 for actual in actuals))
+        # check that all objects have error key
+        self.assertTrue(all('error' in json.loads(actual.data) for actual in actuals))
+        # check response values
+        expected_error_values = [
+            {'name': 'PorterBadRequest'},
+            {'name': 'PorterBadRequest'},
+            {'name': 'RequestMissingFields'},
+            {'name': 'RequestContainsNulls'},
+            {'name': 'RequestContainsNulls'},
+        ]
+        for actual, expectations in zip(actuals, expected_error_values):
+            actual_error_obj = json.loads(actual.data)['error']
+            for key, value in expectations.items():
+                self.assertEqual(actual_error_obj[key], value)
+        
 
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
@@ -341,7 +378,7 @@ class TestAppErrorHandling(unittest.TestCase):
             '1': 'one',
             'two': 2,
             'error': {
-                'name': 'PorterPredictionError',
+                'name': 'PredictionError',
                 'messages': ['an error occurred during prediction'],
                 'user_data': user_data,
                 'traceback': re.compile(".*testing\sa\sfailing\smodel.*"),

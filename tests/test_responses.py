@@ -1,7 +1,7 @@
 import re
 import unittest
 
-from porter.exceptions import PorterPredictionError
+from porter.exceptions import PredictionError
 from porter.responses import (_is_ready, _make_batch_prediction_payload,
                               _make_error_payload,
                               _make_single_prediction_payload)
@@ -56,7 +56,7 @@ class TestFunctions(unittest.TestCase):
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
 
     def test__make_error_payload_porter_error(self):
-        error = PorterPredictionError('foo bar baz', model_name='M', model_version='V',
+        error = PredictionError('foo bar baz', model_name='M', model_version='V',
             model_meta={1: '1', '2': 2})
         try:
             raise error
@@ -68,12 +68,12 @@ class TestFunctions(unittest.TestCase):
             1: '1',
             '2': 2,
             'error': {
-                'name': 'PorterPredictionError',
+                'name': 'PredictionError',
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test__make_error_payload_porter_error\n'
                               '    raise error\n'
-                              'porter.exceptions.PorterPredictionError: foo bar baz.*'),
+                              'porter.exceptions.PredictionError: foo bar baz.*'),
                 'user_data': 'foo'
             }
         }

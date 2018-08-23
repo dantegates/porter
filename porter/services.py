@@ -114,15 +114,17 @@ class ServePrediction(StatefulRoute):
                 the user.
 
         Raises:
-            porter.exceptions.PorterPredictionError: Raised whenever an error
+            porter.exceptions.PredictionError: Raised whenever an error
                 occurs during prediction. The error contains information
                 about the model context which a custom error handler can
                 use to add to the errors response.
         """
         try:
             response = self._predict()
+        except exc.PorterError as err:
+            raise err
         except Exception as err:
-            error = exc.PorterPredictionError('an error occurred during prediction',
+            error = exc.PredictionError('an error occurred during prediction',
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
@@ -149,7 +151,7 @@ class ServePrediction(StatefulRoute):
             self.batch_prediction)
 
     @staticmethod
-    def check_request(X, input_columns, allow_nulls=False):
+    def check_request(X, input_columns, allow_nulls=False, user_validations=None):
         """Check the POST request data raising an error if a check fails.
 
         Checks include
@@ -177,14 +179,10 @@ class ServePrediction(StatefulRoute):
             if not allow_nulls and X[input_columns].isnull().any().any():
                 null_counts = X[input_columns].isnull().sum()
                 null_columns = null_counts[null_counts > 0].index.tolist()
-                raise exc.PorterError(
-                    'request payload had null values in the following fields: %s'
-                    % null_columns)
+                raise exc.RequestContainsNulls(null_columns)
         except KeyError:
-            missing = [c for c in input_columns if not c in X.columns]
-            raise exc.PorterError(
-                'request payload is missing the following fields: %s'
-                % missing)
+            missing_fields = [c for c in input_columns if not c in X.columns]
+            raise exc.RequestMissingFields(missing_fields)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a `pandas.DataFrame`.
@@ -203,11 +201,11 @@ class ServePrediction(StatefulRoute):
             # if API is not supporting batch prediction user's must send
             # a single JSON object.
             if not isinstance(data, dict):
-                raise exc.PorterError(f'input must be a single JSON object')
+                raise exc.PorterBadRequest(f'input must be a single JSON object')
             # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
         elif not isinstance(data, list):
-            raise exc.PorterError(f'input must be an array of objects')
+            raise exc.PorterBadRequest(f'input must be an array of objects')
         return pd.DataFrame(data)
 
 
@@ -565,7 +563,7 @@ class ModelApp:
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(exc.PorterPredictionError, serve_error_message)
+        app.register_error_handler(exc.PredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
