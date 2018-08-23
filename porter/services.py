@@ -89,13 +89,13 @@ class ServePrediction(StatefulRoute):
             if not `None`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found.
-        check_request (callable): Raises `InvalidModelInput` or subclass thereof
+        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
             if POST request is invalid.
     """
 
     def __init__(self, model, model_name, model_version, model_meta,
                  preprocessor, postprocessor, schema, allow_nulls,
-                 batch_prediction, check_request):
+                 batch_prediction, additional_checks):
         self.model = model
         self.model_name = model_name
         self.model_version = model_version
@@ -105,7 +105,7 @@ class ServePrediction(StatefulRoute):
         self.schema = schema
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
-        self.user_check_request = check_request
+        self.additional_checks = additional_checks
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
@@ -139,7 +139,7 @@ class ServePrediction(StatefulRoute):
         X_input = self.get_post_data()
         if self.validate_input:
             self.check_request(X_input, self.schema.input_columns,
-                self.allow_nulls, self.user_check_request)
+                self.allow_nulls, self.additional_checks)
             X_preprocessed = X_input.loc[:,self.schema.input_features]
         else:
             X_preprocessed = X_input
@@ -178,7 +178,7 @@ class ServePrediction(StatefulRoute):
         Raises:
             porter.exceptions.PorterError: If a given check fails.
         """
-        cls._default_check_request(X_input, input_columns, allow_nulls)
+        cls._default_checks(X_input, input_columns, allow_nulls)
         # Only perform user checks after the standard checks have been passed.
         # This allows the user to assume that all columns are present and there
         # are no nulls present (if allow_nulls is False).
@@ -186,7 +186,7 @@ class ServePrediction(StatefulRoute):
             additional_checks(X_input)
 
     @staticmethod
-    def _default_check_request(X, input_columns, allow_nulls):
+    def _default_checks(X, input_columns, allow_nulls):
         # checks that all columns are present and no nulls sent
         # (or missing values)
         try:
@@ -423,7 +423,7 @@ class PredictionServiceConfig(BaseServiceConfig):
             supported or not. If `True` the API will accept an array of objects
             to predict on. If `False` the API will only accept a single object
             per request. Optional.
-        check_request (callable): Raises `InvalidModelInput` or subclass thereof
+        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
             if POST request is invalid.
 
     Attributes:
@@ -451,7 +451,7 @@ class PredictionServiceConfig(BaseServiceConfig):
             predictions or not. If `True` the API will accept an array of
             objects to predict on. If `False` the API will only accept a
             single object per request. Optional.
-        check_request (callable): Raises `InvalidModelInput` or subclass thereof
+        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
             if POST request is invalid.
     """
 
@@ -463,16 +463,16 @@ class PredictionServiceConfig(BaseServiceConfig):
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False,
-                 batch_prediction=False, check_request=None, **kwargs):
+                 batch_prediction=False, additional_checks=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
-        if check_request is not None and not callable(check_request):
-            raise exc.PorterError('`check_request` must be callable')
-        self.check_request = check_request
+        if additional_checks is not None and not callable(additional_checks):
+            raise exc.PorterError('`additional_checks` must be callable')
+        self.additional_checks = additional_checks
         super().__init__(**kwargs)
 
     def define_endpoint(self):
@@ -558,7 +558,7 @@ class ModelApp:
             schema=service_config.schema,
             allow_nulls=service_config.allow_nulls,
             batch_prediction=service_config.batch_prediction,
-            check_request=service_config.check_request)
+            additional_checks=service_config.additional_checks)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
 

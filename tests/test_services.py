@@ -89,7 +89,7 @@ class TestServePrediction(unittest.TestCase):
             schema=schema,
             allow_nulls=allow_nulls,
             batch_prediction=True,
-            check_request=None
+            additional_checks=None
         )
         actual = serve_prediction()
         expected = {
@@ -140,7 +140,7 @@ class TestServePrediction(unittest.TestCase):
             schema=schema,
             allow_nulls=allow_nulls,
             batch_prediction=False,
-            check_request=None
+            additional_checks=None
         )
         actual = serve_prediction()
         expected = {
@@ -160,7 +160,7 @@ class TestServePrediction(unittest.TestCase):
                 model=mock.Mock(), model_name=mock.Mock(), model_version=mock.Mock(),
                 model_meta=mock.Mock(), preprocessor=mock.Mock(), postprocessor=mock.Mock(),
                 schema=mock.Mock(), allow_nulls=mock.Mock(), batch_prediction=mock.Mock(),
-                check_request=mock.Mock())
+                additional_checks=mock.Mock())
             sp()
 
     @mock.patch('flask.request')
@@ -184,7 +184,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             batch_prediction=True,
-            check_request=None
+            additional_checks=None
         )
         _ = serve_prediction()
         mock_preprocessor.process.assert_called()
@@ -208,7 +208,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None,
             batch_prediction=True,
-            check_request=None
+            additional_checks=None
         )
         _ = serve_prediction()
 
@@ -233,7 +233,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             batch_prediction=False,
-            check_request=None
+            additional_checks=None
         )
         _ = serve_prediction()
         mock_preprocessor.process.assert_called()
@@ -257,7 +257,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None,
             batch_prediction=False,
-            check_request=None
+            additional_checks=None
         )
         _ = serve_prediction()
 
@@ -310,8 +310,8 @@ class TestServePrediction(unittest.TestCase):
         ServePrediction.check_request(mock_X, ['one', 'two', 'three'], True)
         mock_X.isnull.assert_not_called()
 
-    @mock.patch('porter.services.ServePrediction._default_check_request')
-    def test_check_request_user_check_fail(self, mock__default_check_request):
+    @mock.patch('porter.services.ServePrediction._default_checks')
+    def test_check_request_user_check_fail(self, mock__default_checks):
         X = pd.DataFrame(
             [[0, 1], [4, 0]],
             columns=['id', 'one'])
@@ -342,7 +342,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None,
             batch_prediction=True,
-            check_request=None
+            additional_checks=None
         )
         _ = serve_prediction()
 
@@ -358,7 +358,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None,
             batch_prediction=True,
-            check_request=None
+            additional_checks=None
         )
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
@@ -382,7 +382,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None,
             batch_prediction=False,
-            check_request=None
+            additional_checks=None
         )
         _ = serve_prediction()
 
@@ -398,7 +398,7 @@ class TestServePrediction(unittest.TestCase):
             preprocessor=None,
             postprocessor=None,
             batch_prediction=False,
-            check_request=None
+            additional_checks=None
         )
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
@@ -451,7 +451,7 @@ class TestPredictionServiceConfig(unittest.TestCase):
                 model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
         with self.assertRaisesRegexp(exc.PorterError, '.*callable.*'):
             service_config = PredictionServiceConfig(
-                model=None, check_request=1)
+                model=None, additional_checks=1)
 
 
 if __name__ == '__main__':

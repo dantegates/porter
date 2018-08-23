@@ -73,7 +73,7 @@ class TestAppPredictions(unittest.TestCase):
             input_features=input_features2,
             allow_nulls=False,
             batch_prediction=True,
-            check_request=user_check
+            additional_checks=user_check
         )
         service_config3 = PredictionServiceConfig(
             model=Model3(),
