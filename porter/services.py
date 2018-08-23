@@ -156,7 +156,7 @@ class ServePrediction(StatefulRoute):
             self.batch_prediction)
 
     @classmethod
-    def check_request(cls, X, input_columns, allow_nulls=False, additional_checks=None):
+    def check_request(cls, X_input, input_columns, allow_nulls=False, additional_checks=None):
         """Check the POST request data raising an error if a check fails.
 
         Checks include
@@ -177,12 +177,12 @@ class ServePrediction(StatefulRoute):
         Raises:
             porter.exceptions.PorterError: If a given check fails.
         """
-        cls._default_check_request(X, input_columns, allow_nulls)
+        cls._default_check_request(X_input, input_columns, allow_nulls)
         # Only perform user checks after the standard checks have been passed.
         # This allows the user to assume that all columns are present and there
         # are no nulls present (if allow_nulls is False).
         if additional_checks is not None:
-            additional_checks(X)
+            additional_checks(X_input)
 
     @staticmethod
     def _default_check_request(X, input_columns, allow_nulls):
