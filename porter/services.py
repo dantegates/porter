@@ -36,6 +36,7 @@ from . import responses as porter_responses
 # alias for convenience
 _ID = cn.PREDICTION.RESPONSE.KEYS.ID
 
+_logger = logging.getLogger(__name__)
 
 class StatefulRoute:
     """Helper class to ensure that classes defining __call__() intended to be
@@ -88,10 +89,13 @@ class ServePrediction(StatefulRoute):
             if not `None`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             `False` an error is raised when nulls are found.
+        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
+            if POST request is invalid.
     """
 
-    def __init__(self, model, model_name, model_version, model_meta, preprocessor,
-                 postprocessor, schema, allow_nulls, batch_prediction):
+    def __init__(self, model, model_name, model_version, model_meta,
+                 preprocessor, postprocessor, schema, allow_nulls,
+                 batch_prediction, additional_checks):
         self.model = model
         self.model_name = model_name
         self.model_version = model_version
@@ -101,6 +105,7 @@ class ServePrediction(StatefulRoute):
         self.schema = schema
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
+        self.additional_checks = additional_checks
         self.validate_input = self.schema.input_columns is not None
         self.preprocess_model_input = self.preprocessor is not None
         self.postprocess_model_output = self.postprocessor is not None
@@ -114,15 +119,17 @@ class ServePrediction(StatefulRoute):
                 the user.
 
         Raises:
-            porter.exceptions.PorterPredictionError: Raised whenever an error
+            porter.exceptions.PredictionError: Raised whenever an error
                 occurs during prediction. The error contains information
                 about the model context which a custom error handler can
                 use to add to the errors response.
         """
         try:
             response = self._predict()
+        except exc.PorterError as err:
+            raise err
         except Exception as err:
-            error = exc.PorterPredictionError('an error occurred during prediction',
+            error = exc.PredictionError('an error occurred during prediction',
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
@@ -131,7 +138,8 @@ class ServePrediction(StatefulRoute):
     def _predict(self):
         X_input = self.get_post_data()
         if self.validate_input:
-            self.check_request(X_input, self.schema.input_columns, self.allow_nulls)
+            self.check_request(X_input, self.schema.input_columns,
+                self.allow_nulls, self.additional_checks)
             X_preprocessed = X_input.loc[:,self.schema.input_features]
         else:
             X_preprocessed = X_input
@@ -148,8 +156,8 @@ class ServePrediction(StatefulRoute):
             self.model_name, self.model_version, self.model_meta, X[_ID], preds,
             self.batch_prediction)
 
-    @staticmethod
-    def check_request(X, input_columns, allow_nulls=False):
+    @classmethod
+    def check_request(cls, X_input, input_columns, allow_nulls=False, additional_checks=None):
         """Check the POST request data raising an error if a check fails.
 
         Checks include
@@ -170,6 +178,15 @@ class ServePrediction(StatefulRoute):
         Raises:
             porter.exceptions.PorterError: If a given check fails.
         """
+        cls._default_checks(X_input, input_columns, allow_nulls)
+        # Only perform user checks after the standard checks have been passed.
+        # This allows the user to assume that all columns are present and there
+        # are no nulls present (if allow_nulls is False).
+        if additional_checks is not None:
+            additional_checks(X_input)
+
+    @staticmethod
+    def _default_checks(X, input_columns, allow_nulls):
         # checks that all columns are present and no nulls sent
         # (or missing values)
         try:
@@ -177,14 +194,10 @@ class ServePrediction(StatefulRoute):
             if not allow_nulls and X[input_columns].isnull().any().any():
                 null_counts = X[input_columns].isnull().sum()
                 null_columns = null_counts[null_counts > 0].index.tolist()
-                raise exc.PorterError(
-                    'request payload had null values in the following fields: %s'
-                    % null_columns)
+                raise exc.RequestContainsNulls(null_columns)
         except KeyError:
-            missing = [c for c in input_columns if not c in X.columns]
-            raise exc.PorterError(
-                'request payload is missing the following fields: %s'
-                % missing)
+            missing_fields = [c for c in input_columns if not c in X.columns]
+            raise exc.RequestMissingFields(missing_fields)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a `pandas.DataFrame`.
@@ -203,11 +216,11 @@ class ServePrediction(StatefulRoute):
             # if API is not supporting batch prediction user's must send
             # a single JSON object.
             if not isinstance(data, dict):
-                raise exc.PorterError(f'input must be a single JSON object')
+                raise exc.InvalidModelInput(f'input must be a single JSON object')
             # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
         elif not isinstance(data, list):
-            raise exc.PorterError(f'input must be an array of objects')
+            raise exc.InvalidModelInput(f'input must be an array of objects')
         return pd.DataFrame(data)
 
 
@@ -215,6 +228,7 @@ def serve_error_message(error):
     """Return a response with JSON payload describing the most recent
     exception."""
     response = porter_responses.make_error_response(error)
+    _logger.exception(response.data)
     return response
 
 
@@ -409,6 +423,8 @@ class PredictionServiceConfig(BaseServiceConfig):
             supported or not. If `True` the API will accept an array of objects
             to predict on. If `False` the API will only accept a single object
             per request. Optional.
+        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
+            if POST request is invalid.
 
     Attributes:
         id (str): A unique ID for the model. Composed of `name` and `version`.
@@ -435,6 +451,8 @@ class PredictionServiceConfig(BaseServiceConfig):
             predictions or not. If `True` the API will accept an array of
             objects to predict on. If `False` the API will only accept a
             single object per request. Optional.
+        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
+            if POST request is invalid.
     """
 
     # response keys that model meta data cannot override
@@ -445,13 +463,16 @@ class PredictionServiceConfig(BaseServiceConfig):
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False,
-                 batch_prediction=False, **kwargs):
+                 batch_prediction=False, additional_checks=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
         self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
+        if additional_checks is not None and not callable(additional_checks):
+            raise exc.PorterError('`additional_checks` must be callable')
+        self.additional_checks = additional_checks
         super().__init__(**kwargs)
 
     def define_endpoint(self):
@@ -536,7 +557,8 @@ class ModelApp:
             postprocessor=service_config.postprocessor,
             schema=service_config.schema,
             allow_nulls=service_config.allow_nulls,
-            batch_prediction=service_config.batch_prediction)
+            batch_prediction=service_config.batch_prediction,
+            additional_checks=service_config.additional_checks)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
 
@@ -565,7 +587,7 @@ class ModelApp:
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(exc.PorterPredictionError, serve_error_message)
+        app.register_error_handler(exc.PredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
