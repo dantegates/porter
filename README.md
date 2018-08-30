@@ -105,6 +105,7 @@ A `porter` defines the following endpoints.
   ```javascript
     {
       "model_id": A unique identifier for the model,
+      "model_version": A string identifying the model version,
       "predictions": [
          {"id": ..., "prediction": ...},
          ...
@@ -117,6 +118,7 @@ A `porter` defines the following endpoints.
    ```javascript
     {
       "model_id": A unique identifier for the model,
+      "model_version": A string identifying the model version,
       "predictions": {"id": ..., "prediction": ...}
     }
   ```
@@ -131,6 +133,9 @@ code and JSON payload with the following keys
 - "user_data": `object` or `null`. If the request contained a JSON payload it is returned to
   the user in this field. Otherwise, if no data was passed or the data was not valid JSON `null`
   is returned.
+  
+If the error resulted in a model context (during prediction, processing, etc.) the model context
+data (model ID, version and any model meta data) described above will be present in the error object.
 
 # Tests
 To run the test suite for porter execute the command
