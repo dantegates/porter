@@ -32,18 +32,16 @@ class PredictionError(ModelContextError):
     code = 500
 
 
-class RequestMissingFields(ModelContextError):
+class RequestMissingFields(InvalidModelInput):
     """Exception raised when POST request is missing required fields."""
-    code = 400
     def __init__(self, fields):
         super().__init__(
             'request payload is missing the following field(s): {}'
             .format(fields))
 
 
-class RequestContainsNulls(ModelContextError):
+class RequestContainsNulls(InvalidModelInput):
     """Exception raised when POST request contains null values."""
-    code = 400
     def __init__(self, fields):
         super().__init__(
             'request payload had null values in the following field(s): {}'
