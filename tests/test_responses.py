@@ -56,7 +56,8 @@ class TestFunctions(unittest.TestCase):
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
 
     def test__make_error_payload_porter_error(self):
-        error = PredictionError('foo bar baz', model_name='M', model_version='V',
+        error = PredictionError('foo bar baz')
+        error.update_model_context(model_name='M', model_version='V',
             model_meta={1: '1', '2': 2})
         try:
             raise error

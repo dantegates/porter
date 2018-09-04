@@ -83,7 +83,8 @@ class TestAppPredictions(unittest.TestCase):
             postprocessor=None,
             input_features=input_features3,
             allow_nulls=False,
-            batch_prediction=False
+            batch_prediction=False,
+            meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
         cls.model_app.add_service(service_config1)
         cls.model_app.add_service(service_config2)
@@ -136,6 +137,8 @@ class TestAppPredictions(unittest.TestCase):
         expected3 = {
             'model_name': 'model-3',
             'model_version': '0.0.0-alpha',
+            'algorithm': 'randomforest',
+            'lasttrained': 1,
             'predictions': {'id': 1, 'prediction': -5}
         }
         self.assertEqual(actual1, expected1)
@@ -182,6 +185,20 @@ class TestAppPredictions(unittest.TestCase):
         ]
         for actual, expectations in zip(actuals, expected_error_values):
             actual_error_obj = json.loads(actual.data)['error']
+            for key, value in expectations.items():
+                self.assertEqual(actual_error_obj[key], value)
+        # check that model context data is passed into responses
+        expected_model_context_values = [
+            {'model_name': 'a-model', 'model_version': '0.0.0'},
+            {'model_name': 'model-3', 'model_version': '0.0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'another-model', 'model_version': '0.1.0'},
+            {'model_name': 'model-3', 'model_version': '0.0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'a-model', 'model_version': '0.0.0'},
+            {'model_name': 'another-model', 'model_version': '0.1.0'},
+        ]
+        for actual, expectations in zip(actuals, expected_model_context_values):
+            actual_error_obj = json.loads(actual.data)
+            print(actual_error_obj)
             for key, value in expectations.items():
                 self.assertEqual(actual_error_obj[key], value)
         

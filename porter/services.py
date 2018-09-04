@@ -126,10 +126,13 @@ class ServePrediction(StatefulRoute):
         """
         try:
             response = self._predict()
-        except exc.PorterError as err:
+        except exc.ModelContextError as err:
+            err.update_model_context(model_name=self.model_name,
+                model_version=self.model_version, model_meta=self.model_meta)
             raise err
         except Exception as err:
-            error = exc.PredictionError('an error occurred during prediction',
+            error = exc.PredictionError('an error occurred during prediction')
+            error.update_model_context(
                 model_name=self.model_name, model_version=self.model_version,
                 model_meta=self.model_meta)
             raise error from err
@@ -176,7 +179,11 @@ class ServePrediction(StatefulRoute):
             None
 
         Raises:
-            porter.exceptions.PorterError: If a given check fails.
+            porter.exceptions.RequestContainsNulls: If the input contains nulls
+                and `allow_nulls` is False.
+            porter.exceptions.RequestMissingFields: If the input is missing
+                required fields.
+            porter.InvalidModelInput: If user defined `additional_checks` fails.
         """
         cls._default_checks(X_input, input_columns, allow_nulls)
         # Only perform user checks after the standard checks have been passed.
