@@ -68,7 +68,7 @@ class HEALTH_CHECK:
 
         class VALUES:
             STATUS_IS_READY = 'READY'
-            DEPLOYED_ON = datetime.datetime.now()
+            DEPLOYED_ON = datetime.datetime.now().isoformat()
 
 
 class LIVENESS(HEALTH_CHECK):
