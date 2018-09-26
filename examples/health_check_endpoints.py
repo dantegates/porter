@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -60,13 +61,9 @@ class Shhh:
 if __name__ == '__main__':
     with Shhh():
         run_app(model_app)
-        while True:
-            try:
-                alive_resp = json.loads(get('http://localhost:5000/-/alive').decode('utf-8'))
-                ready_resp = json.loads(get('http://localhost:5000/-/alive').decode('utf-8'))
-                break
-            except urllib.error.URLError:
-                pass
+        time.sleep(0.5)  # give app time to run
+        alive_resp = json.loads(get('http://localhost:5000/-/alive').decode('utf-8'))
+        ready_resp = json.loads(get('http://localhost:5000/-/alive').decode('utf-8'))
     print('GET /-/alive')
     print(json.dumps(alive_resp, indent=4))
     print('GET /-/ready')
