@@ -1,3 +1,3 @@
-from .utils import NumpyEncoder
+from .utils import AppEncoder
 
-json_encoder = NumpyEncoder
+json_encoder = AppEncoder
