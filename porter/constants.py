@@ -1,3 +1,6 @@
+import datetime
+
+
 class ERRORS:
     """Container for error response constants."""
     class RESPONSE:
@@ -61,9 +64,11 @@ class HEALTH_CHECK:
             MODEL_VERSION = 'version'
             META = 'meta'
             PORTER_VERSION = 'porter_version'
+            DEPLOYED_ON = 'deployed_on'
 
         class VALUES:
             STATUS_IS_READY = 'READY'
+            DEPLOYED_ON = datetime.datetime.now().isoformat()
 
 
 class LIVENESS(HEALTH_CHECK):

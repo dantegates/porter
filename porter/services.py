@@ -326,6 +326,8 @@ class AppState(dict):
     def __init__(self):
         super().__init__()
         self[cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION] = VERSION
+        self[cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON] = \
+            cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON
         self[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES] = {}
 
     def add_service(self, id, name, version, endpoint, meta, status):
