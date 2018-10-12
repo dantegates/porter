@@ -20,6 +20,7 @@ example of running the app in production `$ gunicorn my_module:model_app`.
 """
 
 import abc
+import concurrent.futures
 import json
 import logging
 
@@ -288,6 +289,32 @@ class ServeReady(StatefulRoute):
         return porter_responses.make_ready_response(self.app_state)
 
 
+class ServeMiddlewarePrediction(StatefulRoute):
+    def __init__(self, model_endpoint, max_workers):
+        self.model_endpoint = model_endpoint
+        self.max_workers = max_workers
+
+    def __call__(self):
+        data = self.get_post_data()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [executor.submit(self._post, self.model_endpoint, data=instance)
+                       for instance in data]
+            results = [future.result().json() for future in concurrent.futures.as_completed(futures)]
+        response = porter_responses.make_middleware_response(results)
+        return response
+
+    def get_post_data(self):
+        data = flask.request.get_json(force=True)
+        if not isinstance(data, list):
+            raise exc.InvalidModelInput(f'input must be an array of objects')
+        return data
+
+    @staticmethod
+    def _post(url, data):
+        import requests as rq
+        return rq.post(url, json.dumps(data))
+
+
 class PredictSchema:
     """
     A simple container that represents a model's schema.
@@ -362,6 +389,7 @@ class BaseServiceConfig(abc.ABC):
         # instance attributes.
         self.id = self.define_id()
         self.endpoint = self.define_endpoint()
+        self.meta = self.update_meta(self.meta)
 
     @abc.abstractmethod
     def define_endpoint(self):
@@ -384,6 +412,9 @@ class BaseServiceConfig(abc.ABC):
             raise exc.PorterError(
                 'Could not jsonify meta data. Make sure that meta data is '
                 'valid JSON and that all keys are of the same type.')
+
+    def update_meta(self, meta):
+        return meta
 
     @property
     def id(self):
@@ -494,6 +525,37 @@ class PredictionServiceConfig(BaseServiceConfig):
                 f'and cannot be used in `meta`: {invalid_keys}')
  
 
+class MiddlewareServiceConfig(BaseServiceConfig):
+    reserved_keys = (
+        cn.BATCH_PREDICTION.RESPONSE.KEYS.MODEL_ENDPOINT,
+        cn.BATCH_PREDICTION.RESPONSE.KEYS.MAX_WORKERS
+    )
+
+    def __init__(self, *, model_endpoint, max_workers, meta=None, **kwargs):
+        self.model_endpoint = model_endpoint
+        self.max_workers = max_workers
+        super().__init__(meta=meta, **kwargs)
+
+    def define_id(self):
+        return f'{self.name}:middleware:{self.version}'
+
+    def define_endpoint(self):
+        return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
+
+    def check_meta(self, meta):
+        super().check_meta(meta)
+        invalid_keys = [key for key in meta if key in self.reserved_keys]
+        if invalid_keys:
+            raise exc.PorterError(
+                'the following keys are reserved for middleware response payloads '
+                f'and cannot be used in `meta`: {invalid_keys}')
+
+    def update_meta(self, meta):
+        meta['model_endpoint'] = self.model_endpoint
+        meta['max_workers'] = self.max_workers
+        return meta
+
+
 class ModelApp:
     """
     Abstraction used to simplify building REST APIs that expose predictive
@@ -538,6 +600,8 @@ class ModelApp:
         """
         if isinstance(service_config, PredictionServiceConfig):
             self.add_prediction_service(service_config)
+        elif isinstance(service_config, MiddlewareServiceConfig):
+            self.add_middleware_service(service_config)
         else:
             raise exc.PorterError('unkown service type')
         self.state.add_service(id=service_config.id, name=service_config.name,
@@ -568,6 +632,13 @@ class ModelApp:
             additional_checks=service_config.additional_checks)
         route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
         self.app.route(service_config.endpoint, **route_kwargs)(serve_prediction)
+
+    def add_middleware_service(self, service_config):
+        serve_middleware_prediction = ServeMiddlewarePrediction(
+            model_endpoint=service_config.model_endpoint,
+            max_workers=service_config.max_workers)
+        route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
+        self.app.route(service_config.endpoint, **route_kwargs)(serve_middleware_prediction)
 
     def run(self, *args, **kwargs):
         """

@@ -53,6 +53,10 @@ def _make_single_prediction_payload(model_name, model_version, model_meta, id_ke
     return payload
 
 
+def make_middleware_response(objects):
+    return flask.jsonify(objects)
+
+
 def make_error_response(error):
     # silent=True -> flask.request.get_json(...) returns None if user did not
     # provide data
