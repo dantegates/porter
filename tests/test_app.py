@@ -13,6 +13,7 @@ from porter import exceptions as exc
 from porter import __version__
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
 from porter.services import ModelApp, PredictionServiceConfig
+from porter import constants as cn
 
 
 class TestAppPredictions(unittest.TestCase):
@@ -217,6 +218,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
             'services': {}
         }
         self.assertEqual(resp_alive.status_code, 200)
@@ -239,6 +241,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
             'services': {
                 'model1': {
                     'status': 'READY',
@@ -275,6 +278,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',
