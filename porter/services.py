@@ -290,11 +290,20 @@ class ServeReady(StatefulRoute):
 
 
 class ServeMiddlewarePrediction(StatefulRoute):
+    """Class for building stateful middleware routes.
+
+    Args:
+        model_endpoint (str): The URL of the model API.
+        max_workers (int): The maximum number of workers to use per POST
+            request to concurrently send prediction requests to the model
+            API.
+    """
     def __init__(self, model_endpoint, max_workers):
         self.model_endpoint = model_endpoint
         self.max_workers = max_workers
 
     def __call__(self):
+        """Serve the bulk predictions"""
         data = self.get_post_data()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [executor.submit(self._post, self.model_endpoint, data=instance)
@@ -311,6 +320,8 @@ class ServeMiddlewarePrediction(StatefulRoute):
 
     @staticmethod
     def _post(url, data):
+        # requests should be considered an optional dependency.
+        # for additional details on this pattern see the loading module.
         import requests as rq
         return rq.post(url, json.dumps(data))
 
@@ -528,6 +539,25 @@ class PredictionServiceConfig(BaseServiceConfig):
  
 
 class MiddlewareServiceConfig(BaseServiceConfig):
+    """A simple container that holds all necessary data for an instance of
+    `ModelApp` to run the middleware for a model.
+
+    Here we define a model's middleware follows.
+
+    1. The middleware is an app that takes a POST request with an array of
+        objects as its input. Each object in the array represents a single
+        instance for the model to predict on.
+    2. The middleware obtains predictions for each object in the input array
+        by making a POST request for each object to the underlying model API.
+    3. The results from the individual POST requests are concatenated into an
+        array and returned to the user.
+
+    Args:
+        model_endpoint (str): The URL of the model API.
+        max_workers (int): The maximum number of workers to use per POST
+            request to concurrently send prediction requests to the model
+            API.
+    """
     reserved_keys = (
         cn.BATCH_PREDICTION.RESPONSE.KEYS.MODEL_ENDPOINT,
         cn.BATCH_PREDICTION.RESPONSE.KEYS.MAX_WORKERS
