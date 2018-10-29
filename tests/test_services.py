@@ -419,6 +419,60 @@ class TestPredictionService(unittest.TestCase):
                 model=None, additional_checks=1)
 
 
+class TestMiddlewareService(unittest.TestCase):
+    def test_constructor(self):
+        middleware_service = MiddlewareService(
+            name='a-model',
+            version='1.0',
+            meta={'foo': 1, 'bar': 'baz'},
+            model_endpoint='localhost:5000/a-model/prediction',
+            max_workers=20
+        )
+        expected_id = 'a-model-middleware:middleware:1.0'
+        expected_endpoint = '/a-model/batchPrediction'
+        expected_meta = {'foo': 1, 'bar': 'baz',
+                         'model_endpoint': 'localhost:5000/a-model/prediction',
+                         'max_workers': 20}
+        self.assertEqual(middleware_service.name, 'a-model')
+        self.assertEqual(middleware_service.version, '1.0')
+        self.assertEqual(middleware_service.id, expected_id)
+        self.assertEqual(middleware_service.endpoint, expected_endpoint)
+        self.assertEqual(middleware.meta, expected_meta)
+
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.get')
+    def test_status_ready(self, mock_get, mock_init):
+        mock_init.return_value = None
+        mock_get.return_value = mock.Mock(status_code=200)
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/a-model/prediction'
+        self.assertEqual(middleware_service.status, cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY)
+
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.get')
+    def test_status_not_ready1(self, mock_get, mock_init):
+        """Model endpoint returns non-200."""
+        mock_init.return_value = None
+        mock_get.return_value = mock.Mock(status_code=200)
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/a-model/prediction'
+        mock_get.return_value = mock.Mock(status_code=404)
+        expected = f'GET {middleware_service.model_endpoint} returned 404'
+        self.assertEqual(middleware_service.status, expected)
+
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.get')
+    def test_status_not_ready2(self, mock_get, mock_init):
+        """Error is raised when sending HTTP request to model endpoint."""
+        mock_init.return_value = None
+        mock_get.side_effect = Exception('testing')
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/a-model/prediction'
+        mock_get.return_value = mock.Mock(status_code=404)
+        expected = f'cannot communicate with'
+        self.assertRegex(middleware_service.status, expected)
+
+
 class TestModelApp(unittest.TestCase):
     @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.ModelApp.add_service')

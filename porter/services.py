@@ -503,10 +503,10 @@ class MiddlewareService(BaseService):
 
     route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
 
-    def __init__(self, *, model_endpoint, max_workers, meta=None, **kwargs):
+    def __init__(self, *, model_endpoint, max_workers, **kwargs):
         self.model_endpoint = model_endpoint
         self.max_workers = max_workers
-        super().__init__(meta=meta, **kwargs)
+        super().__init__(**kwargs)
 
     def define_id(self):
         return f'{self.name}:middleware:{self.version}'
