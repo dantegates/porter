@@ -5,8 +5,8 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 from porter import exceptions as exc
-from porter.services import (BaseServiceConfig, ModelApp,
-                             PredictionServiceConfig, ServePrediction,
+from porter.services import (BaseService, ModelApp,
+                             PredictionService, MiddlewareService,
                              StatefulRoute, serve_error_message)
 
 
@@ -49,24 +49,24 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual3, expected3)
 
 
-class TestServePrediction(unittest.TestCase):
-    @mock.patch('flask.request')
-    @mock.patch('porter.responses.flask')
-    def test_serve_success_batch(self, mock_responses_flask, mock_flask_request):
-        mock_flask_request.get_json.return_value = [
+class TestPredictionService(unittest.TestCase):
+    @mock.patch('porter.services.api.request_json')
+    @mock.patch('porter.services.porter_responses.api.jsonify', lambda payload: payload)
+    @mock.patch('porter.services.api.request_method', lambda: 'POST')
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_success_batch(self, mock_request_json):
+        mock_request_json.return_value = [
             {'id': 1, 'feature1': 10, 'feature2': 0},
             {'id': 2, 'feature1': 11, 'feature2': 1},
             {'id': 3, 'feature1': 12, 'feature2': 2},
             {'id': 4, 'feature1': 13, 'feature2': 3},
             {'id': 5, 'feature1': 14, 'feature2': 3},
         ]
-        mock_responses_flask.jsonify = lambda payload:payload
         mock_model = mock.Mock()
         test_model_name = 'model'
         test_model_version = '1.0.0'
         mock_preprocessor = mock.Mock()
         mock_postprocessor = mock.Mock()
-        schema = mock.Mock(input_features=None, input_columns=None)
         allow_nulls = False
 
         feature_values = {str(x): x for x in range(5)}
@@ -79,14 +79,13 @@ class TestServePrediction(unittest.TestCase):
         def postprocess(X_in, X_pre, preds):
             return preds * 2
         mock_postprocessor.process = postprocess
-        serve_prediction = ServePrediction(
+        serve_prediction = PredictionService(
             model=mock_model,
-            model_name=test_model_name,
-            model_version=test_model_version,
-            model_meta={'1': '2', '3': 4},
+            name=test_model_name,
+            version=test_model_version,
+            meta={'1': '2', '3': 4},
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
-            schema=schema,
             allow_nulls=allow_nulls,
             batch_prediction=True,
             additional_checks=None
@@ -107,17 +106,17 @@ class TestServePrediction(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
-    @mock.patch('flask.request')
-    @mock.patch('porter.responses.flask')
-    def test_serve_success_single(self, mock_responses_flask, mock_flask_request):
-        mock_flask_request.get_json.return_value = {'id': 1, 'feature1': 10, 'feature2': 0}
-        mock_responses_flask.jsonify = lambda payload:payload
+    @mock.patch('porter.services.api.request_json')
+    @mock.patch('porter.services.porter_responses.api.jsonify', lambda payload: payload)
+    @mock.patch('porter.services.api.request_method', lambda: 'POST')
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_success_single(self, mock_request_json):
+        mock_request_json.return_value = {'id': 1, 'feature1': 10, 'feature2': 0}
         mock_model = mock.Mock()
         test_model_name = 'model'
         test_model_version = '1.0.0'
         mock_preprocessor = mock.Mock()
         mock_postprocessor = mock.Mock()
-        schema = mock.Mock(input_features=None, input_columns=None)
         allow_nulls = False
 
         feature_values = {str(x): x for x in range(5)}
@@ -130,14 +129,13 @@ class TestServePrediction(unittest.TestCase):
         def postprocess(X_in, X_pre, preds):
             return preds * 2
         mock_postprocessor.process = postprocess
-        serve_prediction = ServePrediction(
+        serve_prediction = PredictionService(
             model=mock_model,
-            model_name=test_model_name,
-            model_version=test_model_version,
-            model_meta={'1': '2', '3': 4},
+            name=test_model_name,
+            version=test_model_version,
+            meta={'1': '2', '3': 4},
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
-            schema=schema,
             allow_nulls=allow_nulls,
             batch_prediction=False,
             additional_checks=None
@@ -152,35 +150,37 @@ class TestServePrediction(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
-    @mock.patch('porter.services.ServePrediction._predict')
-    def test_serve_fail(self, mock__predict):
+    @mock.patch('porter.services.PredictionService._predict')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.services.PredictionService.check_meta', lambda self, meta: meta)
+    @mock.patch('porter.services.PredictionService.update_meta', lambda self, meta: meta)
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_fail(self, mock_api, mock__predict):
         mock__predict.side_effect = Exception
         with self.assertRaises(exc.PredictionError):
-            sp = ServePrediction(
-                model=mock.Mock(), model_name=mock.Mock(), model_version=mock.Mock(),
-                model_meta=mock.Mock(), preprocessor=mock.Mock(), postprocessor=mock.Mock(),
-                schema=mock.Mock(), allow_nulls=mock.Mock(), batch_prediction=mock.Mock(),
+            sp = PredictionService(
+                model=mock.Mock(), name=mock.Mock(), version=mock.Mock(),
+                meta=mock.Mock(), preprocessor=mock.Mock(), postprocessor=mock.Mock(),
+                allow_nulls=mock.Mock(), batch_prediction=mock.Mock(),
                 additional_checks=mock.Mock())
             sp()
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing_batch(self, mock_flask_jsonify, mock_flask_request):
-        model = model_name = model_version = allow_nulls = mock.Mock()
+        mock_model = mock.Mock()
         mock_flask_request.get_json.return_value = [{'id': None}]
-        model.predict.return_value = []
+        mock_model.predict.return_value = []
         mock_preprocessor = mock.Mock()
         mock_preprocessor.process.return_value = {}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = []
-        mock_schema = mock.Mock(input_features=None, input_columns=None)
-        serve_prediction = ServePrediction(
-            model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
-            allow_nulls=allow_nulls,
+        serve_prediction = PredictionService(
+            model=mock_model,
+            name=mock.Mock(),
+            version=mock.Mock(),
+            meta={},
+            allow_nulls=mock.Mock(),
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
             batch_prediction=True,
@@ -192,18 +192,17 @@ class TestServePrediction(unittest.TestCase):
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_no_processing_batch(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
         model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_schema = mock.Mock(input_features=None, input_columns=None)
         mock_flask_request.get_json.return_value = [{'id': None}]
         model.predict.return_value = []
-        serve_prediction = ServePrediction(
+        serve_prediction = PredictionService(
             model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
+            name=model_name,
+            version=model_version,
+            meta={},
             allow_nulls=allow_nulls,
             preprocessor=None,
             postprocessor=None,
@@ -222,13 +221,11 @@ class TestServePrediction(unittest.TestCase):
         mock_preprocessor.process.return_value = {}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = [1]
-        mock_schema = mock.Mock(input_features=None, input_columns=None)
-        serve_prediction = ServePrediction(
+        serve_prediction = PredictionService(
             model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
+            name=model_name,
+            version=model_version,
+            meta={},
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
@@ -241,18 +238,18 @@ class TestServePrediction(unittest.TestCase):
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
+
+    @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_no_processing_single(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
         model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_schema = mock.Mock(input_features=None, input_columns=None)
         mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = [1]
-        serve_prediction = ServePrediction(
+        serve_prediction = PredictionService(
             model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
+            name=model_name,
+            version=model_version,
+            meta={},
             allow_nulls=allow_nulls,
             preprocessor=None,
             postprocessor=None,
@@ -266,51 +263,51 @@ class TestServePrediction(unittest.TestCase):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['id', 'one', 'two', 'three'])
-        ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
+        PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaises(exc.RequestMissingFields):
-            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
+            PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_id_column(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(exc.RequestMissingFields, 'missing.*id'):
-            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
+            PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_input_columns(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['id', 'missing', 'missing', 'three'])
         with self.assertRaisesRegexp(exc.RequestMissingFields, 'missing.*one.*two'):
-            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
+            PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_nulls(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
             columns=['id', 'one', 'two', 'three'])
         with self.assertRaisesRegexp(exc.RequestContainsNulls, 'null.*two.*three'):
-            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'])
+            PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_ignore_nulls_pass(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
             columns=['id', 'one', 'two', 'three'])
         # no error shoudl be raised
-        ServePrediction.check_request(X, ['one', 'two', 'three'], True)
+        PredictionService.check_request(X, ['one', 'two', 'three'], True)
 
     def test_check_request_ignore_nulls_no_check(self):
         # check that the computation counting nulls is never performed
         mock_X = mock.Mock()
         # no error shoudl be raised
-        ServePrediction.check_request(mock_X, ['one', 'two', 'three'], True)
+        PredictionService.check_request(mock_X, ['one', 'two', 'three'], True)
         mock_X.isnull.assert_not_called()
 
-    @mock.patch('porter.services.ServePrediction._default_checks')
+    @mock.patch('porter.services.PredictionService._default_checks')
     def test_check_request_user_check_fail(self, mock__default_checks):
         X = pd.DataFrame(
             [[0, 1], [4, 0]],
@@ -320,25 +317,24 @@ class TestServePrediction(unittest.TestCase):
             if (X.one == 0).any():
                 raise E
         with self.assertRaises(E):
-            ServePrediction.check_request(X, ['id', 'one', 'two', 'three'], False, additional_checks_fail)
+            PredictionService.check_request(X, ['id', 'one', 'two', 'three'], False, additional_checks_fail)
 
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.BaseService._ids', set())
     def test_get_post_data_batch_prediction(self, mock_flask_jsonify, mock_flask_request):
-        model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_schema = mock.Mock(input_features=None, input_columns=None)
-        model.predict.return_value = []
+        mock_model = mock.Mock()
+        mock_model.predict.return_value = []
 
         # Succeed
         mock_flask_request.get_json.return_value = [{'id': None}]
-        serve_prediction = ServePrediction(
-            model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
-            allow_nulls=allow_nulls,
+        serve_prediction = PredictionService(
+            model=mock_model,
+            name=mock.Mock(),
+            version=mock.Mock(),
+            meta={},
+            allow_nulls=mock.Mock(),
             preprocessor=None,
             postprocessor=None,
             batch_prediction=True,
@@ -347,14 +343,14 @@ class TestServePrediction(unittest.TestCase):
         _ = serve_prediction()
 
         # Fail
+        mock_model = mock.Mock()
         mock_flask_request.get_json.return_value = {'id': None}
-        serve_prediction = ServePrediction(
-            model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
-            allow_nulls=allow_nulls,
+        serve_prediction = PredictionService(
+            model=mock_model,
+            name=mock.Mock(),
+            version=mock.Mock(),
+            meta={},
+            allow_nulls=mock.Mock(),
             preprocessor=None,
             postprocessor=None,
             batch_prediction=True,
@@ -365,20 +361,19 @@ class TestServePrediction(unittest.TestCase):
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.BaseService._ids', set())
     def test_get_post_data_instance_prediction(self, mock_flask_jsonify, mock_flask_request):
-        model = model_name = model_version = allow_nulls = mock.Mock()
-        mock_schema = mock.Mock(input_features=None, input_columns=None)
-        model.predict.return_value = [1]
+        mock_model = mock.Mock()
+        mock_model.predict.return_value = [1]
 
         # Succeed
         mock_flask_request.get_json.return_value = {'id': None}
-        serve_prediction = ServePrediction(
-            model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
-            allow_nulls=allow_nulls,
+        serve_prediction = PredictionService(
+            model=mock_model,
+            name=mock.Mock(),
+            version=mock.Mock(),
+            meta={},
+            allow_nulls=mock.Mock(),
             preprocessor=None,
             postprocessor=None,
             batch_prediction=False,
@@ -387,14 +382,14 @@ class TestServePrediction(unittest.TestCase):
         _ = serve_prediction()
 
         # Fail
+        mock_model = mock.Mock()
         mock_flask_request.get_json.return_value = [{'id': None}]
-        serve_prediction = ServePrediction(
-            model=model,
-            model_name=model_name,
-            model_version=model_version,
-            model_meta={},
-            schema=mock_schema,
-            allow_nulls=allow_nulls,
+        serve_prediction = PredictionService(
+            model=mock.Mock(),
+            name=mock.Mock(),
+            version=mock.Mock(),
+            meta={},
+            allow_nulls=mock.Mock(),
             preprocessor=None,
             postprocessor=None,
             batch_prediction=False,
@@ -402,6 +397,25 @@ class TestServePrediction(unittest.TestCase):
         )
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
+
+    @mock.patch('porter.services.PredictionService.reserved_keys', [])
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_constructor(self):
+        service_config = PredictionService(
+            model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
+
+    @mock.patch('porter.services.PredictionService.reserved_keys', ['1', '2'])
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_constructor_fail(self):
+        with self.assertRaisesRegexp(exc.PorterError, 'Could not jsonify meta data'):
+            service_config = PredictionService(
+                model=None, name='foo', version='bar', meta=object())
+        with self.assertRaisesRegexp(exc.PorterError, '.*keys are reserved for prediction.*'):
+            service_config = PredictionService(
+                model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
+        with self.assertRaisesRegexp(exc.PorterError, '.*callable.*'):
+            service_config = PredictionService(
+                model=None, additional_checks=1)
 
 
 class TestModelApp(unittest.TestCase):
@@ -415,12 +429,22 @@ class TestModelApp(unittest.TestCase):
         mock_add_service.assert_has_calls(expected_calls)
 
 
-class TestBaseServiceConfig(unittest.TestCase):
-    @mock.patch('porter.services.BaseServiceConfig.define_endpoint')
+class TestBaseService(unittest.TestCase):
+    @mock.patch('porter.services.BaseService.define_endpoint')
     def test_constructor(self, mock_define_endpoint):
-        class SC(BaseServiceConfig):
+        # test ABC
+        with self.assertRaisesRegexp(TypeError, 'abstract methods'):
+            class SC(BaseService):
+                def define_endpoint(self):
+                    return '/an/endpoint'
+            SC()
+
+        class SC(BaseService):
             def define_endpoint(self):
                 return '/an/endpoint'
+            def serve(self): pass
+            def status(self): pass
+
         with self.assertRaisesRegexp(exc.PorterError, 'Could not jsonify meta data'):
             SC(name='foo', version='bar', meta=object())
         service_config = SC(name='foo', version='bar', meta=None)
@@ -431,27 +455,6 @@ class TestBaseServiceConfig(unittest.TestCase):
         # error
         with self.assertRaisesRegexp(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
             service_config = SC(name='foo', version='bar', meta=None)
-
-
-class TestPredictionServiceConfig(unittest.TestCase):
-    @mock.patch('porter.services.PredictionServiceConfig.reserved_keys', [])
-    @mock.patch('porter.services.BaseServiceConfig._ids', set())
-    def test_constructor(self):
-        service_config = PredictionServiceConfig(
-            model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
-
-    @mock.patch('porter.services.PredictionServiceConfig.reserved_keys', ['1', '2'])
-    @mock.patch('porter.services.BaseServiceConfig._ids', set())
-    def test_constructor_fail(self):
-        with self.assertRaisesRegexp(exc.PorterError, 'Could not jsonify meta data'):
-            service_config = PredictionServiceConfig(
-                model=None, name='foo', version='bar', meta=object())
-        with self.assertRaisesRegexp(exc.PorterError, '.*keys are reserved for prediction.*'):
-            service_config = PredictionServiceConfig(
-                model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
-        with self.assertRaisesRegexp(exc.PorterError, '.*callable.*'):
-            service_config = PredictionServiceConfig(
-                model=None, additional_checks=1)
 
 
 if __name__ == '__main__':

@@ -201,6 +201,10 @@ class BaseService(abc.ABC, StatefulRoute):
         self.endpoint = self.define_endpoint()
         self.meta = self.update_meta(self.meta)
 
+    def __call__(self):
+        """Serve a response to the user."""
+        return self.serve()
+
     @abc.abstractmethod
     def define_endpoint(self):
         """Return the service endpoint derived from instance attributes."""
@@ -249,9 +253,6 @@ class BaseService(abc.ABC, StatefulRoute):
                 'with parameters that were already used.')
         self._ids.add(value)
         self._id = value
-
-    def __call__(self):
-        return self.serve()
 
 
 class PredictionService(BaseService):
@@ -381,7 +382,7 @@ class PredictionService(BaseService):
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediction')
             error.update_model_context(
-                model_name=self.model, model_version=self.model,
+                model_name=self.model, model_version=self.version,
                 model_meta=self.meta)
             raise error from err
         return response
