@@ -26,7 +26,7 @@ def load_example(filename, init_namespace=None):
     return init_namespace
 
 
-@mock.patch('porter.services.BaseServiceConfig._ids', set())
+@mock.patch('porter.services.BaseService._ids', set())
 class TestExample(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -66,11 +66,18 @@ class TestExample(unittest.TestCase):
             self.assertTrue(np.allclose(actual_pred, expected_pred))
 
 
-@mock.patch('porter.services.BaseServiceConfig._ids', set())
+@mock.patch('porter.services.BaseService._ids', set())
 class TestExampleHealthCheckEndponts(unittest.TestCase):
     def test(self):
         # just testing that the example can be executed
         namespace = load_example(os.path.join(HERE, '../examples/health_check_endpoints.py'))
+
+
+@mock.patch('porter.services.BaseService._ids', set())
+class TestExampleHealthCheckEndponts(unittest.TestCase):
+    def test(self):
+        # just testing that the example can be executed
+        namespace = load_example(os.path.join(HERE, '../examples/middleware.py'))
 
 
 if __name__ == '__main__':
