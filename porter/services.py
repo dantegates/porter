@@ -163,7 +163,6 @@ class AppState:
         return {
             cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
             cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {},
             cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
                 service.id: {
                     cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,

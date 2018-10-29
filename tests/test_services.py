@@ -5,9 +5,10 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 from porter import exceptions as exc
-from porter.services import (BaseService, ModelApp,
-                             PredictionService, MiddlewareService,
-                             StatefulRoute, serve_error_message)
+from porter import constants as cn
+from porter.services import (AppState, BaseService, MiddlewareService,
+                             ModelApp, PredictionService, StatefulRoute,
+                             serve_error_message)
 
 
 class TestFuntionsUnit(unittest.TestCase):
@@ -276,21 +277,21 @@ class TestPredictionService(unittest.TestCase):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['missing', 'one', 'two', 'three'])
-        with self.assertRaisesRegexp(exc.RequestMissingFields, 'missing.*id'):
+        with self.assertRaisesRegex(exc.RequestMissingFields, 'missing.*id'):
             PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_missing_input_columns(self):
         X = pd.DataFrame(
             [[0, 1, 2, 3], [4, 5, 6, 7]],
             columns=['id', 'missing', 'missing', 'three'])
-        with self.assertRaisesRegexp(exc.RequestMissingFields, 'missing.*one.*two'):
+        with self.assertRaisesRegex(exc.RequestMissingFields, 'missing.*one.*two'):
             PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_fail_nulls(self):
         X = pd.DataFrame(
             [[0, 1, np.nan, 3], [4, 5, 6, np.nan]],
             columns=['id', 'one', 'two', 'three'])
-        with self.assertRaisesRegexp(exc.RequestContainsNulls, 'null.*two.*three'):
+        with self.assertRaisesRegex(exc.RequestContainsNulls, 'null.*two.*three'):
             PredictionService.check_request(X, ['id', 'one', 'two', 'three'])
 
     def test_check_request_ignore_nulls_pass(self):
@@ -407,13 +408,13 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.PredictionService.reserved_keys', ['1', '2'])
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor_fail(self):
-        with self.assertRaisesRegexp(exc.PorterError, 'Could not jsonify meta data'):
+        with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
             service_config = PredictionService(
                 model=None, name='foo', version='bar', meta=object())
-        with self.assertRaisesRegexp(exc.PorterError, '.*keys are reserved for prediction.*'):
+        with self.assertRaisesRegex(exc.PorterError, '.*keys are reserved for prediction.*'):
             service_config = PredictionService(
                 model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
-        with self.assertRaisesRegexp(exc.PorterError, '.*callable.*'):
+        with self.assertRaisesRegex(exc.PorterError, '.*callable.*'):
             service_config = PredictionService(
                 model=None, additional_checks=1)
 
@@ -433,7 +434,7 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService.define_endpoint')
     def test_constructor(self, mock_define_endpoint):
         # test ABC
-        with self.assertRaisesRegexp(TypeError, 'abstract methods'):
+        with self.assertRaisesRegex(TypeError, 'abstract methods'):
             class SC(BaseService):
                 def define_endpoint(self):
                     return '/an/endpoint'
@@ -445,7 +446,7 @@ class TestBaseService(unittest.TestCase):
             def serve(self): pass
             def status(self): pass
 
-        with self.assertRaisesRegexp(exc.PorterError, 'Could not jsonify meta data'):
+        with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
             SC(name='foo', version='bar', meta=object())
         service_config = SC(name='foo', version='bar', meta=None)
         self.assertEqual(service_config.endpoint, '/an/endpoint')
@@ -453,8 +454,80 @@ class TestBaseService(unittest.TestCase):
         service_config.id
         # make sure that creating a config with same name and version raises
         # error
-        with self.assertRaisesRegexp(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
+        with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
             service_config = SC(name='foo', version='bar', meta=None)
+
+
+
+
+
+class TestAppState(unittest.TestCase):
+    def test_json(self):
+        app_state = AppState()
+        class service1:
+            id = 'service1'
+            name = 'foo'
+            version = 'bar'
+            endpoint = '/an/endpoint'
+            meta = {'key1': 'value1', 'key2': 2}
+            status = 'ready'
+        class service2:
+            id = 'service2'
+            name = 'foobar'
+            version = '1'
+            endpoint = '/foobar'
+            meta = {}
+            status = 'ready'
+        class service3:
+            id = 'service3'
+            name = 'supa-dupa-model'
+            version = '1.0'
+            endpoint = '/supa/dupa'
+            meta = {'key1': 1}
+            status = 'not ready'
+        app_state.add_service(service1)
+        app_state.add_service(service2)
+        app_state.add_service(service3)
+        actual = app_state.json
+        expected = {
+            'porter_version': '0.11.0',
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'services': {
+                'service1': {
+                    'name': 'foo',
+                    'version': 'bar',
+                    'endpoint': '/an/endpoint',
+                    'meta': {'key1': 'value1', 'key2': 2},
+                    'status': 'ready',
+                },
+                'service2': {
+                    'name': 'foobar',
+                    'version': '1',
+                    'endpoint': '/foobar',
+                    'meta': {},
+                    'status': 'ready',
+                },
+                'service3': {
+                    'name': 'supa-dupa-model',
+                    'version': '1.0',
+                    'endpoint': '/supa/dupa',
+                    'meta': {'key1': 1},
+                    'status': 'not ready',
+                },
+            }
+        }
+        self.maxDiff = None
+        self.assertDictEqual(actual, expected)
+
+    def test_add_service(self):
+        class service1:
+            id = 'foo'
+        class service2:
+            id = 'foo'
+        app_state = AppState()
+        app_state.add_service(service1)
+        with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):
+            app_state.add_service(service2)
 
 
 if __name__ == '__main__':
