@@ -143,10 +143,6 @@ class AppState:
 
     Mutability of this object is a requirement. This is assumed elsewhere in
     the code base, e.g. in `ServeAlive` and `ServeReady` instances.
-
-    The nested mapping interface of this class is also a requirement.
-    elsewhere in the code base we assume that instances of this class can be
-    "jsonified".
     """
 
     def __init__(self):
