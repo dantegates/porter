@@ -111,7 +111,7 @@ class ServeReady(StatefulRoute):
     def __call__(self):
         """Serve readiness response."""
         self.logger.info(self.app_state)
-        return porter_responses.make_ready_response(self.app_state)
+        return porter_responses.make_ready_response(self.app_state.json)
 
 
 class PredictSchema:
@@ -376,13 +376,13 @@ class PredictionService(BaseService):
         try:
             response = self._predict()
         except exc.ModelContextError as err:
-            err.update_model_context(model_name=self.model,
+            err.update_model_context(model_name=self.name,
                 model_version=self.version, model_meta=self.meta)
             raise err
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediction')
             error.update_model_context(
-                model_name=self.model, model_version=self.version,
+                model_name=self.name, model_version=self.version,
                 model_meta=self.meta)
             raise error from err
         return response
