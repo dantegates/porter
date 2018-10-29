@@ -74,7 +74,7 @@ class TestExampleHealthCheckEndponts(unittest.TestCase):
 
 
 @mock.patch('porter.services.BaseService._ids', set())
-class TestExampleHealthCheckEndponts(unittest.TestCase):
+class TestExampleMiddleware(unittest.TestCase):
     def test(self):
         # just testing that the example can be executed
         namespace = load_example(os.path.join(HERE, '../examples/middleware.py'))
