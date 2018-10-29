@@ -2,6 +2,7 @@ import traceback
 
 import flask
 
+from . import api
 from . import constants as cn
 from . import exceptions as exc
 
@@ -10,7 +11,7 @@ _IS_READY = cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
 
 
 # NOTE: private functions make testing easier as they bypass `flask` methods
-# that require a context, e.g. `flask.jsonify`
+# that require a context, e.g. `api.jsonify`
 
 
 def make_prediction_response(model_name, model_version, model_meta, id_keys,
@@ -21,7 +22,7 @@ def make_prediction_response(model_name, model_version, model_meta, id_keys,
     else:
         payload = _make_single_prediction_payload(model_name, model_version, model_meta,
                                                   id_keys, predictions)
-    return flask.jsonify(payload)
+    return api.jsonify(payload)
 
 
 def _make_batch_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
@@ -54,15 +55,15 @@ def _make_single_prediction_payload(model_name, model_version, model_meta, id_ke
 
 
 def make_middleware_response(objects):
-    return flask.jsonify(objects)
+    return api.jsonify(objects)
 
 
 def make_error_response(error):
     # silent=True -> flask.request.get_json(...) returns None if user did not
     # provide data
-    user_data = flask.request.get_json(silent=True, force=True)
+    user_data = api.request_json(silent=True, force=True)
     payload = _make_error_payload(error, user_data)
-    response = flask.jsonify(payload)
+    response = api.jsonify(payload)
     response.status_code = getattr(error, 'code', 500)
     return response
 
@@ -89,12 +90,12 @@ def _make_error_payload(error, user_data):
 
 
 def make_alive_response(app_state):
-    return flask.jsonify(app_state)
+    return api.jsonify(app_state)
 
 
 def make_ready_response(app_state):
     ready = _is_ready(app_state)
-    response = flask.jsonify(app_state)
+    response = api.jsonify(app_state)
     response.status_code = 200 if ready else 503  # service unavailable
     return response
 
