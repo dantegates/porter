@@ -548,7 +548,7 @@ class MiddlewareService(BaseService):
         """Serve the bulk predictions"""
         data = self.get_post_data()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [executor.submit(self._post, self.model_endpoint, data=instance)
+            futures = [executor.submit(api.post, self.model_endpoint, data=instance)
                        for instance in data]
             results = [future.result().json() for future in concurrent.futures.as_completed(futures)]
         response = porter_responses.make_middleware_response(results)
@@ -559,10 +559,6 @@ class MiddlewareService(BaseService):
         if not isinstance(data, list):
             raise exc.InvalidModelInput(f'input must be an array of objects')
         return data
-
-    @staticmethod
-    def _post(url, data):
-        api.post(url, data)
 
 
 class PredictionServiceConfig(PredictionService):

@@ -21,11 +21,11 @@ def jsonify(*args, **kwargs):
 App = flask.Flask
 
 
-def post(*args, **kwargs):
+def post(*args, data, **kwargs):
     # requests should be considered an optional dependency.
     # for additional details on this pattern see the loading module.
     import requests
-    return requests.post(*args, **kwargs)
+    return requests.post(*args, data=json.dumps(data), **kwargs)
 
 
 def get(*args, **kwargs):

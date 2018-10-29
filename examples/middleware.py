@@ -1,3 +1,12 @@
+"""Test with
+
+curl localhost:5000/-/alive | python -m json.tool
+
+curl -d @examples/middleware.json -POST localhost:5000/my-model/batchPrediction
+
+"""
+
+
 from porter.datascience import BaseModel
 from porter.services import ModelApp, PredictionService, MiddlewareService
 
