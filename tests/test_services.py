@@ -458,9 +458,6 @@ class TestBaseService(unittest.TestCase):
             service_config = SC(name='foo', version='bar', meta=None)
 
 
-
-
-
 class TestAppState(unittest.TestCase):
     def test_json(self):
         app_state = AppState()
