@@ -3,17 +3,17 @@
 Building and running an app with the tools in this module is as simple as
 
 1. Instantiating `ModelApp`.
-2. Instantiating `ServiceConfig` once for each model you wish to add to the
-    service.
-3. Use the config(s) created in 2. to add models to the app with either
+2. Instantiating a "service". E.g. instantiate `PredictionService` for each
+   model you wish to add to the service.
+3. Use the service(s) created in 2. to add models to the app with either
     `ModelApp.add_service()` or `ModelApp.add_services()`.
 
 For example,
 
     >>> model_app = ModelApp()
-    >>> service_config1 = ServiceConfig(...)
-    >>> service_config2 = ServiceConfig(...)
-    >>> model_app.add_services(service_config1, service_config2)
+    >>> prediction_service1 = PredictionService(...)
+    >>> prediction_service2 = PredictionService(...)
+    >>> model_app.add_services(prediction_servie1, prediction_service2)
 
 Now the model app can be run with `model_app.run()` for development, or as an
 example of running the app in production `$ gunicorn my_module:model_app`.
@@ -43,7 +43,8 @@ _logger = logging.getLogger(__name__)
 
 def serve_error_message(error):
     """Return a response with JSON payload describing the most recent
-    exception."""
+    exception.
+    """
     response = porter_responses.make_error_response(error)
     _logger.exception(response.data)
     return response
@@ -59,8 +60,8 @@ def serve_root():
 
 
 class StatefulRoute:
-    """Helper class to ensure that classes defining __call__() intended to be
-    routed satisfy the flask interface.
+    """Helper class to ensure that classes we intend to route via their
+    __call__() method satisfy the flask interface.
     """
     def __new__(cls, *args, **kwargs):
         # flask looks for the __name__ attribute of the routed callable,
@@ -78,40 +79,38 @@ class ServeAlive(StatefulRoute):
     """Class for building stateful liveness routes.
 
     Args:
-        app_state (object): An `AppState` instance containing the state of a
-            ModelApp. Instances of this class inspect app_state` when called to
-            determine if the app is alive.
+        app (object): A `ModelApp` instance. Instances of this class inspect
+            `app` when called to determine if the app is alive.
     """
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, app_state):
-        self.app_state = app_state
+    def __init__(self, app):
+        self.app = app
 
     def __call__(self):
         """Serve liveness response."""
-        self.logger.info(self.app_state.json)
-        return porter_responses.make_alive_response(self.app_state.json)
+        self.logger.info(self.app.state)
+        return porter_responses.make_alive_response(self.app.state)
 
 
 class ServeReady(StatefulRoute):
     """Class for building stateful readiness routes.
 
     Args:
-        app_state (object): An `AppState` instance containing the state of a
-            ModelApp. Instances of this class inspect app_state` when called to
-            determine if the app is ready.
+        app (object): A `ModelApp` instance. Instances of this class inspect
+            `app` when called to determine if the app is alive.
     """
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, app_state):
-        self.app_state = app_state
+    def __init__(self, app):
+        self.app = app
 
     def __call__(self):
         """Serve readiness response."""
-        self.logger.info(self.app_state)
-        return porter_responses.make_ready_response(self.app_state.json)
+        self.logger.info(self.app.state)
+        return porter_responses.make_ready_response(self.app.state)
 
 
 class PredictSchema:
@@ -138,50 +137,26 @@ class PredictSchema:
         self.input_features = input_features
 
 
-class AppState:
-    """Mutable mapping object containing the state of a `ModelApp`.
-
-    Mutability of this object is a requirement. This is assumed elsewhere in
-    the code base, e.g. in `ServeAlive` and `ServeReady` instances.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self._services = {}
-
-    def add_service(self, service):
-        if service.id in self._services:
-             raise exc.PorterError(f'a service has already been added using id={service.id}')
-        self._services[service.id] = service
-
-    @property
-    def json(self):
-        return {
-            cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
-                service.id: {
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.MODEL_VERSION: service.version,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.ENDPOINT: service.endpoint,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status
-                }
-                for service in self._services.values()
-            }
-        }
-
-
 class BaseService(abc.ABC, StatefulRoute):
     """
-    Base container that holds configurations for services that can be added to
-    an instance of `ModelApp`.
+    Abstract base class for services.
+
+    A service class contains all necessary state and functionality to route a
+    service and serve requests.
 
     Args:
-        id (str): A unique ID for the service.
+        name (str): The model name. The final routed endpoint is generally
+            derived from this parameter.
+        version (str): The service version.
+        meta (dict): Additional meta data added to the response body.
 
     Attributes:
         id (str): A unique ID for the service.
+        name (str): The model name. The final routed endpoint is generally
+            derived from this attribute.
+        version (str): The service version.
+        meta (dict): Additional meta data added to the response body.
+        endpoint (str): The endpoint where the service is exposed.
     """
     _ids = set()
 
@@ -213,6 +188,9 @@ class BaseService(abc.ABC, StatefulRoute):
         """Return `str` representing the status of the service."""
 
     def define_id(self):
+        """Return a unique ID for the service. This is used to set the `id`
+        attribute.
+        """
         return f'{self.name}:{self.version}'
 
     def check_meta(self, meta):
@@ -252,15 +230,16 @@ class BaseService(abc.ABC, StatefulRoute):
 
 class PredictionService(BaseService):
     """
-    A simple container that holds all necessary data for an instance of
-    `ModelApp` to route a model.
+    A prediction service. Instances can be added to instances of `ModelApp`
+    to serve predictions.
 
     Args:
-        model (object): An object implementing the interface defined by
-            `porter.datascience.BaseModel`.
         name (str): The model name. The final routed endpoint will become
             "/<endpoint>/prediction/".
         version (str): The model version.
+        meta (dict): Additional meta data added to the response body.
+        model (object): An object implementing the interface defined by
+            `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
             defined by `porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the POST
@@ -285,12 +264,13 @@ class PredictionService(BaseService):
 
     Attributes:
         id (str): A unique ID for the model. Composed of `name` and `version`.
-        model (object): An object implementing the interface defined by
-            `porter.datascience.BaseModel`.
         name (str): The model's name. The final routed endpoint will become
             "/<endpoint>/prediction/".
+        meta (dict): Additional meta data added to the response body.
         version (str): The model version.
-        endpoint (str): The endpoint exposing the model predictions.
+        endpoint (str): The endpoint where the model predictions are exposed.
+        model (object): An object implementing the interface defined by
+            `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
             defined by `porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the POST
@@ -332,15 +312,18 @@ class PredictionService(BaseService):
         if additional_checks is not None and not callable(additional_checks):
             raise exc.PorterError('`additional_checks` must be callable')
         self.additional_checks = additional_checks
-        self.validate_input = self.schema.input_columns is not None
-        self.preprocess_model_input = self.preprocessor is not None
-        self.postprocess_model_output = self.postprocessor is not None
+        self._validate_input = self.schema.input_columns is not None
+        self._preprocess_model_input = self.preprocessor is not None
+        self._postprocess_model_output = self.postprocessor is not None
         super().__init__(**kwargs)
 
     def define_endpoint(self):
         return cn.PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
 
     def check_meta(self, meta):
+        """Perform standard meta data checks and inspect meta data keys for
+        reserved keywords.
+        """
         super().check_meta(meta)
         invalid_keys = [key for key in meta if key in self.reserved_keys]
         if invalid_keys:
@@ -350,6 +333,7 @@ class PredictionService(BaseService):
 
     @property
     def status(self):
+        """Return 'READY'. Instances of this class are always ready."""
         return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
 
     def serve(self):
@@ -357,11 +341,11 @@ class PredictionService(BaseService):
         containing the corresponding predictions.
 
         Returns:
-            object: A `flask` object representing the response to return to
-                the user.
+            object: A "jsonified" object representing the response to return
+                to the user.
 
         Raises:
-            porter.exceptions.PredictionError: Raised whenever an error
+            porter.exceptions.ModelContextError: Raised whenever an error
                 occurs during prediction. The error contains information
                 about the model context which a custom error handler can
                 use to add to the errors response.
@@ -384,16 +368,16 @@ class PredictionService(BaseService):
 
     def _predict(self):
         X_input = self.get_post_data()
-        if self.validate_input:
+        if self._validate_input:
             self.check_request(X_input, self.schema.input_columns,
                 self.allow_nulls, self.additional_checks)
             X_preprocessed = X_input.loc[:,self.schema.input_features]
         else:
             X_preprocessed = X_input
-        if self.preprocess_model_input:
+        if self._preprocess_model_input:
             X_preprocessed = self.preprocessor.process(X_preprocessed)
         preds = self.model.predict(X_preprocessed)
-        if self.postprocess_model_output:
+        if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
         response = self.make_response(X_input, preds)
         return response
@@ -476,24 +460,59 @@ class PredictionService(BaseService):
  
 
 class MiddlewareService(BaseService):
-    """A simple container that holds all necessary data for an instance of
-    `ModelApp` to run the middleware for a model.
+    """A middleware service. A middleware service wraps a model service and is
+    defined as follows.
 
-    Here we define a model's middleware follows.
-
-    1. The middleware is an app that takes a POST request with an array of
-        objects as its input. Each object in the array represents a single
-        instance for the model to predict on.
+    1. The middleware is a service that takes a POST request with an array of
+       objects as its input. Each object in the array represents a single
+       instance for the model to predict on.
     2. The middleware obtains predictions for each object in the input array
         by making a POST request for each object to the underlying model API.
     3. The results from the individual POST requests are concatenated into an
         array and returned to the user.
 
+    A middleware service is useful for exposing batch predictions for the
+    following reasons.
+
+    1. It greatly simplifies error handling in the model service code. E.g. it
+       is ambiguous (from the perspectives of performance and usage) how to
+       handle a bulk request when a single instance causes an exception. When
+       bulk requests are exposed through the middleware the model endpoint can
+       return an error for instances that fail and a prediction otherwise
+       without having to complicate the logic used to serve the prediction.
+    2. It simplifies the implementation of A/B testing for multiple models.
+        Rather than having to write the logic for A/B testing inside the
+        response code for the model service this can easily be done by a load
+        balancer like `nginx` when the middleware requests a prediction for
+        each instance individually.
+
     Args:
+        name (str): The model name. The final routed endpoint will become
+            "/<endpoint>/prediction/".
+        version (str): The model version.
+        meta (dict or None): Additional meta data added to the response body.
+            Default is None.
         model_endpoint (str): The URL of the model API.
-        max_workers (int): The maximum number of workers to use per POST
-            request to concurrently send prediction requests to the model
-            API.
+        max_workers (int or None): The maximum number of workers to use per
+            POST request to concurrently send prediction requests to the model
+            API. None defaults to the maximum number of workers available to
+            the machine (note this is determined by number of CPUs on the
+            machine and not the number of workers available at run time).
+
+    Attributes:
+        id (str): A unique ID for the service.
+        name (str): The model name. The final routed endpoint will become
+            "/<endpoint>/prediction/".
+        version (str): The model version.
+        meta (dict or None): Additional meta data added to the response body.
+            Default is None.
+        endpoint (str): The endpoint where the middleware service is exposed.
+        model_endpoint (str): The URL of the underlying model API.
+        max_workers (int or None): The maximum number of workers to use per
+            POST request to concurrently send prediction requests to the model
+            API. None defaults to the maximum number of workers available to
+            the machine (note this is determined by number of CPUs on the
+            machine and not the number of workers available at run time).
     """
 
     reserved_keys = (
@@ -515,6 +534,9 @@ class MiddlewareService(BaseService):
         return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
 
     def check_meta(self, meta):
+        """Perform standard meta data checks and inspect meta data keys for
+        reserved keywords.
+        """
         super().check_meta(meta)
         invalid_keys = [key for key in meta if key in self.reserved_keys]
         if invalid_keys:
@@ -529,6 +551,11 @@ class MiddlewareService(BaseService):
 
     @property
     def status(self):
+        """Returns
+            "READY": If the model endpoint returns 200 on a GET request.
+            (str): If the model endpoint does not return 200 a `str`
+                describing the error is returned.
+        """
         error = None
         try:
             model_status = api.get(self.model_endpoint).status_code
@@ -541,7 +568,7 @@ class MiddlewareService(BaseService):
         return f'cannot communicate with {self.model_endpoint}: {error}'
 
     def serve(self):
-        """Serve the bulk predictions"""
+        """Serve the bulk predictions."""
         data = self.get_post_data()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as pool:
             futures = [pool.submit(api.post, self.model_endpoint, data=instance) for instance in data]
@@ -628,14 +655,32 @@ class ModelApp:
         """
         self.app.run(*args, **kwargs)
 
+    @property
+    def state(self):
+        """Return the app state as a "jsonify-able" object."""
+        return {
+            cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
+                service.id: {
+                    cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,
+                    cn.HEALTH_CHECK.RESPONSE.KEYS.MODEL_VERSION: service.version,
+                    cn.HEALTH_CHECK.RESPONSE.KEYS.ENDPOINT: service.endpoint,
+                    cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
+                    cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status
+                }
+                for service in self._services.values()
+            }
+        }
+
     def _build_app(self):
-        """Build and return the `flask` app.
+        """Build and return the app.
 
         Any global properties of the app, such as error handling and response
         formatting, are added here.
 
         Returns:
-            An instance of `flask.Flask`.
+            An instance of `api.App`.
         """
         app = api.App(__name__)
         # register a custom JSON encoder that handles numpy data types.

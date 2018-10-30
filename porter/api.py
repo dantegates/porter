@@ -7,14 +7,19 @@ import flask
 
 
 def request_method():
+    """Return the HTTP method of the current request, e.g. 'GET', 'POST', etc."""
     return flask.request.method
 
 
 def request_json(*args, **kwargs):
+    """Return the JSON from the current request."""
     return flask.request.get_json(*args, **kwargs)
 
 
 def jsonify(*args, **kwargs):
+    """'Jsonify' a Python object into something an instance of `App` can return
+    to the user.
+    """
     return flask.jsonify(*args, **kwargs)
 
 
