@@ -31,5 +31,5 @@ def post(*args, data, **kwargs):
 def get(*args, **kwargs):
     # requests should be considered an optional dependency.
     # for additional details on this pattern see the loading module.
-    import requests as rq
-    return rq.get(*args, **kwargs)
+    import requests
+    return requests.get(*args, **kwargs)
