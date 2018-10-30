@@ -8,7 +8,6 @@ build:
 test:
 	python3.6 -m unittest discover -s tests
 
-
 lint:
 	python3.6 -m pylint --errors-only porter
 
@@ -18,4 +17,4 @@ coverage:
 	open htmlcov/index.html
 
 install:
-	python3.6 -m pip install .[keras-utils,sklearn-utils,s3-utils]
+	python3.6 -m pip install .[keras-utils,sklearn-utils,s3-utils,middleware]
