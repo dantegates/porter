@@ -654,8 +654,10 @@ class TestBaseService(unittest.TestCase):
             def serve(self): pass
             def status(self): pass
 
+
         with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
-            SC(name='foo', version='bar', meta=object())
+            with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
+                SC(name='foo', version='bar', meta=object())
         service_config = SC(name='foo', version='bar', meta=None)
         self.assertEqual(service_config.endpoint, '/an/endpoint')
         # make sure this gets set -- shouldn't raise AttributeError
