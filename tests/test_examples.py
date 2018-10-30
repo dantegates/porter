@@ -30,14 +30,16 @@ def load_example(filename, init_namespace=None):
 class TestExample(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        X = np.random.rand(10, 3)
         cls.X = pd.DataFrame(
-            data=np.random.randint(0, 100, size=(10, 4)),
-            columns=['id', 'feature1', 'feature2', 'column3'])
-        cls.y = np.random.randint(1, 10, size=10)   
+            data=X,
+            columns=['feature1', 'feature2', 'column3'])
+        cls.X['id'] = range(len(X))
+        cls.y = np.random.randint(1, 10, size=10)
         cls.preprocessor = sklearn.preprocessing.StandardScaler().fit(cls.X.drop('id', axis=1))
         cls.model = keras.models.Sequential([
-            keras.layers.Dense(20, input_shape=(3,)),
-            keras.layers.Dense(1)
+            keras.layers.Dense(20, activation='relu', input_shape=(3,)),
+            keras.layers.Dense(1, activation='relu')
         ])
         cls.model.compile(loss='mean_squared_error', optimizer='sgd')
         cls.model.fit(cls.preprocessor.transform(cls.X.drop('id', axis=1)), cls.y, verbose=0)
