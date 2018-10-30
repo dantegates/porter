@@ -579,8 +579,8 @@ class ModelApp:
     json_encoder = cf.json_encoder
 
     def __init__(self):
-        self.state = AppState()
         self.app = self._build_app()
+        self._services = {}
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
@@ -612,8 +612,11 @@ class ModelApp:
             porter.exceptions.PorterError: If the type of
                 `service` is not recognized.
         """
+        if service.id in self._services:
+             raise exc.PorterError(
+                f'a service has already been added using id={service.id}')
+        self._services[service.id] = service
         self.app.route(service.endpoint, **service.route_kwargs)(service)
-        self.state.add_service(service)
 
     def run(self, *args, **kwargs):
         """
@@ -644,6 +647,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self.state))
-        app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self.state))
+        app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self))
+        app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self))
         return app

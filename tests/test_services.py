@@ -4,10 +4,10 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-from porter import exceptions as exc
 from porter import constants as cn
-from porter.services import (AppState, BaseService, MiddlewareService,
-                             ModelApp, PredictionService, StatefulRoute,
+from porter import exceptions as exc
+from porter.services import (BaseService, MiddlewareService, ModelApp,
+                             PredictionService, StatefulRoute,
                              serve_error_message)
 
 
@@ -532,38 +532,10 @@ class TestModelApp(unittest.TestCase):
         expected_calls = [mock.call(obj) for obj in configs]
         mock_add_service.assert_has_calls(expected_calls)
 
-
-class TestBaseService(unittest.TestCase):
-    @mock.patch('porter.services.BaseService.define_endpoint')
-    def test_constructor(self, mock_define_endpoint):
-        # test ABC
-        with self.assertRaisesRegex(TypeError, 'abstract methods'):
-            class SC(BaseService):
-                def define_endpoint(self):
-                    return '/an/endpoint'
-            SC()
-
-        class SC(BaseService):
-            def define_endpoint(self):
-                return '/an/endpoint'
-            def serve(self): pass
-            def status(self): pass
-
-        with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
-            SC(name='foo', version='bar', meta=object())
-        service_config = SC(name='foo', version='bar', meta=None)
-        self.assertEqual(service_config.endpoint, '/an/endpoint')
-        # make sure this gets set -- shouldn't raise AttributeError
-        service_config.id
-        # make sure that creating a config with same name and version raises
-        # error
-        with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
-            service_config = SC(name='foo', version='bar', meta=None)
-
-
-class TestAppState(unittest.TestCase):
-    def test_json(self):
-        app_state = AppState()
+    @mock.patch('porter.services.ModelApp._build_app')
+    @mock.patch('porter.services.api.App')
+    def test_state(self, mock_App, mock__build_app):
+        model_app = ModelApp()
         class service1:
             id = 'service1'
             name = 'foo'
@@ -571,6 +543,7 @@ class TestAppState(unittest.TestCase):
             endpoint = '/an/endpoint'
             meta = {'key1': 'value1', 'key2': 2}
             status = 'ready'
+            route_kwargs = {}
         class service2:
             id = 'service2'
             name = 'foobar'
@@ -578,6 +551,7 @@ class TestAppState(unittest.TestCase):
             endpoint = '/foobar'
             meta = {}
             status = 'ready'
+            route_kwargs = {}
         class service3:
             id = 'service3'
             name = 'supa-dupa-model'
@@ -585,10 +559,11 @@ class TestAppState(unittest.TestCase):
             endpoint = '/supa/dupa'
             meta = {'key1': 1}
             status = 'not ready'
-        app_state.add_service(service1)
-        app_state.add_service(service2)
-        app_state.add_service(service3)
-        actual = app_state.json
+            route_kwargs = {}
+        model_app.add_service(service1)
+        model_app.add_service(service2)
+        model_app.add_service(service3)
+        actual = model_app.state
         expected = {
             'porter_version': '0.11.0',
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
@@ -619,15 +594,76 @@ class TestAppState(unittest.TestCase):
         self.maxDiff = None
         self.assertDictEqual(actual, expected)
 
-    def test_add_service(self):
+    @mock.patch('porter.services.ModelApp._build_app')
+    @mock.patch('porter.services.api.App')
+    def test_add_service(self, mock_app, mock__build_app):
         class service1:
-            id = 'foo'
+            id = 'service1'
+            endpoint = '/an/endpoint'
+            route_kwargs = {'foo': 1, 'bar': 'baz'}
         class service2:
-            id = 'foo'
-        app_state = AppState()
-        app_state.add_service(service1)
+            id = 'service2'
+            endpoint = '/foobar'
+            route_kwargs = {'methods': ['GET', 'POST']}
+        class service3:
+            id = 'service3'
+            endpoint = '/supa/dupa'
+            route_kwargs = {'methods': ['GET'], 'strict_slashes': True}
+        model_app = ModelApp()
+        model_app.add_services(service1, service2, service3)
+        expected_calls = [
+            mock.call('/an/endpoint', foo=1, bar='baz'),
+            mock.call()(service1),
+            mock.call('/foobar', methods=['GET', 'POST']),
+            mock.call()(service2),
+            mock.call('/supa/dupa', methods=['GET'], strict_slashes=True),
+            mock.call()(service3),
+        ]
+        model_app.app.route.assert_has_calls(expected_calls)
+
+    @mock.patch('porter.services.ModelApp._build_app')
+    @mock.patch('porter.services.api.App')
+    def test_add_service_fail(self, mock_app, mock__build_app):
+        class service1:
+            id = 'service1'
+            endpoint = '/an/endpoint'
+            route_kwargs = {}
+        class service2:
+            id = 'service1'
+            endpoint = '/foobar'
+            route_kwargs = {}
+        model_app = ModelApp()
+        model_app.add_service(service1)
         with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):
-            app_state.add_service(service2)
+            model_app.add_service(service2)
+
+
+class TestBaseService(unittest.TestCase):
+    @mock.patch('porter.services.BaseService.define_endpoint')
+    def test_constructor(self, mock_define_endpoint):
+        # test ABC
+        with self.assertRaisesRegex(TypeError, 'abstract methods'):
+            class SC(BaseService):
+                def define_endpoint(self):
+                    return '/an/endpoint'
+            SC()
+
+        class SC(BaseService):
+            def define_endpoint(self):
+                return '/an/endpoint'
+            def serve(self): pass
+            def status(self): pass
+
+        with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
+            SC(name='foo', version='bar', meta=object())
+        service_config = SC(name='foo', version='bar', meta=None)
+        self.assertEqual(service_config.endpoint, '/an/endpoint')
+        # make sure this gets set -- shouldn't raise AttributeError
+        service_config.id
+        # make sure that creating a config with same name and version raises
+        # error
+        with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
+            service_config = SC(name='foo', version='bar', meta=None)
 
 
 if __name__ == '__main__':
