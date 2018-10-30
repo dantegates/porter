@@ -12,7 +12,7 @@ import flask
 from porter import exceptions as exc
 from porter import __version__
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
-from porter.services import ModelApp, PredictionService
+from porter.services import ModelApp, PredictionService, MiddlewareService
 from porter import constants as cn
 
 
@@ -87,9 +87,15 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
+        middleware_service = MiddlewareService(
+            name='model-3',
+            version='1.2',
+            model_endpoint=prediction_service3.endpoint,
+            max_workers=None)
         cls.model_app.add_service(prediction_service1)
         cls.model_app.add_service(prediction_service2)
         cls.model_app.add_service(prediction_service3)
+        cls.model_app.add_service(middleware_service)
 
     def test_prediction_success(self):
         post_data1 = [
@@ -146,6 +152,32 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(actual2, expected2)
         self.assertEqual(actual3, expected3)
 
+    @mock.patch('porter.services.api.post')
+    def test_middleware(self, mock_post):
+        # test middleware
+        def post(url, data):
+            response = self.app.post(url, data=json.dumps(data))
+            m = mock.Mock()
+            m.json.side_effect = lambda: json.loads(response.data)
+            return m
+        mock_post.side_effect = post
+
+        # only the third service supports instance predictions
+        post_data = [{'id': i, 'feature1': i*2} for i in range(10)]
+        actual = self.app.post('/model-3/batchPrediction', data=json.dumps(post_data))
+        actual = json.loads(actual.data)
+        expected = [
+            {'model_name': 'model-3',
+             'model_version': '0.0.0-alpha',
+             'algorithm': 'randomforest',
+             'lasttrained': 1,
+             'predictions': {'id': d['id'], 'prediction': -d['feature1']}}
+            for d in post_data
+        ]
+        actual_hashable = [sorted(tuple(x.items())) for x in actual]
+        expected_hashable = [sorted(tuple(x.items())) for x in expected]
+        self.assertCountEqual(actual_hashable, expected_hashable)
+
     def test_prediction_bad_requests(self):
         # should be array when sent to model1
         post_data1 = {'id': 1, 'feature1': 2, 'feature2': 1}
@@ -199,10 +231,8 @@ class TestAppPredictions(unittest.TestCase):
         ]
         for actual, expectations in zip(actuals, expected_model_context_values):
             actual_error_obj = json.loads(actual.data)
-            print(actual_error_obj)
             for key, value in expectations.items():
                 self.assertEqual(actual_error_obj[key], value)
-        
 
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
