@@ -576,6 +576,8 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
+    json_encoder = cf.json_encoder
+
     def __init__(self):
         self.state = AppState()
         self.app = self._build_app()
@@ -634,7 +636,7 @@ class ModelApp:
         """
         app = api.App(__name__)
         # register a custom JSON encoder that handles numpy data types.
-        app.json_encoder = cf.json_encoder
+        app.json_encoder = self.json_encoder
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
