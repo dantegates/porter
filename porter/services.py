@@ -543,9 +543,8 @@ class MiddlewareService(BaseService):
     def serve(self):
         """Serve the bulk predictions"""
         data = self.get_post_data()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [executor.submit(api.post, self.model_endpoint, data=instance)
-                       for instance in data]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+            futures = [pool.submit(api.post, self.model_endpoint, data=instance) for instance in data]
             results = [future.result().json() for future in concurrent.futures.as_completed(futures)]
         response = porter_responses.make_middleware_response(results)
         return response
