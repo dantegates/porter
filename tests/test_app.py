@@ -12,7 +12,7 @@ import flask
 from porter import exceptions as exc
 from porter import __version__
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
-from porter.services import ModelApp, PredictionServiceConfig
+from porter.services import ModelApp, PredictionService, MiddlewareService
 from porter import constants as cn
 
 
@@ -55,7 +55,7 @@ class TestAppPredictions(unittest.TestCase):
         input_features3 = ['feature1']
 
         # define configs and add services to app
-        service_config1 = PredictionServiceConfig(
+        prediction_service1 = PredictionService(
             model=Model1(),
             name='a-model',
             version='0.0.0',
@@ -65,7 +65,7 @@ class TestAppPredictions(unittest.TestCase):
             allow_nulls=False,
             batch_prediction=True
         )
-        service_config2 = PredictionServiceConfig(
+        prediction_service2 = PredictionService(
             model=Model2(),
             name='another-model',
             version='0.1.0',
@@ -76,7 +76,7 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=True,
             additional_checks=user_check
         )
-        service_config3 = PredictionServiceConfig(
+        prediction_service3 = PredictionService(
             model=Model3(),
             name='model-3',
             version='0.0.0-alpha',
@@ -87,9 +87,16 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
-        cls.model_app.add_service(service_config1)
-        cls.model_app.add_service(service_config2)
-        cls.model_app.add_service(service_config3)
+        with mock.patch('porter.services.api', **{'validate_url.return_value': True}):
+            middleware_service = MiddlewareService(
+                name='model-3',
+                version='1.2',
+                model_endpoint=prediction_service3.endpoint,
+                max_workers=None)
+        cls.model_app.add_service(prediction_service1)
+        cls.model_app.add_service(prediction_service2)
+        cls.model_app.add_service(prediction_service3)
+        cls.model_app.add_service(middleware_service)
 
     def test_prediction_success(self):
         post_data1 = [
@@ -146,6 +153,32 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(actual2, expected2)
         self.assertEqual(actual3, expected3)
 
+    @mock.patch('porter.services.api.post')
+    def test_middleware(self, mock_post):
+        # test middleware
+        def post(url, data):
+            response = self.app.post(url, data=json.dumps(data))
+            m = mock.Mock()
+            m.json.side_effect = lambda: json.loads(response.data)
+            return m
+        mock_post.side_effect = post
+
+        # only the third service supports instance predictions
+        post_data = [{'id': i, 'feature1': i*2} for i in range(10)]
+        actual = self.app.post('/model-3/batchPrediction', data=json.dumps(post_data))
+        actual = json.loads(actual.data)
+        expected = [
+            {'model_name': 'model-3',
+             'model_version': '0.0.0-alpha',
+             'algorithm': 'randomforest',
+             'lasttrained': 1,
+             'predictions': {'id': d['id'], 'prediction': -d['feature1']}}
+            for d in post_data
+        ]
+        actual_hashable = [sorted(tuple(x.items())) for x in actual]
+        expected_hashable = [sorted(tuple(x.items())) for x in expected]
+        self.assertCountEqual(actual_hashable, expected_hashable)
+
     def test_prediction_bad_requests(self):
         # should be array when sent to model1
         post_data1 = {'id': 1, 'feature1': 2, 'feature2': 1}
@@ -199,10 +232,8 @@ class TestAppPredictions(unittest.TestCase):
         ]
         for actual, expectations in zip(actuals, expected_model_context_values):
             actual_error_obj = json.loads(actual.data)
-            print(actual_error_obj)
             for key, value in expectations.items():
                 self.assertEqual(actual_error_obj[key], value)
-        
 
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
@@ -226,11 +257,11 @@ class TestAppHealthChecks(unittest.TestCase):
         self.assertEqual(json.loads(resp_alive.data), expected_data)
         self.assertEqual(json.loads(resp_ready.data), expected_data)
 
-    @mock.patch('porter.services.PredictionServiceConfig.__init__')
-    @mock.patch('porter.services.ModelApp.add_prediction_service')
-    def test_readiness_ready_ready1(self, mock_add_prediction_service, mock_init):
+    @mock.patch('porter.services.PredictionService.__init__')
+    @mock.patch('porter.services.api.App')
+    def test_readiness_ready_ready1(self, mock_App, mock_init):
         mock_init.return_value = None
-        cf = PredictionServiceConfig()
+        cf = PredictionService()
         cf.name = 'model1'
         cf.version = '1.0.0'
         cf.id = 'model1'
@@ -257,17 +288,17 @@ class TestAppHealthChecks(unittest.TestCase):
         self.assertEqual(json.loads(resp_alive.data), expected_data)
         self.assertEqual(json.loads(resp_ready.data), expected_data)
 
-    @mock.patch('porter.services.PredictionServiceConfig.__init__')
-    @mock.patch('porter.services.ModelApp.add_prediction_service')
-    def test_readiness_ready_ready2(self, mock_add_prediction_service, mock_init):
+    @mock.patch('porter.services.PredictionService.__init__')
+    @mock.patch('porter.services.api.App')
+    def test_readiness_ready_ready2(self, mock_App, mock_init):
         mock_init.return_value = None
-        cf1 = PredictionServiceConfig()
+        cf1 = PredictionService()
         cf1.name = 'model1'
         cf1.version = '1.0.0'
         cf1.id = 'model1:1.0.0'
         cf1.endpoint = '/model1/prediction'
         cf1.meta = {'foo': 1, 'bar': 2}
-        cf2 = PredictionServiceConfig()
+        cf2 = PredictionService()
         cf2.name = 'model2'
         cf2.version = '0.0.0'
         cf2.id = 'model2:0.0.0'
@@ -335,7 +366,7 @@ class TestAppErrorHandling(unittest.TestCase):
                 'messages': ['The browser (or proxy) sent a request that this server could not understand.'],
                 # user_data is None when not passed or unreadable
                 'user_data': None,
-                'traceback': re.compile('.*raise\sBadRequest.*')
+                'traceback': re.compile(r'.*raise\sBadRequest.*')
             }
         }
         self.assertEqual(resp.status_code, 400)
@@ -354,7 +385,7 @@ class TestAppErrorHandling(unittest.TestCase):
                              'If you entered the URL manually please check your spelling and '
                              'try again.'],
                 'user_data': None,
-                'traceback': re.compile('.*raise\sNotFound.*')
+                'traceback': re.compile(r'.*raise\sNotFound.*')
             }
         }
         self.assertEqual(resp.status_code, 404)
@@ -371,7 +402,7 @@ class TestAppErrorHandling(unittest.TestCase):
                 'name': 'MethodNotAllowed',
                 'messages': ['The method is not allowed for the requested URL.'],
                 'user_data': None,
-                'traceback': re.compile('.*raise\sMethodNotAllowed.*')
+                'traceback': re.compile(r'.*raise\sMethodNotAllowed.*')
             }
         }
         self.assertEqual(resp.status_code, 405)
@@ -389,7 +420,7 @@ class TestAppErrorHandling(unittest.TestCase):
                 'name': 'Exception',
                 'messages': ['exceptional testing of exceptions'],
                 'user_data': user_data,
-                'traceback': re.compile('.*raise\sException')
+                'traceback': re.compile(r'.*raise\sException')
             }
         }
         self.assertEqual(resp.status_code, 500)
@@ -398,7 +429,7 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
-    @mock.patch('porter.services.ServePrediction._predict')
+    @mock.patch('porter.services.PredictionService._predict')
     def test_prediction_fails(self, mock__predict):
         mock__predict.side_effect = Exception('testing a failing model')
         user_data = {'some test': 'data'}
@@ -413,7 +444,7 @@ class TestAppErrorHandling(unittest.TestCase):
                 'name': 'PredictionError',
                 'messages': ['an error occurred during prediction'],
                 'user_data': user_data,
-                'traceback': re.compile(".*testing\sa\sfailing\smodel.*"),
+                'traceback': re.compile(r".*testing\sa\sfailing\smodel.*"),
             }
         }
         self.assertEqual(resp.status_code, 500)
@@ -428,9 +459,9 @@ class TestAppErrorHandling(unittest.TestCase):
 
     @classmethod
     def add_failing_model_service(cls):
-        service_config = PredictionServiceConfig(name='failing-model',
+        prediction_service = PredictionService(name='failing-model',
             version='B', model=None, meta={'1': 'one', 'two': 2})
-        cls.model_app.add_service(service_config)
+        cls.model_app.add_service(prediction_service)
 
 
 if __name__ == '__main__':

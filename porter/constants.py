@@ -44,6 +44,16 @@ class PREDICTION:
             ERROR = ERRORS.RESPONSE.KEYS.ERROR
 
 
+class BATCH_PREDICTION:
+    """Container prediction endpoint constants."""
+
+    ENDPOINT_TEMPLATE = '/{model_name}/batchPrediction'
+    class RESPONSE:
+        class KEYS:
+            # meta key
+            MODEL_ENDPOINT = 'model_endpoint'
+            MAX_WORKERS = 'max_workers'
+
 class HEALTH_CHECK:
     """Base class for health check endpoint constants."""
 
