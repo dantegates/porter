@@ -523,6 +523,10 @@ class MiddlewareService(BaseService):
     route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
 
     def __init__(self, *, model_endpoint, max_workers, **kwargs):
+        if not api.validate_url(model_endpoint):
+            raise exc.PorterError(
+                f'the url {model_endpoint} is not valid (be sure to include the '
+                 'schema, e.g. http, and host).')
         self.model_endpoint = model_endpoint
         self.max_workers = max_workers
         super().__init__(**kwargs)

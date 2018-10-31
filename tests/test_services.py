@@ -510,19 +510,43 @@ class TestMiddlewareService(unittest.TestCase):
             name='a-model',
             version='1.0',
             meta={'foo': 1, 'bar': 'baz'},
-            model_endpoint='localhost:5000/a-model/prediction',
+            model_endpoint='http://localhost:5000/a-model/prediction',
             max_workers=20
         )
         expected_id = 'a-model:middleware:1.0'
         expected_endpoint = '/a-model/batchPrediction'
         expected_meta = {'foo': 1, 'bar': 'baz',
-                         'model_endpoint': 'localhost:5000/a-model/prediction',
+                         'model_endpoint': 'http://localhost:5000/a-model/prediction',
                          'max_workers': 20}
         self.assertEqual(middleware_service.name, 'a-model')
         self.assertEqual(middleware_service.version, '1.0')
         self.assertEqual(middleware_service.id, expected_id)
         self.assertEqual(middleware_service.endpoint, expected_endpoint)
         self.assertEqual(middleware_service.meta, expected_meta)
+
+    @mock.patch('porter.services.MiddlewareService', **{'_ids': []})
+    def test_constructor_bad_url(self, mock_MiddlewareService):
+        with self.assertRaisesRegex(exc.PorterError, 'url'):
+            middleware_service = MiddlewareService(
+                    name='a-model',
+                    version='1.0',
+                    meta={'foo': 1, 'bar': 'baz'},
+                    model_endpoint='localhost:5000/a-model/prediction',
+                    max_workers=20
+                )
+
+    @mock.patch('porter.services.MiddlewareService', **{'_ids': []})
+    @mock.patch('porter.services.api', **{'validate_url.return_value': False})
+    def test_constructor_bad_url_mocked(self, mock_api, mock_MiddlewareService):
+        print(dir(mock_api))
+        with self.assertRaisesRegex(exc.PorterError, 'url'):
+            middleware_service = MiddlewareService(
+                name='a-model',
+                version='1.0',
+                meta={'foo': 1, 'bar': 'baz'},
+                model_endpoint='http://localhost:5000/a-model/prediction',
+                max_workers=20
+            )
 
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.get')

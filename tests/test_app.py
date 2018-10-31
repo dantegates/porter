@@ -87,11 +87,12 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
-        middleware_service = MiddlewareService(
-            name='model-3',
-            version='1.2',
-            model_endpoint=prediction_service3.endpoint,
-            max_workers=None)
+        with mock.patch('porter.services.api', **{'validate_url.return_value': True}):
+            middleware_service = MiddlewareService(
+                name='model-3',
+                version='1.2',
+                model_endpoint=prediction_service3.endpoint,
+                max_workers=None)
         cls.model_app.add_service(prediction_service1)
         cls.model_app.add_service(prediction_service2)
         cls.model_app.add_service(prediction_service3)

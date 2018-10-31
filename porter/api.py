@@ -38,3 +38,21 @@ def get(*args, **kwargs):
     # for additional details on this pattern see the loading module.
     import requests
     return requests.get(*args, **kwargs)
+
+
+def validate_url(url):
+    """Return True if `url` is valid and False otherwise.
+
+    Roughly speaking, a valid URL is a URL containing sufficient information
+    for `post()` and `get()` to send requests - whether or not the URL actually
+    exists.
+    """
+    from urllib3.util import parse_url
+    # basically following the implementation here
+    # https://github.com/requests/requests/blob/75bdc998e2d430a35d869b2abf1779bd0d34890e/requests/models.py#L378
+    try:
+        parts = parse_url(url)
+    except Exception:
+        is_valid = False
+    is_valid = parts.scheme and parts.host
+    return is_valid
