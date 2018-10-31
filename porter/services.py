@@ -351,7 +351,7 @@ class PredictionService(BaseService):
                 use to add to the errors response.
         """
         if api.request_method() == 'GET':
-            return 'please send POST requests for predictions'
+            return 'This endpoint is live. Send POST requests for predictions'
         try:
             response = self._predict()
         except exc.ModelContextError as err:
