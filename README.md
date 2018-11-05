@@ -43,9 +43,9 @@ The basic workflow for building a model service is as follows
   pre/post processing of model input/output respectively. If you have a serialized `sklearn` and/or
   `keras` objects and/or your model is on S3, classes in `porter.datascience` can help load these
   objects.
-3. Instantiate `porter.services.PredictionServiceConfig` with the appropriate arguments once for
+3. Instantiate classes, such as `porter.services.PredictionService`, with the appropriate arguments for
   each model you would expose through the app.
-4. Pass the config objects from 3. to the `add_serivce` method of your `ModelApp` instance.
+4. Pass the config service from 3. to the `add_serivce` method of your `ModelApp` instance.
 5. Call the `run` method of your `ModelApp` instance. Your model is now live!
 
 See this [example script](./examples/example.py) for an (almost functional) example.
