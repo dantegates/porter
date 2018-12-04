@@ -1,4 +1,4 @@
-import json
+import time
 import unittest
 from unittest import mock
 
@@ -239,7 +239,6 @@ class TestPredictionService(unittest.TestCase):
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
-
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_no_processing_single(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
@@ -434,7 +433,7 @@ class TestMiddlewareService(unittest.TestCase):
         mock_init.return_value = None
         data = enumerate(np.random.randint(0, 100, size=1_000))
         mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
-        def post(url, data):
+        def post(url, data, **kwargs):
             return mock.Mock(**{'json.return_value': data['id']})
         mock_post.side_effect = post
 
@@ -442,6 +441,7 @@ class TestMiddlewareService(unittest.TestCase):
         middleware_service = MiddlewareService()
         middleware_service.model_endpoint = 'localhost:5000/'
         middleware_service.max_workers = 2
+        middleware_service.timeout = None
 
         # test implementation
         actual = middleware_service.serve()
@@ -463,7 +463,7 @@ class TestMiddlewareService(unittest.TestCase):
         mock_init.return_value = None
         data = enumerate(np.random.randint(0, 100, size=1_000))
         mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
-        def post(url, data):
+        def post(url, data, **kwargs):
             if data['id'] % 5:
                 return mock.Mock(**{'json.return_value': data['id']})
             return mock.Mock(**{'json.side_effect': ValueError(data['id'])})
@@ -473,6 +473,7 @@ class TestMiddlewareService(unittest.TestCase):
         middleware_service = MiddlewareService()
         middleware_service.model_endpoint = 'localhost:5000/'
         middleware_service.max_workers = 2
+        middleware_service.timeout = None
 
         # test implementation
         actual = middleware_service.serve()
@@ -580,6 +581,19 @@ class TestMiddlewareService(unittest.TestCase):
         mock_get.return_value = mock.Mock(status_code=404)
         expected = f'cannot communicate with'
         self.assertRegex(middleware_service.status, expected)
+
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.get')
+    def test_timeout(self, mock_get, mock_init):
+        mock_init.return_value = None
+        mock_get.return_value = mock.Mock(status_code=200)
+        middleware_service = MiddlewareService()
+        middleware_service.timeout = 2
+        # time request
+        start = time.time()
+        middleware_service._post(url='http://httpbin.org/delay/5', data={})
+        elapsed = time.time() - start
+        self.assertTrue(middleware_service.timeout < elapsed <= 2.1)
 
 
 class TestModelApp(unittest.TestCase):

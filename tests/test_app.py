@@ -156,7 +156,7 @@ class TestAppPredictions(unittest.TestCase):
     @mock.patch('porter.services.api.post')
     def test_middleware(self, mock_post):
         # test middleware
-        def post(url, data):
+        def post(url, data, **kwargs):
             response = self.app.post(url, data=json.dumps(data))
             m = mock.Mock()
             m.json.side_effect = lambda: json.loads(response.data)
