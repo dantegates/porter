@@ -4,6 +4,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from porter import __version__
 from porter import constants as cn
 from porter import exceptions as exc
 from porter.services import (BaseService, MiddlewareService, ModelApp,
@@ -639,7 +640,7 @@ class TestModelApp(unittest.TestCase):
         model_app.add_service(service3)
         actual = model_app.state
         expected = {
-            'porter_version': '0.11.0',
+            'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
             'services': {
                 'service1': {
