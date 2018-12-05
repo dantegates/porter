@@ -2,6 +2,7 @@
 
 
 import json
+import uuid
 
 import flask
 
@@ -21,6 +22,14 @@ def jsonify(*args, **kwargs):
     to the user.
     """
     return flask.jsonify(*args, **kwargs)
+
+
+def request_id():
+    """Return a "unique" ID for the current request."""
+    # http://flask.pocoo.org/docs/dev/tutorial/dbcon/
+    if not hasattr(flask.g, 'request_id'):
+        flask.g.request_id = uuid.uuid4().hex
+    return flask.g.request_id
 
 
 App = flask.Flask

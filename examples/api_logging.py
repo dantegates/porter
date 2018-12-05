@@ -38,7 +38,9 @@ app.add_services(prediction_svc, middleware_svc)
 if __name__ == '__main__':
     import logging
     stream_handler = logging.StreamHandler()
-    formatter = JSONFormatter('asctime', 'levelname', 'module', 'name', 'message')
+    formatter = JSONFormatter(
+        'asctime', 'levelname', 'module', 'name', 'message',
+        'request_id', 'data', 'service_class', 'request_response')
     stream_handler.setFormatter(formatter)
     logger = logging.getLogger('porter')
     logger.setLevel('INFO')

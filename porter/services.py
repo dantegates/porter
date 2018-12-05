@@ -199,7 +199,7 @@ class BaseService(abc.ABC, StatefulRoute):
         """Serve a response to the user."""
         response = self.make_response()
         if self.log_api_calls:
-            self._logger.info(response.get_data())
+            self._log_api_call(response.get_data(), 'request')
         return response
 
     def define_id(self):
@@ -245,8 +245,14 @@ class BaseService(abc.ABC, StatefulRoute):
     def get_post_data(self):
         data = api.request_json(force=True)
         if self.log_api_calls:
-            self._logger.info(data)
+            self._log_api_call(data, 'request')
         return data
+
+    def _log_api_call(self, data, request_response):
+        self._logger.info('request',
+            extra={'request_id': api.request_id(), 'data': data,
+                   'service_class': self.__class__.__name__,
+                   'request_response': request_response})
 
 
 class PredictionService(BaseService):
