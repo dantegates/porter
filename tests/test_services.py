@@ -594,7 +594,8 @@ class TestMiddlewareService(unittest.TestCase):
         start = time.time()
         middleware_service._post(url='http://httpbin.org/delay/5', data={})
         elapsed = time.time() - start
-        self.assertTrue(middleware_service.timeout < elapsed <= 2.1)
+        self.assertTrue(middleware_service.timeout < elapsed)
+        self.assertTrue(elapsed <= 2.2)
 
 
 class TestModelApp(unittest.TestCase):
