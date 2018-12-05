@@ -17,11 +17,13 @@ def request_json(*args, **kwargs):
     return flask.request.get_json(*args, **kwargs)
 
 
-def jsonify(*args, **kwargs):
+def jsonify(data, *args, **kwargs):
     """'Jsonify' a Python object into something an instance of `App` can return
     to the user.
     """
-    return flask.jsonify(*args, **kwargs)
+    jsonified = flask.jsonify(data, *args, **kwargs)
+    jsonified.raw_data = data
+    return jsonified
 
 
 def request_id():

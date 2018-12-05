@@ -199,7 +199,7 @@ class BaseService(abc.ABC, StatefulRoute):
         """Serve a response to the user."""
         response = self.make_response()
         if self.log_api_calls:
-            self._log_api_call(response.get_data(), 'request')
+            self._log_api_call(response.raw_data, 'response')
         return response
 
     def define_id(self):
