@@ -443,6 +443,7 @@ class TestMiddlewareService(unittest.TestCase):
         middleware_service.model_endpoint = 'localhost:5000/'
         middleware_service.max_workers = 2
         middleware_service.timeout = None
+        middleware_service.log_api_calls = False
 
         # test implementation
         actual = middleware_service.serve()
@@ -475,6 +476,7 @@ class TestMiddlewareService(unittest.TestCase):
         middleware_service.model_endpoint = 'localhost:5000/'
         middleware_service.max_workers = 2
         middleware_service.timeout = None
+        middleware_service.log_api_calls = False
 
         # test implementation
         actual = middleware_service.serve()
@@ -493,6 +495,7 @@ class TestMiddlewareService(unittest.TestCase):
     def test_get_post_data(self, mock_request_json, mock_init):
         mock_init.return_value = None
         middleware_service = MiddlewareService()
+        middleware_service.log_api_calls = False
         mock_request_json.return_value = [1, 2]
         actual = middleware_service.get_post_data()
         expected = [1, 2]
@@ -503,6 +506,7 @@ class TestMiddlewareService(unittest.TestCase):
     def test_get_post_data_fail(self, mock_request_json, mock_init):
         mock_init.return_value = None
         middleware_service = MiddlewareService()
+        middleware_service.log_api_calls = False
         mock_request_json.return_value = {}
         with self.assertRaisesRegex(exc.InvalidModelInput, 'input must be an array'):
             middleware_service.get_post_data()
@@ -590,11 +594,13 @@ class TestMiddlewareService(unittest.TestCase):
         mock_get.return_value = mock.Mock(status_code=200)
         middleware_service = MiddlewareService()
         middleware_service.timeout = 2
+        middleware_service.log_api_calls = False
         # time request
         start = time.time()
         middleware_service._post(url='http://httpbin.org/delay/5', data={})
         elapsed = time.time() - start
-        self.assertTrue(middleware_service.timeout < elapsed <= 2.1)
+        self.assertTrue(middleware_service.timeout < elapsed)
+        self.assertTrue(elapsed <= 2.1)
 
 
 class TestModelApp(unittest.TestCase):
@@ -726,7 +732,7 @@ class TestBaseService(unittest.TestCase):
         class SC(BaseService):
             def define_endpoint(self):
                 return '/an/endpoint'
-            def serve(self): pass
+            def make_response(self): pass
             def status(self): pass
 
 

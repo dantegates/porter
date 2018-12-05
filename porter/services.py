@@ -149,6 +149,8 @@ class BaseService(abc.ABC, StatefulRoute):
             derived from this parameter.
         version (str): The service version.
         meta (dict): Additional meta data added to the response body.
+        log_api_calls (bool): Log request and response and response data.
+            Default is False.
 
     Attributes:
         id (str): A unique ID for the service.
@@ -156,11 +158,14 @@ class BaseService(abc.ABC, StatefulRoute):
             derived from this attribute.
         version (str): The service version.
         meta (dict): Additional meta data added to the response body.
+        log_api_calls (bool): Log request and response and response data.
+            Default is False.
         endpoint (str): The endpoint where the service is exposed.
     """
     _ids = set()
+    _logger = logging.getLogger(__name__)
 
-    def __init__(self, *, name, version, meta=None):
+    def __init__(self, *, name, version, meta=None, log_api_calls=False):
         self.name = name
         self.version = version
         self.meta = {} if meta is None else meta
@@ -170,6 +175,7 @@ class BaseService(abc.ABC, StatefulRoute):
         self.id = self.define_id()
         self.endpoint = self.define_endpoint()
         self.meta = self.update_meta(self.meta)
+        self.log_api_calls = log_api_calls
 
     def __call__(self):
         """Serve a response to the user."""
@@ -180,12 +186,21 @@ class BaseService(abc.ABC, StatefulRoute):
         """Return the service endpoint derived from instance attributes."""
 
     @abc.abstractmethod
-    def serve(self):
-        """Serve a response to the user."""
+    def make_response(self):
+        """Return a response to be served to the user (should be a response
+        object returned by one of the functions in `porter.responses`.
+        """
 
     @abc.abstractproperty
     def status(self):
         """Return `str` representing the status of the service."""
+
+    def serve(self):
+        """Serve a response to the user."""
+        response = self.make_response()
+        if self.log_api_calls:
+            self._logger.info(response.get_data())
+        return response
 
     def define_id(self):
         """Return a unique ID for the service. This is used to set the `id`
@@ -227,6 +242,12 @@ class BaseService(abc.ABC, StatefulRoute):
         self._ids.add(value)
         self._id = value
 
+    def get_post_data(self):
+        data = api.request_json(force=True)
+        if self.log_api_calls:
+            self._logger.info(data)
+        return data
+
 
 class PredictionService(BaseService):
     """
@@ -238,6 +259,8 @@ class PredictionService(BaseService):
             "/<endpoint>/prediction/".
         version (str): The model version.
         meta (dict): Additional meta data added to the response body.
+        log_api_calls (bool): Log request and response and response data.
+            Default is False.
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
@@ -267,6 +290,8 @@ class PredictionService(BaseService):
         name (str): The model's name. The final routed endpoint will become
             "/<endpoint>/prediction/".
         meta (dict): Additional meta data added to the response body.
+        log_api_calls (bool): Log request and response and response data.
+            Default is False.
         version (str): The model version.
         endpoint (str): The endpoint where the model predictions are exposed.
         model (object): An object implementing the interface defined by
@@ -336,7 +361,7 @@ class PredictionService(BaseService):
         """Return 'READY'. Instances of this class are always ready."""
         return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
 
-    def serve(self):
+    def make_response(self):
         """Retrive POST request data from flask and return a response
         containing the corresponding predictions.
 
@@ -379,13 +404,10 @@ class PredictionService(BaseService):
         preds = self.model.predict(X_preprocessed)
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
-        response = self.make_response(X_input, preds)
-        return response
-
-    def make_response(self, X, preds):
-        return porter_responses.make_prediction_response(
-            self.name, self.version, self.meta, X[_ID], preds,
+        response = porter_responses.make_prediction_response(
+            self.name, self.version, self.meta, X_input[_ID], preds,
             self.batch_prediction)
+        return response
 
     @classmethod
     def check_request(cls, X_input, input_columns, allow_nulls=False, additional_checks=None):
@@ -446,7 +468,7 @@ class PredictionService(BaseService):
             porter.exceptions.PorterError: If the request data does not
                 follow the API format.
         """
-        data = api.request_json(force=True)
+        data = super().get_post_data()
         if not self.batch_prediction:
             # if API is not supporting batch prediction user's must send
             # a single JSON object.
@@ -492,12 +514,16 @@ class MiddlewareService(BaseService):
         version (str): The model version.
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
+        log_api_calls (bool): Log request and response and response data.
+            Default is False.
         model_endpoint (str): The URL of the model API.
         max_workers (int or None): The maximum number of workers to use per
             POST request to concurrently send prediction requests to the model
             API. None defaults to the maximum number of workers available to
             the machine (note this is determined by number of CPUs on the
             machine and not the number of workers available at run time).
+        timeout (positive float or None): Number of seconds to wait before
+            letting a POST request to the model API timeout.
 
     Attributes:
         id (str): A unique ID for the service.
@@ -506,6 +532,8 @@ class MiddlewareService(BaseService):
         version (str): The model version.
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
+        log_api_calls (bool): Log request and response and response data.
+            Default is False.
         endpoint (str): The endpoint where the middleware service is exposed.
         model_endpoint (str): The URL of the underlying model API.
         max_workers (int or None): The maximum number of workers to use per
@@ -576,7 +604,7 @@ class MiddlewareService(BaseService):
             return f'GET {self.model_endpoint} returned {model_status}'
         return f'cannot communicate with {self.model_endpoint}: {error}'
 
-    def serve(self):
+    def make_response(self):
         """Serve the bulk predictions."""
         data = self.get_post_data()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as pool:
@@ -593,7 +621,7 @@ class MiddlewareService(BaseService):
         return response
 
     def get_post_data(self):
-        data = api.request_json(force=True)
+        data = super().get_post_data()
         if not isinstance(data, list):
             raise exc.InvalidModelInput(f'input must be an array of objects')
         return data
