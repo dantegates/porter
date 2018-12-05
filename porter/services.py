@@ -502,7 +502,7 @@ class MiddlewareService(BaseService):
     Attributes:
         id (str): A unique ID for the service.
         name (str): The model name. The final routed endpoint will become
-            "/<endpoint>/prediction/".
+            "/<endpoint>/batchPrediction/".
         version (str): The model version.
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
@@ -522,13 +522,18 @@ class MiddlewareService(BaseService):
 
     route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
 
-    def __init__(self, *, model_endpoint, max_workers, **kwargs):
+    def __init__(self, *, model_endpoint, max_workers, timeout=None, **kwargs):
         if not api.validate_url(model_endpoint):
             raise exc.PorterError(
                 f'the url {model_endpoint} is not valid (be sure to include the '
                  'schema, e.g. http, and host).')
         self.model_endpoint = model_endpoint
         self.max_workers = max_workers
+        if timeout is None:
+            warnings.warn('timeout is set to None, this could be problematic '
+                          'as each request from the middleware to the model API '
+                          'can take an indefinite amount of time.')
+        self.timeout = timeout
         super().__init__(**kwargs)
 
     def define_id(self):
@@ -582,7 +587,7 @@ class MiddlewareService(BaseService):
 
     def _post(self, url, data):
         try:
-            response = api.post(url, data=data).json()
+            response = api.post(url, data=data, timeout=self.timeout).json()
         except Exception as err:
             return err
         return response
