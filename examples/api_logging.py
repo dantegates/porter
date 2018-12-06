@@ -40,7 +40,7 @@ if __name__ == '__main__':
     stream_handler = logging.StreamHandler()
     formatter = JSONFormatter(
         'asctime', 'levelname', 'module', 'name', 'message',
-        'request_id', 'data', 'service_class', 'request_response')
+        'request_id', 'data', 'service_class', 'event')
     stream_handler.setFormatter(formatter)
     logger = logging.getLogger('porter')
     logger.setLevel('INFO')

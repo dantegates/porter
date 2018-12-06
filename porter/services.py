@@ -248,11 +248,11 @@ class BaseService(abc.ABC, StatefulRoute):
             self._log_api_call(data, 'request')
         return data
 
-    def _log_api_call(self, data, request_response):
+    def _log_api_call(self, data, event):
         self._logger.info('request',
             extra={'request_id': api.request_id(), 'data': data,
                    'service_class': self.__class__.__name__,
-                   'request_response': request_response})
+                   'event': event})
 
 
 class PredictionService(BaseService):

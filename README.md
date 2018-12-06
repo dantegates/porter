@@ -145,8 +145,7 @@ a service. The following data is available for logging
 corresponding response.
 - "data": The JSON payload.
 - "service_class": The name of the service class that served the request.
-- "request_response": Whether the log represents a request or response. Will be either "request" or
-"response".
+- "event": The type of event being logged, e.g. "request" or "response".
 
 The script [api_logging.py](./examples/api_logging.py) demonstrates how to configure logging.
 
