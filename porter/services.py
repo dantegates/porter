@@ -150,7 +150,11 @@ class BaseService(abc.ABC, StatefulRoute):
         version (str): The service version.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
-            Default is False.
+            Default is False. Note that if this is True, the method
+            `get_post_data()` will be an additional time to log the input
+            data. If a subclass sets this to True and overrides
+            `get_post_data()` the method on the subclass should be decorated
+            with `porter.api.cache_during_request` for performance
 
     Attributes:
         id (str): A unique ID for the service.
@@ -179,7 +183,11 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def __call__(self):
         """Serve a response to the user."""
-        return self.serve()
+        try:
+            return self.serve()
+        except Exception as err:
+            self._logger.exception(err)
+            raise err
 
     @abc.abstractmethod
     def define_endpoint(self):
@@ -199,7 +207,8 @@ class BaseService(abc.ABC, StatefulRoute):
         """Serve a response to the user."""
         response = self.make_response()
         if self.log_api_calls:
-            self._log_api_call(response.raw_data, 'response')
+            request_data = self.get_post_data()
+            self._log_api_call(request_data, response.raw_data)
         return response
 
     def define_id(self):
@@ -243,16 +252,15 @@ class BaseService(abc.ABC, StatefulRoute):
         self._id = value
 
     def get_post_data(self):
-        data = api.request_json(force=True)
-        if self.log_api_calls:
-            self._log_api_call(data, 'request')
-        return data
+        return api.request_json(force=True)
 
-    def _log_api_call(self, data, event):
+    def _log_api_call(self, request_data, response_data):
         self._logger.info('request',
-            extra={'request_id': api.request_id(), 'data': data,
+            extra={'request_id': api.request_id(),
+                   'request_data': request_data,
+                   'response_data': response_data,
                    'service_class': self.__class__.__name__,
-                   'event': event})
+                   'event': 'api_call'})
 
 
 class PredictionService(BaseService):
@@ -266,7 +274,11 @@ class PredictionService(BaseService):
         version (str): The model version.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
-            Default is False.
+            Default is False. Note that if this is True, the method
+            `get_post_data()` will be an additional time to log the input
+            data. If a subclass sets this to True and overrides
+            `get_post_data()` the method on the subclass should be decorated
+            with `porter.api.cache_during_request` for performance.
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
@@ -462,6 +474,7 @@ class PredictionService(BaseService):
             missing_fields = [c for c in input_columns if not c in X.columns]
             raise exc.RequestMissingFields(missing_fields)
 
+    @api.cache_during_request
     def get_post_data(self):
         """Return data from the most recent POST request as a `pandas.DataFrame`.
 
@@ -521,7 +534,11 @@ class MiddlewareService(BaseService):
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
         log_api_calls (bool): Log request and response and response data.
-            Default is False.
+            Default is False. Note that if this is True, the method
+            `get_post_data()` will be an additional time to log the input
+            data. If a subclass sets this to True and overrides
+            `get_post_data()` the method on the subclass should be decorated
+            with `porter.api.cache_during_request` for performance.
         model_endpoint (str): The URL of the model API.
         max_workers (int or None): The maximum number of workers to use per
             POST request to concurrently send prediction requests to the model
@@ -626,6 +643,7 @@ class MiddlewareService(BaseService):
             return err
         return response
 
+    @api.cache_during_request
     def get_post_data(self):
         data = super().get_post_data()
         if not isinstance(data, list):

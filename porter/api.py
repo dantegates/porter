@@ -1,6 +1,7 @@
 """Light wrappers around `flask` and `requests`."""
 
 
+import functools
 import json
 import uuid
 
@@ -32,6 +33,24 @@ def request_id():
     if not hasattr(flask.g, 'request_id'):
         flask.g.request_id = uuid.uuid4().hex
     return flask.g.request_id
+
+
+def cache_during_request(f):
+    """A decorator that can be applied to functions to cache results during
+    the lifetime of a request.
+
+    Note that if the function has already been called during a request they
+    are ignored during subsequent calls and the original result is returned.
+    """
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        f_id = str(id(f))
+        res = getattr(flask.g, f_id, None)
+        if res is None:
+            res = f(*args, **kwargs)
+            setattr(flask.g, f_id, res)
+        return res
+    return wrapper
 
 
 App = flask.Flask

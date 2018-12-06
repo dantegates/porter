@@ -51,6 +51,7 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual3, expected3)
 
 
+@mock.patch('porter.services.PredictionService.get_post_data', PredictionService.get_post_data.__wrapped__)
 class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify', lambda payload: payload)
@@ -420,76 +421,8 @@ class TestPredictionService(unittest.TestCase):
                 model=None, additional_checks=1)
 
 
+@mock.patch('porter.services.MiddlewareService.get_post_data', MiddlewareService.get_post_data.__wrapped__)
 class TestMiddlewareService(unittest.TestCase):
-    @mock.patch('porter.services.MiddlewareService.__init__')
-    @mock.patch('porter.services.api.post')
-    @mock.patch('porter.services.MiddlewareService.get_post_data')
-    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve(self, mock_get_post_data, mock_post, mock_init):
-        """Test the following
-        1. All data from post request is sent to the correct model endpoint.
-        2. All corresponding response objects are returned.
-        """
-        # set up the mocks
-        mock_init.return_value = None
-        data = enumerate(np.random.randint(0, 100, size=1_000))
-        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
-        def post(url, data, **kwargs):
-            return mock.Mock(**{'json.return_value': data['id']})
-        mock_post.side_effect = post
-
-        # set up the MiddlewareService instance
-        middleware_service = MiddlewareService()
-        middleware_service.model_endpoint = 'localhost:5000/'
-        middleware_service.max_workers = 2
-        middleware_service.timeout = None
-        middleware_service.log_api_calls = False
-
-        # test implementation
-        actual = middleware_service.serve()
-        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
-        mock_post.post.assert_has_calls(expected_calls)
-        # test results
-        self.assertEqual(sorted(actual), list(range(1_000)))
-
-    @mock.patch('porter.services.MiddlewareService.__init__')
-    @mock.patch('porter.services.api.post')
-    @mock.patch('porter.services.MiddlewareService.get_post_data')
-    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve_with_errors(self, mock_get_post_data, mock_post, mock_init):
-        """Test the following
-        1. All data from post request is sent to the correct model endpoint.
-        2. All corresponding response objects are returned.
-        """
-        # set up the mocks
-        mock_init.return_value = None
-        data = enumerate(np.random.randint(0, 100, size=1_000))
-        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
-        def post(url, data, **kwargs):
-            if data['id'] % 5:
-                return mock.Mock(**{'json.return_value': data['id']})
-            return mock.Mock(**{'json.side_effect': ValueError(data['id'])})
-        mock_post.side_effect = post
-
-        # set up the MiddlewareService instance
-        middleware_service = MiddlewareService()
-        middleware_service.model_endpoint = 'localhost:5000/'
-        middleware_service.max_workers = 2
-        middleware_service.timeout = None
-        middleware_service.log_api_calls = False
-
-        # test implementation
-        actual = middleware_service.serve()
-        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
-        mock_post.post.assert_has_calls(expected_calls)
-        # test results
-        actual_ints = sorted(x for x in actual if isinstance(x, int))
-        actual_errors = sorted([str(x) for x in actual if isinstance(x, ValueError)])
-        expected_ints = [i for i in range(1_000) if i % 5]
-        expected_errors = sorted([str(ValueError(i)) for i in range(1_000) if not i % 5])
-        self.assertEqual(actual_ints, expected_ints)
-        self.assertEqual(actual_errors, expected_errors)
-
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data(self, mock_request_json, mock_init):
@@ -544,7 +477,6 @@ class TestMiddlewareService(unittest.TestCase):
     @mock.patch('porter.services.MiddlewareService', **{'_ids': []})
     @mock.patch('porter.services.api', **{'validate_url.return_value': False})
     def test_constructor_bad_url_mocked(self, mock_api, mock_MiddlewareService):
-        print(dir(mock_api))
         with self.assertRaisesRegex(exc.PorterError, 'url'):
             middleware_service = MiddlewareService(
                 name='a-model',
@@ -717,6 +649,79 @@ class TestModelApp(unittest.TestCase):
         model_app.add_service(service1)
         with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):
             model_app.add_service(service2)
+
+
+# this needs to be separated from the class above so we can mock get_post_data
+# on the entire class above and individually on methods here
+class TestMiddlewareServiceServing(unittest.TestCase):
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.post')
+    @mock.patch('porter.services.MiddlewareService.get_post_data')
+    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
+    def test_serve(self, mock_get_post_data, mock_post, mock_init):
+        """Test the following
+        1. All data from post request is sent to the correct model endpoint.
+        2. All corresponding response objects are returned.
+        """
+        # set up the mocks
+        mock_init.return_value = None
+        data = enumerate(np.random.randint(0, 100, size=1_000))
+        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
+        def post(url, data, **kwargs):
+            return mock.Mock(**{'json.return_value': data['id']})
+        mock_post.side_effect = post
+
+        # set up the MiddlewareService instance
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/'
+        middleware_service.max_workers = 2
+        middleware_service.timeout = None
+        middleware_service.log_api_calls = False
+
+        # test implementation
+        actual = middleware_service.serve()
+        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
+        mock_post.post.assert_has_calls(expected_calls)
+        # test results
+        self.assertEqual(sorted(actual), list(range(1_000)))
+
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.post')
+    @mock.patch('porter.services.MiddlewareService.get_post_data')
+    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
+    def test_serve_with_errors(self, mock_get_post_data, mock_post, mock_init):
+        """Test the following
+        1. All data from post request is sent to the correct model endpoint.
+        2. All corresponding response objects are returned.
+        """
+        # set up the mocks
+        mock_init.return_value = None
+        data = enumerate(np.random.randint(0, 100, size=1_000))
+        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
+        def post(url, data, **kwargs):
+            if data['id'] % 5:
+                return mock.Mock(**{'json.return_value': data['id']})
+            return mock.Mock(**{'json.side_effect': ValueError(data['id'])})
+        mock_post.side_effect = post
+
+        # set up the MiddlewareService instance
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/'
+        middleware_service.max_workers = 2
+        middleware_service.timeout = None
+        middleware_service.log_api_calls = False
+
+        # test implementation
+        actual = middleware_service.serve()
+        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
+        mock_post.post.assert_has_calls(expected_calls)
+        # test results
+        actual_ints = sorted(x for x in actual if isinstance(x, int))
+        actual_errors = sorted([str(x) for x in actual if isinstance(x, ValueError)])
+        expected_ints = [i for i in range(1_000) if i % 5]
+        expected_errors = sorted([str(ValueError(i)) for i in range(1_000) if not i % 5])
+        self.assertEqual(actual_ints, expected_ints)
+        self.assertEqual(actual_errors, expected_errors)
 
 
 class TestBaseService(unittest.TestCase):
