@@ -51,7 +51,6 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual3, expected3)
 
 
-@mock.patch('porter.services.PredictionService.get_post_data', PredictionService.get_post_data.__wrapped__)
 class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify', lambda payload: payload)
@@ -421,7 +420,6 @@ class TestPredictionService(unittest.TestCase):
                 model=None, additional_checks=1)
 
 
-@mock.patch('porter.services.MiddlewareService.get_post_data', MiddlewareService.get_post_data.__wrapped__)
 class TestMiddlewareService(unittest.TestCase):
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.request_json')
@@ -650,10 +648,6 @@ class TestModelApp(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):
             model_app.add_service(service2)
 
-
-# this needs to be separated from the class above so we can mock get_post_data
-# on the entire class above and individually on methods here
-class TestMiddlewareServiceServing(unittest.TestCase):
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.post')
     @mock.patch('porter.services.MiddlewareService.get_post_data')
