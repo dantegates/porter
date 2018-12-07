@@ -208,7 +208,8 @@ class BaseService(abc.ABC, StatefulRoute):
         response = self.make_response()
         if self.log_api_calls:
             request_data = self.get_post_data()
-            self._log_api_call(request_data, response.raw_data)
+            response_data = getattr(response, 'raw_data', response)
+            self._log_api_call(request_data, response_data)
         return response
 
     def define_id(self):
