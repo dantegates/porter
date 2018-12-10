@@ -179,18 +179,29 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def __call__(self):
         """Serve a response to the user."""
+        response = None
         try:
-            return self.serve()
+            response = self.serve()
         except Exception as err:
             self._logger.exception(err)
             raise err
+        finally:
+            # always log at least the API call request data
+            if self.log_api_calls:
+                request_data = api.request_json()
+                if response is not None:
+                    response_data = getattr(response, 'raw_data', response)
+                else:
+                    response_data = response
+                self._log_api_call(request_data, response_data)
+        return response
 
     @abc.abstractmethod
     def define_endpoint(self):
         """Return the service endpoint derived from instance attributes."""
 
     @abc.abstractmethod
-    def make_response(self):
+    def serve(self):
         """Return a response to be served to the user (should be a response
         object returned by one of the functions in `porter.responses`.
         """
@@ -198,15 +209,6 @@ class BaseService(abc.ABC, StatefulRoute):
     @abc.abstractproperty
     def status(self):
         """Return `str` representing the status of the service."""
-
-    def serve(self):
-        """Serve a response to the user."""
-        response = self.make_response()
-        if self.log_api_calls:
-            request_data = api.request_json()
-            response_data = getattr(response, 'raw_data', response)
-            self._log_api_call(request_data, response_data)
-        return response
 
     def define_id(self):
         """Return a unique ID for the service. This is used to set the `id`
@@ -372,7 +374,7 @@ class PredictionService(BaseService):
         """Return 'READY'. Instances of this class are always ready."""
         return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
 
-    def make_response(self):
+    def serve(self):
         """Retrive POST request data from flask and return a response
         containing the corresponding predictions.
 
@@ -615,7 +617,7 @@ class MiddlewareService(BaseService):
             return f'GET {self.model_endpoint} returned {model_status}'
         return f'cannot communicate with {self.model_endpoint}: {error}'
 
-    def make_response(self):
+    def serve(self):
         """Serve the bulk predictions."""
         data = self.get_post_data()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as pool:

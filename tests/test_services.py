@@ -719,6 +719,7 @@ class TestModelApp(unittest.TestCase):
 
 
 class TestBaseService(unittest.TestCase):
+    @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.BaseService.define_endpoint')
     def test_constructor(self, mock_define_endpoint):
         # test ABC
@@ -731,7 +732,7 @@ class TestBaseService(unittest.TestCase):
         class SC(BaseService):
             def define_endpoint(self):
                 return '/an/endpoint'
-            def make_response(self): pass
+            def serve(self): pass
             def status(self): pass
 
 
@@ -746,6 +747,66 @@ class TestBaseService(unittest.TestCase):
         # error
         with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
             service_config = SC(name='foo', version='bar', meta=None)
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
+    @mock.patch('porter.services.api.request_id', lambda: 123)
+    def test_api_logging_no_exception(self):
+        class Service(BaseService):
+            def define_endpoint(self):
+                return '/foo'
+            def serve(self):
+                return {'foo': '1', 'p': {10: '10'}}
+            def status(self):
+                return 'ready'
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service1 = Service(name='name1', version='version1', log_api_calls=True)
+            served = service1()
+            mock__logger.info.assert_called_with(
+                'api logging',
+                extra={'request_id': 123,
+                       'request_data': {'foo': 1, 'bar': {'p': 10}},
+                       'response_data': {'foo': '1', 'p': {10: '10'}},
+                       'service_class': 'Service',
+                       'event': 'api_call'}
+                )
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service2 = Service(name='name2', version='version2', log_api_calls=False)
+            service2()
+            mock__logger.assert_not_called()
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
+    @mock.patch('porter.services.api.request_id', lambda: 123)
+    def test_api_logging_exception(self):
+        class Service(BaseService):
+            def define_endpoint(self):
+                return '/foo'
+            def serve(self):
+                raise Exception('testing')
+            def status(self):
+                return 'ready'
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service1 = Service(name='name1', version='version1', log_api_calls=True)
+            with self.assertRaisesRegex(Exception, 'testing'):
+                service1()
+            mock__logger.info.assert_called_with(
+                'api logging',
+                extra={'request_id': 123,
+                       'request_data': {'foo': 1, 'bar': {'p': 10}},
+                       'response_data': None,
+                       'service_class': 'Service',
+                       'event': 'api_call'}
+                )
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service2 = Service(name='name2', version='version2', log_api_calls=False)
+            with self.assertRaisesRegex(Exception, 'testing'):
+                service2()
+            mock__logger.assert_not_called()
 
 
 if __name__ == '__main__':
