@@ -1,7 +1,9 @@
 """Light wrappers around `flask` and `requests`."""
 
 
+import functools
 import json
+import uuid
 
 import flask
 
@@ -16,11 +18,21 @@ def request_json(*args, **kwargs):
     return flask.request.get_json(*args, **kwargs)
 
 
-def jsonify(*args, **kwargs):
+def jsonify(data, *args, **kwargs):
     """'Jsonify' a Python object into something an instance of `App` can return
     to the user.
     """
-    return flask.jsonify(*args, **kwargs)
+    jsonified = flask.jsonify(data, *args, **kwargs)
+    jsonified.raw_data = data
+    return jsonified
+
+
+def request_id():
+    """Return a "unique" ID for the current request."""
+    # http://flask.pocoo.org/docs/dev/tutorial/dbcon/
+    if not hasattr(flask.g, 'request_id'):
+        flask.g.request_id = uuid.uuid4().hex
+    return flask.g.request_id
 
 
 App = flask.Flask
