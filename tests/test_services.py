@@ -159,13 +159,20 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_fail(self, mock_api, mock__predict):
         mock__predict.side_effect = Exception
-        with self.assertRaises(exc.PredictionError):
+        name = 'my-model'
+        version = '1.0'
+        meta = {}
+        with self.assertRaises(exc.PredictionError) as ctx:
             sp = PredictionService(
-                model=mock.Mock(), name=mock.Mock(), version=mock.Mock(),
-                meta=mock.Mock(), preprocessor=mock.Mock(), postprocessor=mock.Mock(),
+                model=mock.Mock(), name=name, version=version,
+                meta=meta, preprocessor=mock.Mock(), postprocessor=mock.Mock(),
                 allow_nulls=mock.Mock(), batch_prediction=mock.Mock(),
                 additional_checks=mock.Mock())
             sp()
+            # porter.responses.make_error_response counts on these attributes being filled out
+            self.assertEqual(ctx.exception.model_name, name)
+            self.assertEqual(ctx.exception.model_version, version)
+            self.assertEqual(ctx.exception.model_meta, meta)
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
@@ -321,15 +328,15 @@ class TestPredictionService(unittest.TestCase):
             PredictionService.check_request(X, ['id', 'one', 'two', 'three'], False, additional_checks_fail)
 
 
-    @mock.patch('flask.request')
-    @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.responses.api')
     @mock.patch('porter.services.BaseService._ids', set())
-    def test_get_post_data_batch_prediction(self, mock_flask_jsonify, mock_flask_request):
+    def test_get_post_data_batch_prediction(self, mock_responses_api, mock_services_api):
         mock_model = mock.Mock()
         mock_model.predict.return_value = []
 
         # Succeed
-        mock_flask_request.get_json.return_value = [{'id': None}]
+        mock_services_api.request_json.return_value = [{'id': None}]
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.Mock(),
@@ -345,7 +352,7 @@ class TestPredictionService(unittest.TestCase):
 
         # Fail
         mock_model = mock.Mock()
-        mock_flask_request.get_json.return_value = {'id': None}
+        mock_services_api.request_json.return_value = {'id': None}
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.Mock(),
@@ -360,15 +367,15 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
 
-    @mock.patch('flask.request')
-    @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.responses.api')
     @mock.patch('porter.services.BaseService._ids', set())
-    def test_get_post_data_instance_prediction(self, mock_flask_jsonify, mock_flask_request):
+    def test_get_post_data_instance_prediction(self, mock_responses_api, mock_services_api):
         mock_model = mock.Mock()
         mock_model.predict.return_value = [1]
 
         # Succeed
-        mock_flask_request.get_json.return_value = {'id': None}
+        mock_services_api.request_json.return_value = {'id': None}
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.Mock(),
@@ -384,7 +391,7 @@ class TestPredictionService(unittest.TestCase):
 
         # Fail
         mock_model = mock.Mock()
-        mock_flask_request.get_json.return_value = [{'id': None}]
+        mock_services_api.request_json.return_value = [{'id': None}]
         serve_prediction = PredictionService(
             model=mock.Mock(),
             name=mock.Mock(),
@@ -422,77 +429,11 @@ class TestPredictionService(unittest.TestCase):
 
 class TestMiddlewareService(unittest.TestCase):
     @mock.patch('porter.services.MiddlewareService.__init__')
-    @mock.patch('porter.services.api.post')
-    @mock.patch('porter.services.MiddlewareService.get_post_data')
-    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve(self, mock_get_post_data, mock_post, mock_init):
-        """Test the following
-        1. All data from post request is sent to the correct model endpoint.
-        2. All corresponding response objects are returned.
-        """
-        # set up the mocks
-        mock_init.return_value = None
-        data = enumerate(np.random.randint(0, 100, size=1_000))
-        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
-        def post(url, data, **kwargs):
-            return mock.Mock(**{'json.return_value': data['id']})
-        mock_post.side_effect = post
-
-        # set up the MiddlewareService instance
-        middleware_service = MiddlewareService()
-        middleware_service.model_endpoint = 'localhost:5000/'
-        middleware_service.max_workers = 2
-        middleware_service.timeout = None
-
-        # test implementation
-        actual = middleware_service.serve()
-        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
-        mock_post.post.assert_has_calls(expected_calls)
-        # test results
-        self.assertEqual(sorted(actual), list(range(1_000)))
-
-    @mock.patch('porter.services.MiddlewareService.__init__')
-    @mock.patch('porter.services.api.post')
-    @mock.patch('porter.services.MiddlewareService.get_post_data')
-    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve_with_errors(self, mock_get_post_data, mock_post, mock_init):
-        """Test the following
-        1. All data from post request is sent to the correct model endpoint.
-        2. All corresponding response objects are returned.
-        """
-        # set up the mocks
-        mock_init.return_value = None
-        data = enumerate(np.random.randint(0, 100, size=1_000))
-        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
-        def post(url, data, **kwargs):
-            if data['id'] % 5:
-                return mock.Mock(**{'json.return_value': data['id']})
-            return mock.Mock(**{'json.side_effect': ValueError(data['id'])})
-        mock_post.side_effect = post
-
-        # set up the MiddlewareService instance
-        middleware_service = MiddlewareService()
-        middleware_service.model_endpoint = 'localhost:5000/'
-        middleware_service.max_workers = 2
-        middleware_service.timeout = None
-
-        # test implementation
-        actual = middleware_service.serve()
-        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
-        mock_post.post.assert_has_calls(expected_calls)
-        # test results
-        actual_ints = sorted(x for x in actual if isinstance(x, int))
-        actual_errors = sorted([str(x) for x in actual if isinstance(x, ValueError)])
-        expected_ints = [i for i in range(1_000) if i % 5]
-        expected_errors = sorted([str(ValueError(i)) for i in range(1_000) if not i % 5])
-        self.assertEqual(actual_ints, expected_ints)
-        self.assertEqual(actual_errors, expected_errors)
-
-    @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data(self, mock_request_json, mock_init):
         mock_init.return_value = None
         middleware_service = MiddlewareService()
+        middleware_service.log_api_calls = False
         mock_request_json.return_value = [1, 2]
         actual = middleware_service.get_post_data()
         expected = [1, 2]
@@ -503,9 +444,30 @@ class TestMiddlewareService(unittest.TestCase):
     def test_get_post_data_fail(self, mock_request_json, mock_init):
         mock_init.return_value = None
         middleware_service = MiddlewareService()
+        middleware_service.log_api_calls = False
         mock_request_json.return_value = {}
         with self.assertRaisesRegex(exc.InvalidModelInput, 'input must be an array'):
             middleware_service.get_post_data()
+
+    @mock.patch('porter.services.MiddlewareService.serve')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.services.MiddlewareService.check_meta', lambda self, meta: meta)
+    @mock.patch('porter.services.MiddlewareService.update_meta', lambda self, meta: meta)
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_fail(self, mock_api, mock_serve):
+        mock_serve.side_effect = Exception
+        name = 'my-model'
+        version = '1.0'
+        meta = {}
+        with self.assertRaises(exc.PredictionError) as ctx:
+            sp = MiddlewareService(
+                name=name, version=version,
+                meta=meta, model_endpoint=mock.Mock(), max_workers=mock.Mock())
+            sp()
+            # porter.responses.make_error_response counts on these attributes being filled out
+            self.assertEqual(ctx.exception.model_name, name)
+            self.assertEqual(ctx.exception.model_version, version)
+            self.assertEqual(ctx.exception.model_meta, meta)
 
     def test_constructor(self):
         middleware_service = MiddlewareService(
@@ -540,7 +502,6 @@ class TestMiddlewareService(unittest.TestCase):
     @mock.patch('porter.services.MiddlewareService', **{'_ids': []})
     @mock.patch('porter.services.api', **{'validate_url.return_value': False})
     def test_constructor_bad_url_mocked(self, mock_api, mock_MiddlewareService):
-        print(dir(mock_api))
         with self.assertRaisesRegex(exc.PorterError, 'url'):
             middleware_service = MiddlewareService(
                 name='a-model',
@@ -590,6 +551,7 @@ class TestMiddlewareService(unittest.TestCase):
         mock_get.return_value = mock.Mock(status_code=200)
         middleware_service = MiddlewareService()
         middleware_service.timeout = 2
+        middleware_service.log_api_calls = False
         # time request
         start = time.time()
         middleware_service._post(url='http://httpbin.org/delay/5', data={})
@@ -713,8 +675,78 @@ class TestModelApp(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):
             model_app.add_service(service2)
 
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.post')
+    @mock.patch('porter.services.MiddlewareService.get_post_data')
+    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
+    def test_serve(self, mock_get_post_data, mock_post, mock_init):
+        """Test the following
+        1. All data from post request is sent to the correct model endpoint.
+        2. All corresponding response objects are returned.
+        """
+        # set up the mocks
+        mock_init.return_value = None
+        data = enumerate(np.random.randint(0, 100, size=1_000))
+        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
+        def post(url, data, **kwargs):
+            return mock.Mock(**{'json.return_value': data['id']})
+        mock_post.side_effect = post
+
+        # set up the MiddlewareService instance
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/'
+        middleware_service.max_workers = 2
+        middleware_service.timeout = None
+        middleware_service.log_api_calls = False
+
+        # test implementation
+        actual = middleware_service.serve()
+        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
+        mock_post.post.assert_has_calls(expected_calls)
+        # test results
+        self.assertEqual(sorted(actual), list(range(1_000)))
+
+    @mock.patch('porter.services.MiddlewareService.__init__')
+    @mock.patch('porter.services.api.post')
+    @mock.patch('porter.services.MiddlewareService.get_post_data')
+    @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
+    def test_serve_with_errors(self, mock_get_post_data, mock_post, mock_init):
+        """Test the following
+        1. All data from post request is sent to the correct model endpoint.
+        2. All corresponding response objects are returned.
+        """
+        # set up the mocks
+        mock_init.return_value = None
+        data = enumerate(np.random.randint(0, 100, size=1_000))
+        mock_get_post_data.return_value = [{'id': id, 'value': val} for id, val in data]
+        def post(url, data, **kwargs):
+            if data['id'] % 5:
+                return mock.Mock(**{'json.return_value': data['id']})
+            return mock.Mock(**{'json.side_effect': ValueError(data['id'])})
+        mock_post.side_effect = post
+
+        # set up the MiddlewareService instance
+        middleware_service = MiddlewareService()
+        middleware_service.model_endpoint = 'localhost:5000/'
+        middleware_service.max_workers = 2
+        middleware_service.timeout = None
+        middleware_service.log_api_calls = False
+
+        # test implementation
+        actual = middleware_service.serve()
+        expected_calls = [mock.call(middleware_service.model_endpoint, data) for data in data]
+        mock_post.post.assert_has_calls(expected_calls)
+        # test results
+        actual_ints = sorted(x for x in actual if isinstance(x, int))
+        actual_errors = sorted([str(x) for x in actual if isinstance(x, ValueError)])
+        expected_ints = [i for i in range(1_000) if i % 5]
+        expected_errors = sorted([str(ValueError(i)) for i in range(1_000) if not i % 5])
+        self.assertEqual(actual_ints, expected_ints)
+        self.assertEqual(actual_errors, expected_errors)
+
 
 class TestBaseService(unittest.TestCase):
+    @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.BaseService.define_endpoint')
     def test_constructor(self, mock_define_endpoint):
         # test ABC
@@ -743,6 +775,87 @@ class TestBaseService(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
             service_config = SC(name='foo', version='bar', meta=None)
 
+    @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
+    @mock.patch('porter.services.api.request_id', lambda: 123)
+    def test_api_logging_no_exception(self):
+        class Service(BaseService):
+            def define_endpoint(self):
+                return '/foo'
+            def serve(self):
+                return {'foo': '1', 'p': {10: '10'}}
+            def status(self):
+                return 'ready'
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service1 = Service(name='name1', version='version1', log_api_calls=True)
+            served = service1()
+            mock__logger.info.assert_called_with(
+                'api logging',
+                extra={'request_id': 123,
+                       'request_data': {'foo': 1, 'bar': {'p': 10}},
+                       'response_data': {'foo': '1', 'p': {10: '10'}},
+                       'service_class': 'Service',
+                       'event': 'api_call'}
+                )
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service2 = Service(name='name2', version='version2', log_api_calls=False)
+            service2()
+            mock__logger.assert_not_called()
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
+    @mock.patch('porter.services.api.request_id', lambda: 123)
+    def test_api_logging_exception(self):
+        class Service(BaseService):
+            def define_endpoint(self):
+                return '/foo'
+            def serve(self):
+                raise Exception('testing')
+            def status(self):
+                return 'ready'
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service1 = Service(name='name1', version='version1', log_api_calls=True)
+            with self.assertRaisesRegex(Exception, 'testing'):
+                service1()
+            mock__logger.info.assert_called_with(
+                'api logging',
+                extra={'request_id': 123,
+                       'request_data': {'foo': 1, 'bar': {'p': 10}},
+                       'response_data': None,
+                       'service_class': 'Service',
+                       'event': 'api_call'}
+                )
+
+        with mock.patch('porter.services.BaseService._logger') as mock__logger:
+            service2 = Service(name='name2', version='version2', log_api_calls=False)
+            with self.assertRaisesRegex(Exception, 'testing'):
+                service2()
+            mock__logger.assert_not_called()
+
+    @mock.patch('porter.services.BaseService._logger')
+    @mock.patch('porter.api.request_id', lambda: 123)
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_logging_with_exception(self, mock__logger):
+        e = Exception('testing')
+        class Service(BaseService):
+            def define_endpoint(self):
+                return '/foo'
+            def serve(self):
+                raise e
+            def status(self):
+                return 'ready'
+
+        service = Service(name='name', version='version')
+        with self.assertRaisesRegex(Exception, 'testing'):
+            service()
+        mock__logger.exception.assert_called_with(
+            e,
+            extra={'request_id': 123,
+                   'service_class': 'Service',
+                   'event': 'exception'})
 
 if __name__ == '__main__':
     unittest.main()

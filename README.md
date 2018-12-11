@@ -137,6 +137,18 @@ code and JSON payload with the following keys
 If the error resulted in a model context (during prediction, processing, etc.) the model context
 data (model ID, version and any model meta data) described above will be present in the error object.
 
+# Logging
+API calls (request and response payloads) can be logged by passing `log_api_calls=True` when instantiating
+a service. The following data is available for logging
+
+- "request_id": A unique ID for the request.
+- "request_data": The request's JSON payload.
+- "response_data": The response's JSON payload.
+- "service_class": The name of the service class that served the request.
+- "event": The type of event being logged, e.g. "request" or "response".
+
+The script [api_logging.py](./examples/api_logging.py) demonstrates how to configure logging.
+
 # Tests
 To run the test suite for porter execute the command
 
