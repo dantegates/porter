@@ -183,7 +183,10 @@ class BaseService(abc.ABC, StatefulRoute):
         try:
             response = self.serve()
         except Exception as err:
-            self._logger.exception(err)
+            self._logger.exception(err,
+                extra={'request_id': api.request_id(),
+                       'service_class': self.__class__.__name__,
+                       'event': 'exception'})
             raise err
         finally:
             # always log at least the API call request data

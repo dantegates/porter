@@ -321,15 +321,15 @@ class TestPredictionService(unittest.TestCase):
             PredictionService.check_request(X, ['id', 'one', 'two', 'three'], False, additional_checks_fail)
 
 
-    @mock.patch('flask.request')
-    @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.responses.api')
     @mock.patch('porter.services.BaseService._ids', set())
-    def test_get_post_data_batch_prediction(self, mock_flask_jsonify, mock_flask_request):
+    def test_get_post_data_batch_prediction(self, mock_responses_api, mock_services_api):
         mock_model = mock.Mock()
         mock_model.predict.return_value = []
 
         # Succeed
-        mock_flask_request.get_json.return_value = [{'id': None}]
+        mock_services_api.request_json.return_value = [{'id': None}]
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.Mock(),
@@ -345,7 +345,7 @@ class TestPredictionService(unittest.TestCase):
 
         # Fail
         mock_model = mock.Mock()
-        mock_flask_request.get_json.return_value = {'id': None}
+        mock_services_api.request_json.return_value = {'id': None}
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.Mock(),
@@ -360,15 +360,15 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
 
-    @mock.patch('flask.request')
-    @mock.patch('flask.jsonify')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.responses.api')
     @mock.patch('porter.services.BaseService._ids', set())
-    def test_get_post_data_instance_prediction(self, mock_flask_jsonify, mock_flask_request):
+    def test_get_post_data_instance_prediction(self, mock_responses_api, mock_services_api):
         mock_model = mock.Mock()
         mock_model.predict.return_value = [1]
 
         # Succeed
-        mock_flask_request.get_json.return_value = {'id': None}
+        mock_services_api.request_json.return_value = {'id': None}
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.Mock(),
@@ -384,7 +384,7 @@ class TestPredictionService(unittest.TestCase):
 
         # Fail
         mock_model = mock.Mock()
-        mock_flask_request.get_json.return_value = [{'id': None}]
+        mock_services_api.request_json.return_value = [{'id': None}]
         serve_prediction = PredictionService(
             model=mock.Mock(),
             name=mock.Mock(),
@@ -808,6 +808,27 @@ class TestBaseService(unittest.TestCase):
                 service2()
             mock__logger.assert_not_called()
 
+    @mock.patch('porter.services.BaseService._logger')
+    @mock.patch('porter.api.request_id', lambda: 123)
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_logging_with_exception(self, mock__logger):
+        e = Exception('testing')
+        class Service(BaseService):
+            def define_endpoint(self):
+                return '/foo'
+            def serve(self):
+                raise e
+            def status(self):
+                return 'ready'
+
+        service = Service(name='name', version='version')
+        with self.assertRaisesRegex(Exception, 'testing'):
+            service()
+        mock__logger.exception.assert_called_with(
+            e,
+            extra={'request_id': 123,
+                   'service_class': 'Service',
+                   'event': 'exception'})
 
 if __name__ == '__main__':
     unittest.main()
