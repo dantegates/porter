@@ -182,11 +182,16 @@ class BaseService(abc.ABC, StatefulRoute):
         response = None
         try:
             response = self.serve()
+        except exc.ModelContextError as err:
+            err.update_model_context(
+                model_name=self.name, model_version=self.version,
+                model_meta=self.meta)
+            self._log_error(err)
+            raise err
+        # technically we should never get here. self.serve() should always
+        # return a ModelContextError but I'm a little paranoid about this.
         except Exception as err:
-            self._logger.exception(err,
-                extra={'request_id': api.request_id(),
-                       'service_class': self.__class__.__name__,
-                       'event': 'exception'})
+            self._log_error(err)
             raise err
         finally:
             # always log at least the API call request data
@@ -263,6 +268,12 @@ class BaseService(abc.ABC, StatefulRoute):
                    'response_data': response_data,
                    'service_class': self.__class__.__name__,
                    'event': 'api_call'})
+
+    def _log_error(self, error):
+        self._logger.exception(error,
+            extra={'request_id': api.request_id(),
+                   'service_class': self.__class__.__name__,
+                   'event': 'exception'})
 
 
 class PredictionService(BaseService):
@@ -395,15 +406,12 @@ class PredictionService(BaseService):
             return 'This endpoint is live. Send POST requests for predictions'
         try:
             response = self._predict()
+        # all we have to do with the exception handling here is
+        # signal to __call__() that this is a model context error
         except exc.ModelContextError as err:
-            err.update_model_context(model_name=self.name,
-                model_version=self.version, model_meta=self.meta)
             raise err
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediction')
-            error.update_model_context(
-                model_name=self.name, model_version=self.version,
-                model_meta=self.meta)
             raise error from err
         return response
 
@@ -621,6 +629,20 @@ class MiddlewareService(BaseService):
         return f'cannot communicate with {self.model_endpoint}: {error}'
 
     def serve(self):
+        if api.request_method() == 'GET':
+            return 'This endpoint is live. Send POST requests for batch predictions'
+        try:
+            response = self._serve()
+        # all we have to do with the exception handling here is
+        # signal to __call__() that this is a model context error
+        except exc.ModelContextError as err:
+            raise err
+        except Exception as err:
+            error = exc.PredictionError('an error occurred during prediction')
+            raise error from err
+        return response
+
+    def _serve(self):
         """Serve the bulk predictions."""
         data = self.get_post_data()
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as pool:

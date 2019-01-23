@@ -159,13 +159,20 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_fail(self, mock_api, mock__predict):
         mock__predict.side_effect = Exception
-        with self.assertRaises(exc.PredictionError):
+        name = 'my-model'
+        version = '1.0'
+        meta = {}
+        with self.assertRaises(exc.PredictionError) as ctx:
             sp = PredictionService(
-                model=mock.Mock(), name=mock.Mock(), version=mock.Mock(),
-                meta=mock.Mock(), preprocessor=mock.Mock(), postprocessor=mock.Mock(),
+                model=mock.Mock(), name=name, version=version,
+                meta=meta, preprocessor=mock.Mock(), postprocessor=mock.Mock(),
                 allow_nulls=mock.Mock(), batch_prediction=mock.Mock(),
                 additional_checks=mock.Mock())
             sp()
+            # porter.responses.make_error_response counts on these attributes being filled out
+            self.assertEqual(ctx.exception.model_name, name)
+            self.assertEqual(ctx.exception.model_version, version)
+            self.assertEqual(ctx.exception.model_meta, meta)
 
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
@@ -442,6 +449,26 @@ class TestMiddlewareService(unittest.TestCase):
         with self.assertRaisesRegex(exc.InvalidModelInput, 'input must be an array'):
             middleware_service.get_post_data()
 
+    @mock.patch('porter.services.MiddlewareService._serve')
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.services.MiddlewareService.check_meta', lambda self, meta: meta)
+    @mock.patch('porter.services.MiddlewareService.update_meta', lambda self, meta: meta)
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_serve_fail(self, mock_api, mock__serve):
+        mock__serve.side_effect = Exception
+        name = 'my-model'
+        version = '1.0'
+        meta = {}
+        with self.assertRaises(exc.PredictionError) as ctx:
+            sp = MiddlewareService(
+                name=name, version=version,
+                meta=meta, model_endpoint=mock.Mock(), max_workers=mock.Mock())
+            sp()
+            # porter.responses.make_error_response counts on these attributes being filled out
+            self.assertEqual(ctx.exception.model_name, name)
+            self.assertEqual(ctx.exception.model_version, version)
+            self.assertEqual(ctx.exception.model_meta, meta)
+
     def test_constructor(self):
         middleware_service = MiddlewareService(
             name='a-model',
@@ -650,9 +677,10 @@ class TestModelApp(unittest.TestCase):
 
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.post')
+    @mock.patch('porter.services.api.request_method')
     @mock.patch('porter.services.MiddlewareService.get_post_data')
     @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve(self, mock_get_post_data, mock_post, mock_init):
+    def test_serve(self, mock_get_post_data, mock_request_method, mock_post, mock_init):
         """Test the following
         1. All data from post request is sent to the correct model endpoint.
         2. All corresponding response objects are returned.
@@ -681,9 +709,10 @@ class TestModelApp(unittest.TestCase):
 
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.post')
+    @mock.patch('porter.services.api.request_method')
     @mock.patch('porter.services.MiddlewareService.get_post_data')
     @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve_with_errors(self, mock_get_post_data, mock_post, mock_init):
+    def test_serve_with_errors(self, mock_get_post_data, mock_request_method, mock_post, mock_init):
         """Test the following
         1. All data from post request is sent to the correct model endpoint.
         2. All corresponding response objects are returned.
