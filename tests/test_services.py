@@ -712,7 +712,7 @@ class TestModelApp(unittest.TestCase):
     @mock.patch('porter.services.api.request_method')
     @mock.patch('porter.services.MiddlewareService.get_post_data')
     @mock.patch('porter.services.porter_responses.make_middleware_response', lambda x: x)
-    def test_serve_with_errors(self, mock_get_post_data, mcok_request_method, mock_post, mock_init):
+    def test_serve_with_errors(self, mock_get_post_data, mock_request_method, mock_post, mock_init):
         """Test the following
         1. All data from post request is sent to the correct model endpoint.
         2. All corresponding response objects are returned.
