@@ -1,7 +1,5 @@
 import traceback
 
-import flask
-
 from . import api
 from . import constants as cn
 from . import exceptions as exc
