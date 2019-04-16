@@ -23,6 +23,7 @@ import abc
 import concurrent.futures
 import json
 import logging
+import string
 import warnings
 
 import pandas as pd
@@ -147,7 +148,8 @@ class BaseService(abc.ABC, StatefulRoute):
     Args:
         name (str): The model name. The final routed endpoint is generally
             derived from this parameter.
-        version (str): The service version.
+        version (str): The service version. The final routed endpoint is
+            generally derived from this parameter.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
@@ -164,6 +166,8 @@ class BaseService(abc.ABC, StatefulRoute):
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
+    _invalid_endpoint_characters = string.punctuation.translate(
+        str.maketrans({'-': '', '.': ''}))
 
     rotue_kwargs = {}
 
@@ -259,6 +263,36 @@ class BaseService(abc.ABC, StatefulRoute):
                 'with parameters that were already used.')
         self._ids.add(value)
         self._id = value
+
+    @property
+    def name(self):
+        """The model name. The final routed endpoint is generally derived from
+        this parameter.
+        """
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        if any(c in value for c in self._invalid_endpoint_characters):
+            raise exc.PorterError(
+                '`name` cannot contain any of the following characters '
+                f'{", ".join(self._invalid_endpoint_characters)}')
+        self._name = value
+
+    @property
+    def version(self):
+        """The model version. The final routed endpoint is generally derived from
+        this parameter.
+        """
+        return self._version
+
+    @version.setter
+    def version(self, value):
+        if any(c in value for c in self._invalid_endpoint_characters):
+            raise exc.PorterError(
+                '`version` cannot contain any of the following characters '
+                f'{", ".join(self._invalid_endpoint_characters)}')
+        self._version = value
 
     def get_post_data(self):
         return api.request_json(force=True)

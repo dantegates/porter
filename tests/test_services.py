@@ -184,10 +184,11 @@ class TestPredictionService(unittest.TestCase):
         mock_preprocessor.process.return_value = {}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = []
+        model_name = model_version = mock.MagicMock()
         serve_prediction = PredictionService(
             model=mock_model,
-            name=mock.Mock(),
-            version=mock.Mock(),
+            name=model_name,
+            version=model_version,
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=mock_preprocessor,
@@ -204,7 +205,8 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_no_processing_batch(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
-        model = model_name = model_version = allow_nulls = mock.Mock()
+        model = allow_nulls = mock.Mock()
+        model_name = model_version = mock.MagicMock()
         mock_flask_request.get_json.return_value = [{'id': None}]
         model.predict.return_value = []
         serve_prediction = PredictionService(
@@ -223,7 +225,8 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('flask.request')
     @mock.patch('flask.jsonify')
     def test_serve_with_processing_single(self, mock_flask_jsonify, mock_flask_request):
-        model = model_name = model_version = allow_nulls = mock.Mock()
+        model = allow_nulls = mock.Mock()
+        model_name = model_version = mock.MagicMock()
         mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = [1]
         mock_preprocessor = mock.Mock()
@@ -250,7 +253,8 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_no_processing_single(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
-        model = model_name = model_version = allow_nulls = mock.Mock()
+        model = allow_nulls = mock.Mock()
+        model_name = model_version = mock.MagicMock()
         mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = [1]
         serve_prediction = PredictionService(
@@ -334,13 +338,14 @@ class TestPredictionService(unittest.TestCase):
     def test_get_post_data_batch_prediction(self, mock_responses_api, mock_services_api):
         mock_model = mock.Mock()
         mock_model.predict.return_value = []
+        mock_name = mock_version = mock.MagicMock()
 
         # Succeed
         mock_services_api.request_json.return_value = [{'id': None}]
         serve_prediction = PredictionService(
             model=mock_model,
-            name=mock.Mock(),
-            version=mock.Mock(),
+            name=mock_name,
+            version=mock_version,
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -355,8 +360,8 @@ class TestPredictionService(unittest.TestCase):
         mock_services_api.request_json.return_value = {'id': None}
         serve_prediction = PredictionService(
             model=mock_model,
-            name=mock.Mock(),
-            version=mock.Mock(),
+            name=mock.MagicMock(),
+            version=mock.MagicMock(),
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -378,8 +383,8 @@ class TestPredictionService(unittest.TestCase):
         mock_services_api.request_json.return_value = {'id': None}
         serve_prediction = PredictionService(
             model=mock_model,
-            name=mock.Mock(),
-            version=mock.Mock(),
+            name=mock.MagicMock(),
+            version=mock.MagicMock(),
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -394,8 +399,8 @@ class TestPredictionService(unittest.TestCase):
         mock_services_api.request_json.return_value = [{'id': None}]
         serve_prediction = PredictionService(
             model=mock.Mock(),
-            name=mock.Mock(),
-            version=mock.Mock(),
+            name=mock.MagicMock(),
+            version=mock.MagicMock(),
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
