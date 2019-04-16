@@ -53,10 +53,10 @@ class TestExample(unittest.TestCase):
             namespace = load_example(os.path.join(HERE, '../examples/example.py'), init_namespace)
         test_client = namespace['model_app'].app.test_client()
         app_input = self.X.to_dict('records')
-        response = test_client.post('/supa-dupa-model/prediction', data=json.dumps(app_input, cls=NumpyEncoder))
+        response = test_client.post('/supa-dupa-model/v1/prediction', data=json.dumps(app_input, cls=NumpyEncoder))
         actual_response_data = json.loads(response.data)
         expected_model_name = 'supa-dupa-model'
-        expected_model_version = '1.0.0'
+        expected_model_version = 'v1'
         expected_predictions = {
             id_: pred for id_, pred in zip(self.X['id'], self.predictions)
         }

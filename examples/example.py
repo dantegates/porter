@@ -11,7 +11,7 @@ such as
 
 to the endpoint
 
-    <host>:<port>/supa-dupa-model/prediction/
+    <host>:<port>/supa-dupa-model/v1/prediction/
 
 The corresponding output has the format
 
@@ -77,7 +77,7 @@ service_config = PredictionService(
                                     #   host:port/supa-dupa-model/prediction/
                                     # Required.
                                     #
-    version='1.0.0',                # The version of the model. Returned
+    version='v1',                   # The version of the model. Returned
                                     # to client in the prediction response.
                                     # Required.
                                     #

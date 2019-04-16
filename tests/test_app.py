@@ -114,11 +114,11 @@ class TestAppPredictions(unittest.TestCase):
             {'id': 5, 'feature1':  3},
         ]
         post_data3 = {'id': 1, 'feature1': 5}
-        actual1 = self.app.post('/a-model/prediction', data=json.dumps(post_data1))
+        actual1 = self.app.post('/a-model/0.0.0/prediction', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
-        actual2 = self.app.post('/another-model/prediction', data=json.dumps(post_data2))
+        actual2 = self.app.post('/another-model/0.1.0/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
-        actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
+        actual3 = self.app.post('/model-3/0.0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
             'model_name': 'a-model',
@@ -165,7 +165,7 @@ class TestAppPredictions(unittest.TestCase):
 
         # only the third service supports instance predictions
         post_data = [{'id': i, 'feature1': i*2} for i in range(10)]
-        actual = self.app.post('/model-3/batchPrediction', data=json.dumps(post_data))
+        actual = self.app.post('/model-3/1.2/batchPrediction', data=json.dumps(post_data))
         actual = json.loads(actual.data)
         expected = [
             {'model_name': 'model-3',
@@ -197,12 +197,12 @@ class TestAppPredictions(unittest.TestCase):
         post_data6 = [{'id': 1, 'feature1': 1, 'feature2': 1},
                       {'id': 1, 'feature1': 0, 'feature2': 1}]
         actuals = [
-            self.app.post('/a-model/prediction', data=json.dumps(post_data1)),
-            self.app.post('/model-3/prediction', data=json.dumps(post_data2)),
-            self.app.post('/another-model/prediction', data=json.dumps(post_data3)),
-            self.app.post('/model-3/prediction', data=json.dumps(post_data4)),
-            self.app.post('/a-model/prediction', data=json.dumps(post_data5)),
-            self.app.post('/another-model/prediction', data=json.dumps(post_data6)),
+            self.app.post('/a-model/0.0.0/prediction', data=json.dumps(post_data1)),
+            self.app.post('/model-3/0.0.0-alpha/prediction', data=json.dumps(post_data2)),
+            self.app.post('/another-model/0.1.0/prediction', data=json.dumps(post_data3)),
+            self.app.post('/model-3/0.0.0-alpha/prediction', data=json.dumps(post_data4)),
+            self.app.post('/a-model/0.0.0/prediction', data=json.dumps(post_data5)),
+            self.app.post('/another-model/0.1.0/prediction', data=json.dumps(post_data6)),
         ]
         # check status codes
         self.assertTrue(all(actual.status_code == 400 for actual in actuals))
@@ -265,7 +265,7 @@ class TestAppHealthChecks(unittest.TestCase):
         cf.name = 'model1'
         cf.version = '1.0.0'
         cf.id = 'model1'
-        cf.endpoint = '/model1/prediction'
+        cf.endpoint = '/model1/1.0.0/prediction'
         cf.meta = {'foo': 1, 'bar': 2}
         self.model_app.add_service(cf)
         resp_alive = self.app.get('/-/alive')
@@ -278,7 +278,7 @@ class TestAppHealthChecks(unittest.TestCase):
                     'status': 'READY',
                     'name': 'model1',
                     'version': '1.0.0',
-                    'endpoint': '/model1/prediction',
+                    'endpoint': '/model1/1.0.0/prediction',
                     'meta': {'foo': 1, 'bar': 2}
                 }
             }
@@ -296,13 +296,13 @@ class TestAppHealthChecks(unittest.TestCase):
         cf1.name = 'model1'
         cf1.version = '1.0.0'
         cf1.id = 'model1:1.0.0'
-        cf1.endpoint = '/model1/prediction'
+        cf1.endpoint = '/model1/1.0.0/prediction'
         cf1.meta = {'foo': 1, 'bar': 2}
         cf2 = PredictionService()
         cf2.name = 'model2'
         cf2.version = '0.0.0'
         cf2.id = 'model2:0.0.0'
-        cf2.endpoint = '/model2/prediction'
+        cf2.endpoint = '/model2/0.0.0/prediction'
         cf2.meta = {'foo': 1}
         self.model_app.add_services(cf1, cf2)
         resp_alive = self.app.get('/-/alive')
@@ -315,14 +315,14 @@ class TestAppHealthChecks(unittest.TestCase):
                     'status': 'READY',
                     'name': 'model1',
                     'version': '1.0.0',
-                    'endpoint': '/model1/prediction',
+                    'endpoint': '/model1/1.0.0/prediction',
                     'meta': {'foo': 1, 'bar': 2},
                 },
                 'model2:0.0.0': {
                     'status': 'READY',
                     'name': 'model2',
                     'version': '0.0.0',
-                    'endpoint': '/model2/prediction',
+                    'endpoint': '/model2/0.0.0/prediction',
                     'meta': {'foo': 1},
                 }
             }
@@ -433,7 +433,7 @@ class TestAppErrorHandling(unittest.TestCase):
     def test_prediction_fails(self, mock__predict):
         mock__predict.side_effect = Exception('testing a failing model')
         user_data = {'some test': 'data'}
-        resp = self.app_test_client.post('/failing-model/prediction', data=json.dumps(user_data))
+        resp = self.app_test_client.post('/failing-model/B/prediction', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
             'model_name': 'failing-model',

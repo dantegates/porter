@@ -23,7 +23,7 @@ class ERRORS:
 class PREDICTION:
     """Container prediction endpoint constants."""
 
-    ENDPOINT_TEMPLATE = '/{model_name}/prediction'
+    ENDPOINT_TEMPLATE = '/{model_name}/{model_version}/prediction'
 
     class RESPONSE:
         class KEYS:
@@ -47,7 +47,7 @@ class PREDICTION:
 class BATCH_PREDICTION:
     """Container prediction endpoint constants."""
 
-    ENDPOINT_TEMPLATE = '/{model_name}/batchPrediction'
+    ENDPOINT_TEMPLATE = '/{model_name}/{model_version}/batchPrediction'
     class RESPONSE:
         class KEYS:
             # meta key

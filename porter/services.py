@@ -165,6 +165,8 @@ class BaseService(abc.ABC, StatefulRoute):
     _ids = set()
     _logger = logging.getLogger(__name__)
 
+    rotue_kwargs = {}
+
     def __init__(self, *, name, version, meta=None, log_api_calls=False):
         self.name = name
         self.version = version
@@ -283,8 +285,9 @@ class PredictionService(BaseService):
 
     Args:
         name (str): The model name. The final routed endpoint will become
-            "/<endpoint>/prediction/".
-        version (str): The model version.
+            "/<name>/<version>/prediction/".
+        version (str): The model API version. The final routed endpoint
+            will become "/<name>/<version>/prediction/".
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
@@ -314,13 +317,13 @@ class PredictionService(BaseService):
 
     Attributes:
         id (str): A unique ID for the model. Composed of `name` and `version`.
-        name (str): The model's name. The final routed endpoint will become
-            "/<endpoint>/prediction/".
+        name (str): The model's name.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
-        version (str): The model version.
+        version (str): The model API version.
         endpoint (str): The endpoint where the model predictions are exposed.
+            This is computed as "/<name>/<version>/prediction/".
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
@@ -370,7 +373,8 @@ class PredictionService(BaseService):
         super().__init__(**kwargs)
 
     def define_endpoint(self):
-        return cn.PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
+        return cn.PREDICTION.ENDPOINT_TEMPLATE.format(
+            model_name=self.name, model_version=self.version)
 
     def check_meta(self, meta):
         """Perform standard meta data checks and inspect meta data keys for
@@ -534,8 +538,9 @@ class MiddlewareService(BaseService):
 
     Args:
         name (str): The model name. The final routed endpoint will become
-            "/<endpoint>/prediction/".
-        version (str): The model version.
+            "/<name>/<version>/prediction/".
+        version (str): The model API version. The final routed endpoint will
+            become "/<name>/<version>/prediction/".
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
         log_api_calls (bool): Log request and response and response data.
@@ -551,14 +556,14 @@ class MiddlewareService(BaseService):
 
     Attributes:
         id (str): A unique ID for the service.
-        name (str): The model name. The final routed endpoint will become
-            "/<endpoint>/batchPrediction/".
-        version (str): The model version.
+        name (str): The model name.
+        version (str): The model API version.
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         endpoint (str): The endpoint where the middleware service is exposed.
+            This is computed as "/<name>/<version>/prediction/".
         model_endpoint (str): The URL of the underlying model API.
         max_workers (int or None): The maximum number of workers to use per
             POST request to concurrently send prediction requests to the model
@@ -592,7 +597,8 @@ class MiddlewareService(BaseService):
         return f'{self.name}:middleware:{self.version}'
 
     def define_endpoint(self):
-        return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(model_name=self.name)
+        return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(
+            model_name=self.name, model_version=self.version)
 
     def check_meta(self, meta):
         """Perform standard meta data checks and inspect meta data keys for

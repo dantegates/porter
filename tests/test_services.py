@@ -472,18 +472,18 @@ class TestMiddlewareService(unittest.TestCase):
     def test_constructor(self):
         middleware_service = MiddlewareService(
             name='a-model',
-            version='1.0',
+            version='v1',
             meta={'foo': 1, 'bar': 'baz'},
             model_endpoint='http://localhost:5000/a-model/prediction',
             max_workers=20
         )
-        expected_id = 'a-model:middleware:1.0'
-        expected_endpoint = '/a-model/batchPrediction'
+        expected_id = 'a-model:middleware:v1'
+        expected_endpoint = '/a-model/v1/batchPrediction'
         expected_meta = {'foo': 1, 'bar': 'baz',
                          'model_endpoint': 'http://localhost:5000/a-model/prediction',
                          'max_workers': 20}
         self.assertEqual(middleware_service.name, 'a-model')
-        self.assertEqual(middleware_service.version, '1.0')
+        self.assertEqual(middleware_service.version, 'v1')
         self.assertEqual(middleware_service.id, expected_id)
         self.assertEqual(middleware_service.endpoint, expected_endpoint)
         self.assertEqual(middleware_service.meta, expected_meta)
