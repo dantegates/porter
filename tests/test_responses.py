@@ -39,7 +39,7 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 'foo')
+            actual = _make_error_payload(error, user_data='foo', include_message=True, include_traceback=True, include_user_data=True)
         expected = {
             'error': {
                 'name': 'Exception',
@@ -62,7 +62,7 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 'foo')
+            actual = _make_error_payload(error, user_data='foo', include_message=True, include_traceback=True, include_user_data=True)
         expected = {
             'model_name': 'M',
             'api_version': 'V',

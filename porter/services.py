@@ -71,8 +71,16 @@ class ServeErrorMessage:
     """Return a response with JSON payload describing the most recent
     exception.
     """
+    def __init__(self, *, include_message, include_traceback, include_user_data):
+        self.include_message = include_message
+        self.include_traceback = include_traceback
+        self.include_user_data = include_user_data
+
     def __call__(self, error):
-        response = porter_responses.make_error_response(error)
+        response = porter_responses.make_error_response(error,
+            include_message=self.include_message,
+            include_traceback=self.include_traceback,
+            include_user_data=self.include_user_data)
         _logger.exception(response.data)
         return response
 
@@ -726,11 +734,14 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
     """
 
-    json_encoder = cf.json_encoder
-
-    def __init__(self):
-        self.app = self._build_app()
+    def __init__(self, json_encoder=None, include_message=None,
+                 include_traceback=None, include_user_data=None):
+        self.include_traceback = cf.include_traceback if include_traceback is None else include_traceback
+        self.include_message = cf.include_message if include_message is None else include_message
+        self.include_user_data = cf.include_user_data if include_user_data is None else include_user_data
+        self.json_encoder = cf.json_encoder if json_encoder is None else json_encoder
         self._services = {}
+        self.app = self._build_app()
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
@@ -809,9 +820,13 @@ class ModelApp:
         # register a custom JSON encoder
         app.json_encoder = self.json_encoder
         # register error handler for all werkzeug default exceptions
+        serve_error_message = ServeErrorMessage(
+            include_message=self.include_message,
+            include_traceback=self.include_traceback,
+            include_user_data=self.include_user_data)
         for error in werkzeug.exceptions.default_exceptions:
-            app.register_error_handler(error, ServeErrorMessage())
-        app.register_error_handler(exc.PredictionError, ServeErrorMessage())
+            app.register_error_handler(error, serve_error_message)
+        app.register_error_handler(exc.PredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
