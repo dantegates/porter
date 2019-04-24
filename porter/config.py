@@ -5,6 +5,6 @@ json_encoder = AppEncoder
 # Configurations for error responses.
 # Including traceback and user data in responses is useful for debugging
 # but not recommended for production apps
-include_message = True
-include_traceback = False
-include_user_data = False
+return_message_on_error = True
+return_traceback_on_error = False
+return_user_data_on_error = False

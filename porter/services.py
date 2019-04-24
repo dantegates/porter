@@ -732,14 +732,35 @@ class ModelApp:
     models.
 
     Essentially this class is a wrapper around an instance of `flask.Flask`.
-    """
 
-    def __init__(self, json_encoder=None, include_message=None,
-                 include_traceback=None, include_user_data=None):
-        self.include_traceback = cf.include_traceback if include_traceback is None else include_traceback
-        self.include_message = cf.include_message if include_message is None else include_message
-        self.include_user_data = cf.include_user_data if include_user_data is None else include_user_data
+    Args:
+        json_encoder (json.JSONEncoder subclass): A JSON encoder used to
+            format response data. Several useful implementations can be found
+            in `porter.utils`. Defaults to `porter.config.json_encoder`.
+        return_message_on_error (bool): Whether to include the exception
+            message in response on errors. Defaults to
+            `porter.config.return_message_on_error`.
+        return_traceback_on_error (bool): Whether to return the exception
+            traceback in response on errors. Defaults to
+            `porter.config.return_traceback_on_error`.
+        return_user_data_on_error (bool): Whether to return the user data in
+            response on errors. Defaults to
+            `porter.config.include_user_data_on_error`.
+    """
+    json_encoder = cf.json_encoder
+    return_message_on_error = cf.return_message_on_error
+    return_traceback_on_error = cf.return_traceback_on_error
+    return_user_data_on_error = cf.return_user_data_on_error
+
+    def __init__(self, json_encoder=None, return_message_on_error=None,
+                 return_traceback_on_error=None, return_user_data_on_error=None):
         self.json_encoder = cf.json_encoder if json_encoder is None else json_encoder
+        if return_message_on_error is not None:
+            self.return_message_on_error = return_message_on_error
+        if return_traceback_on_error is not None:
+            self.return_traceback_on_error = return_traceback_on_error
+        if return_user_data_on_error is not None:
+            self.return_user_data_on_error = return_user_data_on_error
         self._services = {}
         self.app = self._build_app()
 
@@ -821,9 +842,9 @@ class ModelApp:
         app.json_encoder = self.json_encoder
         # register error handler for all werkzeug default exceptions
         serve_error_message = ServeErrorMessage(
-            include_message=self.include_message,
-            include_traceback=self.include_traceback,
-            include_user_data=self.include_user_data)
+            include_message=self.return_message_on_error,
+            include_traceback=self.return_traceback_on_error,
+            include_user_data=self.return_user_data_on_error)
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)
