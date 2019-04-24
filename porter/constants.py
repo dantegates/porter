@@ -23,7 +23,7 @@ class ERRORS:
 class PREDICTION:
     """Container prediction endpoint constants."""
 
-    ENDPOINT_TEMPLATE = '/{model_name}/prediction'
+    ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/prediction'
 
     class RESPONSE:
         class KEYS:
@@ -31,13 +31,13 @@ class PREDICTION:
 
             Attributes:
                 MODEL_NAME: Model name.
-                MODEL_VERSION: Model version.
+                API_VERSION: API version.
                 PREDICTIONS: Array of predictions key.
                 ID: Unique record ID key.
                 PREDICTION: Prediction for a given ID key.
             """
             MODEL_NAME = 'model_name'
-            MODEL_VERSION = 'model_version'
+            API_VERSION = 'api_version'
             ID = 'id'
             PREDICTIONS = 'predictions'
             PREDICTION = 'prediction'
@@ -47,7 +47,7 @@ class PREDICTION:
 class BATCH_PREDICTION:
     """Container prediction endpoint constants."""
 
-    ENDPOINT_TEMPLATE = '/{model_name}/batchPrediction'
+    ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/batchPrediction'
     class RESPONSE:
         class KEYS:
             # meta key
@@ -71,7 +71,7 @@ class HEALTH_CHECK:
             STATUS = 'status'
             ENDPOINT = 'endpoint'
             NAME = 'name'
-            MODEL_VERSION = 'version'
+            API_VERSION = 'api_version'
             META = 'meta'
             PORTER_VERSION = 'porter_version'
             DEPLOYED_ON = 'deployed_on'

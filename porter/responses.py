@@ -1,38 +1,39 @@
 import traceback
 
-import flask
-
 from . import api
 from . import constants as cn
 from . import exceptions as exc
 
-# alias for convenience
+# aliases for convenience
 _IS_READY = cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
+_PREDICTION_KEYS = cn.PREDICTION.RESPONSE.KEYS
+_ERROR_KEYS = cn.ERRORS.RESPONSE.KEYS
+_HEALTH_CHECK_KEYS = cn.HEALTH_CHECK.RESPONSE.KEYS
 
 
 # NOTE: private functions make testing easier as they bypass `flask` methods
 # that require a context, e.g. `api.jsonify`
 
 
-def make_prediction_response(model_name, model_version, model_meta, id_keys,
+def make_prediction_response(model_name, api_version, model_meta, id_keys,
                              predictions, batch_prediction):
     if batch_prediction:
-        payload = _make_batch_prediction_payload(model_name, model_version, model_meta,
+        payload = _make_batch_prediction_payload(model_name, api_version, model_meta,
                                                  id_keys, predictions)
     else:
-        payload = _make_single_prediction_payload(model_name, model_version, model_meta,
+        payload = _make_single_prediction_payload(model_name, api_version, model_meta,
                                                   id_keys, predictions)
     return api.jsonify(payload)
 
 
-def _make_batch_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+def _make_batch_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
     payload = {
-        cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME: model_name,
-        cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION: model_version,
-        cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS: [
+        _PREDICTION_KEYS.MODEL_NAME: model_name,
+        _PREDICTION_KEYS.API_VERSION: api_version,
+        _PREDICTION_KEYS.PREDICTIONS: [
             {
-                cn.PREDICTION.RESPONSE.KEYS.ID: id,
-                cn.PREDICTION.RESPONSE.KEYS.PREDICTION: p
+                _PREDICTION_KEYS.ID: id,
+                _PREDICTION_KEYS.PREDICTION: p
             }
             for id, p in zip(id_keys, predictions)]
     }
@@ -40,14 +41,14 @@ def _make_batch_prediction_payload(model_name, model_version, model_meta, id_key
     return payload
 
 
-def _make_single_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+def _make_single_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
     payload = {
-        cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME: model_name,
-        cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION: model_version,
-        cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS:
+        _PREDICTION_KEYS.MODEL_NAME: model_name,
+        _PREDICTION_KEYS.API_VERSION: api_version,
+        _PREDICTION_KEYS.PREDICTIONS:
             {
-                cn.PREDICTION.RESPONSE.KEYS.ID: id_keys[0],
-                cn.PREDICTION.RESPONSE.KEYS.PREDICTION: predictions[0]
+                _PREDICTION_KEYS.ID: id_keys[0],
+                _PREDICTION_KEYS.PREDICTION: predictions[0]
             }
     }
     payload.update(model_meta)
@@ -74,18 +75,18 @@ def _make_error_payload(error, user_data):
     # message - note that isinstance(obj, cls) is True if obj is an instance
     # of a subclass of cls
     if isinstance(error, exc.ModelContextError):
-        payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME] = error.model_name
-        payload[cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION] = error.model_version
+        payload[_PREDICTION_KEYS.MODEL_NAME] = error.model_name
+        payload[_PREDICTION_KEYS.API_VERSION] = error.api_version
         payload.update(error.model_meta)
     # getattr() is used to work around werkzeug's bad implementation of
     # HTTPException (i.e. HTTPException inherits from Exception but exposes a
     # different API, namely Exception.message -> HTTPException.description).
     messages = [error.description] if hasattr(error, 'description') else error.args
-    payload[cn.ERRORS.RESPONSE.KEYS.ERROR] = {
-        cn.ERRORS.RESPONSE.KEYS.NAME: type(error).__name__,
-        cn.ERRORS.RESPONSE.KEYS.MESSAGES: messages,
-        cn.ERRORS.RESPONSE.KEYS.TRACEBACK: traceback.format_exc(),
-        cn.ERRORS.RESPONSE.KEYS.USER_DATA: user_data}
+    payload[_ERROR_KEYS.ERROR] = {
+        _ERROR_KEYS.NAME: type(error).__name__,
+        _ERROR_KEYS.MESSAGES: messages,
+        _ERROR_KEYS.TRACEBACK: traceback.format_exc(),
+        _ERROR_KEYS.USER_DATA: user_data}
     return payload
 
 
@@ -101,7 +102,7 @@ def make_ready_response(app_state):
 
 
 def _is_ready(app_state):
-    services = app_state[cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES]
+    services = app_state[_HEALTH_CHECK_KEYS.SERVICES]
     # app must define services and all services must be ready
-    return services and all(svc[cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS] is _IS_READY
+    return services and all(svc[_HEALTH_CHECK_KEYS.STATUS] is _IS_READY
                             for svc in services.values())

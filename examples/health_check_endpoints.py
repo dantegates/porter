@@ -11,19 +11,19 @@ from porter.services import ModelApp, PredictionService
 service_config_1 = PredictionService(
     model=None,
     name='a-model',
-    version='0.0.0'
+    api_version='0.0.0'
 )
 
 service_config_2 = PredictionService(
     model=None,
     name='yet-another-model',
-    version='1.0.0'
+    api_version='1.0.0'
 )
 
 service_config_3 = PredictionService(
     model=None,
     name='yet-another-yet-another-model',
-    version='1.0.0-alpha',
+    api_version='1.0.0-alpha',
     meta={'arbitrary details': 'about the model'}
 )
 

@@ -58,7 +58,7 @@ class TestAppPredictions(unittest.TestCase):
         prediction_service1 = PredictionService(
             model=Model1(),
             name='a-model',
-            version='0.0.0',
+            api_version='v0',
             preprocessor=Preprocessor1(),
             postprocessor=Postprocessor1(),
             input_features=input_features1,
@@ -67,8 +67,8 @@ class TestAppPredictions(unittest.TestCase):
         )
         prediction_service2 = PredictionService(
             model=Model2(),
-            name='another-model',
-            version='0.1.0',
+            name='anotherModel',
+            api_version='v1',
             preprocessor=Preprocessor2(),
             postprocessor=None,
             input_features=input_features2,
@@ -79,7 +79,7 @@ class TestAppPredictions(unittest.TestCase):
         prediction_service3 = PredictionService(
             model=Model3(),
             name='model-3',
-            version='0.0.0-alpha',
+            api_version='v0.0-alpha',
             preprocessor=None,
             postprocessor=None,
             input_features=input_features3,
@@ -90,7 +90,7 @@ class TestAppPredictions(unittest.TestCase):
         with mock.patch('porter.services.api', **{'validate_url.return_value': True}):
             middleware_service = MiddlewareService(
                 name='model-3',
-                version='1.2',
+                api_version='version1',
                 model_endpoint=prediction_service3.endpoint,
                 max_workers=None)
         cls.model_app.add_service(prediction_service1)
@@ -114,15 +114,15 @@ class TestAppPredictions(unittest.TestCase):
             {'id': 5, 'feature1':  3},
         ]
         post_data3 = {'id': 1, 'feature1': 5}
-        actual1 = self.app.post('/a-model/prediction', data=json.dumps(post_data1))
+        actual1 = self.app.post('/a-model/v0/prediction', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
-        actual2 = self.app.post('/another-model/prediction', data=json.dumps(post_data2))
+        actual2 = self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
-        actual3 = self.app.post('/model-3/prediction', data=json.dumps(post_data3))
+        actual3 = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
             'model_name': 'a-model',
-            'model_version': '0.0.0',
+            'api_version': 'v0',
             'predictions': [
                 {'id': 1, 'prediction': 0},
                 {'id': 2, 'prediction': -2},
@@ -132,8 +132,8 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected2 = {
-            'model_name': 'another-model',
-            'model_version': '0.1.0',
+            'model_name': 'anotherModel',
+            'api_version': 'v1',
             'predictions': [
                 {'id': 1, 'prediction': 10},
                 {'id': 2, 'prediction': 11},
@@ -144,7 +144,7 @@ class TestAppPredictions(unittest.TestCase):
         }
         expected3 = {
             'model_name': 'model-3',
-            'model_version': '0.0.0-alpha',
+            'api_version': 'v0.0-alpha',
             'algorithm': 'randomforest',
             'lasttrained': 1,
             'predictions': {'id': 1, 'prediction': -5}
@@ -165,11 +165,11 @@ class TestAppPredictions(unittest.TestCase):
 
         # only the third service supports instance predictions
         post_data = [{'id': i, 'feature1': i*2} for i in range(10)]
-        actual = self.app.post('/model-3/batchPrediction', data=json.dumps(post_data))
+        actual = self.app.post('/model-3/version1/batchPrediction', data=json.dumps(post_data))
         actual = json.loads(actual.data)
         expected = [
             {'model_name': 'model-3',
-             'model_version': '0.0.0-alpha',
+             'api_version': 'v0.0-alpha',
              'algorithm': 'randomforest',
              'lasttrained': 1,
              'predictions': {'id': d['id'], 'prediction': -d['feature1']}}
@@ -197,12 +197,12 @@ class TestAppPredictions(unittest.TestCase):
         post_data6 = [{'id': 1, 'feature1': 1, 'feature2': 1},
                       {'id': 1, 'feature1': 0, 'feature2': 1}]
         actuals = [
-            self.app.post('/a-model/prediction', data=json.dumps(post_data1)),
-            self.app.post('/model-3/prediction', data=json.dumps(post_data2)),
-            self.app.post('/another-model/prediction', data=json.dumps(post_data3)),
-            self.app.post('/model-3/prediction', data=json.dumps(post_data4)),
-            self.app.post('/a-model/prediction', data=json.dumps(post_data5)),
-            self.app.post('/another-model/prediction', data=json.dumps(post_data6)),
+            self.app.post('/a-model/v0/prediction', data=json.dumps(post_data1)),
+            self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data2)),
+            self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data3)),
+            self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data4)),
+            self.app.post('/a-model/v0/prediction', data=json.dumps(post_data5)),
+            self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data6)),
         ]
         # check status codes
         self.assertTrue(all(actual.status_code == 400 for actual in actuals))
@@ -223,12 +223,12 @@ class TestAppPredictions(unittest.TestCase):
                 self.assertEqual(actual_error_obj[key], value)
         # check that model context data is passed into responses
         expected_model_context_values = [
-            {'model_name': 'a-model', 'model_version': '0.0.0'},
-            {'model_name': 'model-3', 'model_version': '0.0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
-            {'model_name': 'another-model', 'model_version': '0.1.0'},
-            {'model_name': 'model-3', 'model_version': '0.0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
-            {'model_name': 'a-model', 'model_version': '0.0.0'},
-            {'model_name': 'another-model', 'model_version': '0.1.0'},
+            {'model_name': 'a-model', 'api_version': 'v0'},
+            {'model_name': 'model-3', 'api_version': 'v0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'anotherModel', 'api_version': 'v1'},
+            {'model_name': 'model-3', 'api_version': 'v0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'a-model', 'api_version': 'v0'},
+            {'model_name': 'anotherModel', 'api_version': 'v1'},
         ]
         for actual, expectations in zip(actuals, expected_model_context_values):
             actual_error_obj = json.loads(actual.data)
@@ -263,9 +263,9 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         cf = PredictionService()
         cf.name = 'model1'
-        cf.version = '1.0.0'
+        cf.api_version = '1.0.0'
         cf.id = 'model1'
-        cf.endpoint = '/model1/prediction'
+        cf.endpoint = '/model1/1.0.0/prediction'
         cf.meta = {'foo': 1, 'bar': 2}
         self.model_app.add_service(cf)
         resp_alive = self.app.get('/-/alive')
@@ -277,8 +277,8 @@ class TestAppHealthChecks(unittest.TestCase):
                 'model1': {
                     'status': 'READY',
                     'name': 'model1',
-                    'version': '1.0.0',
-                    'endpoint': '/model1/prediction',
+                    'api_version': '1.0.0',
+                    'endpoint': '/model1/1.0.0/prediction',
                     'meta': {'foo': 1, 'bar': 2}
                 }
             }
@@ -294,15 +294,15 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         cf1 = PredictionService()
         cf1.name = 'model1'
-        cf1.version = '1.0.0'
+        cf1.api_version = '1.0.0'
         cf1.id = 'model1:1.0.0'
-        cf1.endpoint = '/model1/prediction'
+        cf1.endpoint = '/model1/1.0.0/prediction'
         cf1.meta = {'foo': 1, 'bar': 2}
         cf2 = PredictionService()
         cf2.name = 'model2'
-        cf2.version = '0.0.0'
-        cf2.id = 'model2:0.0.0'
-        cf2.endpoint = '/model2/prediction'
+        cf2.api_version = 'v0'
+        cf2.id = 'model2:v0'
+        cf2.endpoint = '/model2/v0/prediction'
         cf2.meta = {'foo': 1}
         self.model_app.add_services(cf1, cf2)
         resp_alive = self.app.get('/-/alive')
@@ -314,15 +314,15 @@ class TestAppHealthChecks(unittest.TestCase):
                 'model1:1.0.0': {
                     'status': 'READY',
                     'name': 'model1',
-                    'version': '1.0.0',
-                    'endpoint': '/model1/prediction',
+                    'api_version': '1.0.0',
+                    'endpoint': '/model1/1.0.0/prediction',
                     'meta': {'foo': 1, 'bar': 2},
                 },
-                'model2:0.0.0': {
+                'model2:v0': {
                     'status': 'READY',
                     'name': 'model2',
-                    'version': '0.0.0',
-                    'endpoint': '/model2/prediction',
+                    'api_version': 'v0',
+                    'endpoint': '/model2/v0/prediction',
                     'meta': {'foo': 1},
                 }
             }
@@ -433,11 +433,11 @@ class TestAppErrorHandling(unittest.TestCase):
     def test_prediction_fails(self, mock__predict):
         mock__predict.side_effect = Exception('testing a failing model')
         user_data = {'some test': 'data'}
-        resp = self.app_test_client.post('/failing-model/prediction', data=json.dumps(user_data))
+        resp = self.app_test_client.post('/failing-model/B/prediction', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
             'model_name': 'failing-model',
-            'model_version': 'B',
+            'api_version': 'B',
             '1': 'one',
             'two': 2,
             'error': {
@@ -449,7 +449,7 @@ class TestAppErrorHandling(unittest.TestCase):
         }
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(actual['model_name'], expected['model_name'])
-        self.assertEqual(actual['model_version'], expected['model_version'])
+        self.assertEqual(actual['api_version'], expected['api_version'])
         self.assertEqual(actual['1'], expected['1'])
         self.assertEqual(actual['two'], expected['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
@@ -460,7 +460,7 @@ class TestAppErrorHandling(unittest.TestCase):
     @classmethod
     def add_failing_model_service(cls):
         prediction_service = PredictionService(name='failing-model',
-            version='B', model=None, meta={'1': 'one', 'two': 2})
+            api_version='B', model=None, meta={'1': 'one', 'two': 2})
         cls.model_app.add_service(prediction_service)
 
 
