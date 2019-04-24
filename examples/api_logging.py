@@ -24,12 +24,12 @@ class Model(BaseModel):
 prediction_svc = PredictionService(
     model=Model(),
     name='my-model',
-    version='1',
+    api_version='1',
     batch_prediction=False,
     log_api_calls=True)
 middleware_svc = MiddlewareService(
     name='my-model',
-    version='1',
+    api_version='1',
     max_workers=None,  # use default
     model_endpoint=f'http://localhost:5000{prediction_svc.endpoint}')
 app.add_services(prediction_svc, middleware_svc)

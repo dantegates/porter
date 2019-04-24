@@ -77,7 +77,7 @@ service_config = PredictionService(
                                     #   host:port/supa-dupa-model/prediction/
                                     # Required.
                                     #
-    version='v1',                   # The version of the model. Returned
+    api_version='v1',               # The version of the model. Returned
                                     # to client in the prediction response.
                                     # Required.
                                     #

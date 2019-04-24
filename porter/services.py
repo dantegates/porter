@@ -148,7 +148,7 @@ class BaseService(abc.ABC, StatefulRoute):
     Args:
         name (str): The model name. The final routed endpoint is generally
             derived from this parameter.
-        version (str): The service version. The final routed endpoint is
+        api_version (str): The service API version. The final routed endpoint is
             generally derived from this parameter.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
@@ -158,7 +158,7 @@ class BaseService(abc.ABC, StatefulRoute):
         id (str): A unique ID for the service.
         name (str): The model name. The final routed endpoint is generally
             derived from this attribute.
-        version (str): The service version.
+        api_version (str): The service version.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
@@ -171,9 +171,9 @@ class BaseService(abc.ABC, StatefulRoute):
 
     rotue_kwargs = {}
 
-    def __init__(self, *, name, version, meta=None, log_api_calls=False):
+    def __init__(self, *, name, api_version, meta=None, log_api_calls=False):
         self.name = name
-        self.version = version
+        self.api_version = api_version
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
         # Assign endpoint and ID last so they can be determined from other
@@ -190,7 +190,7 @@ class BaseService(abc.ABC, StatefulRoute):
             response = self.serve()
         except exc.ModelContextError as err:
             err.update_model_context(
-                model_name=self.name, model_version=self.version,
+                model_name=self.name, api_version=self.api_version,
                 model_meta=self.meta)
             self._log_error(err)
             raise err
@@ -228,7 +228,7 @@ class BaseService(abc.ABC, StatefulRoute):
         """Return a unique ID for the service. This is used to set the `id`
         attribute.
         """
-        return f'{self.name}:{self.version}'
+        return f'{self.name}:{self.api_version}'
 
     def check_meta(self, meta):
         """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
@@ -280,19 +280,19 @@ class BaseService(abc.ABC, StatefulRoute):
         self._name = value
 
     @property
-    def version(self):
+    def api_version(self):
         """The model version. The final routed endpoint is generally derived from
         this parameter.
         """
-        return self._version
+        return self._api_version
 
-    @version.setter
-    def version(self, value):
+    @api_version.setter
+    def api_version(self, value):
         if any(c in value for c in self._invalid_endpoint_characters):
             raise exc.PorterError(
-                '`version` cannot contain any of the following characters '
+                '`api_version` cannot contain any of the following characters '
                 f'{", ".join(self._invalid_endpoint_characters)}')
-        self._version = value
+        self._api_version = value
 
     def get_post_data(self):
         return api.request_json(force=True)
@@ -319,9 +319,9 @@ class PredictionService(BaseService):
 
     Args:
         name (str): The model name. The final routed endpoint will become
-            "/<name>/<version>/prediction/".
-        version (str): The model API version. The final routed endpoint
-            will become "/<name>/<version>/prediction/".
+            "/<name>/<api version>/prediction/".
+        api_version (str): The model API version. The final routed endpoint
+            will become "/<name>/<api version>/prediction/".
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
@@ -350,14 +350,14 @@ class PredictionService(BaseService):
             if POST request is invalid.
 
     Attributes:
-        id (str): A unique ID for the model. Composed of `name` and `version`.
+        id (str): A unique ID for the model. Composed of `name` and `api_version`.
         name (str): The model's name.
         meta (dict): Additional meta data added to the response body.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
-        version (str): The model API version.
+        api_version (str): The model API version.
         endpoint (str): The endpoint where the model predictions are exposed.
-            This is computed as "/<name>/<version>/prediction/".
+            This is computed as "/<name>/<api version>/prediction/".
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
@@ -383,7 +383,7 @@ class PredictionService(BaseService):
 
     # response keys that model meta data cannot override
     reserved_keys = (cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME,
-                     cn.PREDICTION.RESPONSE.KEYS.MODEL_VERSION,
+                     cn.PREDICTION.RESPONSE.KEYS.API_VERSION,
                      cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS,
                      cn.PREDICTION.RESPONSE.KEYS.ERROR)
 
@@ -408,7 +408,7 @@ class PredictionService(BaseService):
 
     def define_endpoint(self):
         return cn.PREDICTION.ENDPOINT_TEMPLATE.format(
-            model_name=self.name, model_version=self.version)
+            model_name=self.name, api_version=self.api_version)
 
     def check_meta(self, meta):
         """Perform standard meta data checks and inspect meta data keys for
@@ -467,7 +467,7 @@ class PredictionService(BaseService):
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
         response = porter_responses.make_prediction_response(
-            self.name, self.version, self.meta, X_input[_ID], preds,
+            self.name, self.api_version, self.meta, X_input[_ID], preds,
             self.batch_prediction)
         return response
 
@@ -572,9 +572,9 @@ class MiddlewareService(BaseService):
 
     Args:
         name (str): The model name. The final routed endpoint will become
-            "/<name>/<version>/prediction/".
-        version (str): The model API version. The final routed endpoint will
-            become "/<name>/<version>/prediction/".
+            "/<name>/<api version>/prediction/".
+        api_version (str): The model API version. The final routed endpoint will
+            become "/<name>/<api version>/prediction/".
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
         log_api_calls (bool): Log request and response and response data.
@@ -591,13 +591,13 @@ class MiddlewareService(BaseService):
     Attributes:
         id (str): A unique ID for the service.
         name (str): The model name.
-        version (str): The model API version.
+        api_version (str): The model API version.
         meta (dict or None): Additional meta data added to the response body.
             Default is None.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         endpoint (str): The endpoint where the middleware service is exposed.
-            This is computed as "/<name>/<version>/prediction/".
+            This is computed as "/<name>/<api version>/prediction/".
         model_endpoint (str): The URL of the underlying model API.
         max_workers (int or None): The maximum number of workers to use per
             POST request to concurrently send prediction requests to the model
@@ -628,11 +628,11 @@ class MiddlewareService(BaseService):
         super().__init__(**kwargs)
 
     def define_id(self):
-        return f'{self.name}:middleware:{self.version}'
+        return f'{self.name}:middleware:{self.api_version}'
 
     def define_endpoint(self):
         return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(
-            model_name=self.name, model_version=self.version)
+            model_name=self.name, api_version=self.api_version)
 
     def check_meta(self, meta):
         """Perform standard meta data checks and inspect meta data keys for
@@ -786,7 +786,7 @@ class ModelApp:
             cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
                 service.id: {
                     cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.MODEL_VERSION: service.version,
+                    cn.HEALTH_CHECK.RESPONSE.KEYS.API_VERSION: service.api_version,
                     cn.HEALTH_CHECK.RESPONSE.KEYS.ENDPOINT: service.endpoint,
                     cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
                     cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status

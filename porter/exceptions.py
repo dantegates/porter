@@ -8,15 +8,15 @@ class ModelContextError(PorterError):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model_name = None
-        self.model_version = None
+        self.api_version = None
         self.model_meta = None
 
     # users are not meant to call this - method simply exists to put the
     # responsibility on porter to properly set these values which pass
     # through to error responses
-    def update_model_context(self, model_name, model_version, model_meta):
+    def update_model_context(self, model_name, api_version, model_meta):
         self.model_name = model_name
-        self.model_version = model_version
+        self.api_version = api_version
         self.model_meta = model_meta
 
 

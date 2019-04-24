@@ -12,7 +12,7 @@ class TestFunctions(unittest.TestCase):
         actual = _make_batch_prediction_payload('a-model', '1', {1: '2', '3': 4}, [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'model_name': 'a-model',
-            'model_version': '1',
+            'api_version': '1',
             1: '2',
             '3': 4,
             'predictions': [
@@ -27,7 +27,7 @@ class TestFunctions(unittest.TestCase):
         actual = _make_single_prediction_payload('a-model', '1', {1: '2', '3': 4}, [1], [10.0])
         expected = {
             'model_name': 'a-model',
-            'model_version': '1',
+            'api_version': '1',
             1: '2',
             '3': 4,
             'predictions': {'id': 1, 'prediction': 10.0}
@@ -57,7 +57,7 @@ class TestFunctions(unittest.TestCase):
 
     def test__make_error_payload_porter_error(self):
         error = PredictionError('foo bar baz')
-        error.update_model_context(model_name='M', model_version='V',
+        error.update_model_context(model_name='M', api_version='V',
             model_meta={1: '1', '2': 2})
         try:
             raise error
@@ -65,7 +65,7 @@ class TestFunctions(unittest.TestCase):
             actual = _make_error_payload(error, 'foo')
         expected = {
             'model_name': 'M',
-            'model_version': 'V',
+            'api_version': 'V',
             1: '1',
             '2': 2,
             'error': {

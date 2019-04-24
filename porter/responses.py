@@ -15,21 +15,21 @@ _HEALTH_CHECK_KEYS = cn.HEALTH_CHECK.RESPONSE.KEYS
 # that require a context, e.g. `api.jsonify`
 
 
-def make_prediction_response(model_name, model_version, model_meta, id_keys,
+def make_prediction_response(model_name, api_version, model_meta, id_keys,
                              predictions, batch_prediction):
     if batch_prediction:
-        payload = _make_batch_prediction_payload(model_name, model_version, model_meta,
+        payload = _make_batch_prediction_payload(model_name, api_version, model_meta,
                                                  id_keys, predictions)
     else:
-        payload = _make_single_prediction_payload(model_name, model_version, model_meta,
+        payload = _make_single_prediction_payload(model_name, api_version, model_meta,
                                                   id_keys, predictions)
     return api.jsonify(payload)
 
 
-def _make_batch_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+def _make_batch_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
     payload = {
         _PREDICTION_KEYS.MODEL_NAME: model_name,
-        _PREDICTION_KEYS.MODEL_VERSION: model_version,
+        _PREDICTION_KEYS.API_VERSION: api_version,
         _PREDICTION_KEYS.PREDICTIONS: [
             {
                 _PREDICTION_KEYS.ID: id,
@@ -41,10 +41,10 @@ def _make_batch_prediction_payload(model_name, model_version, model_meta, id_key
     return payload
 
 
-def _make_single_prediction_payload(model_name, model_version, model_meta, id_keys, predictions):
+def _make_single_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
     payload = {
         _PREDICTION_KEYS.MODEL_NAME: model_name,
-        _PREDICTION_KEYS.MODEL_VERSION: model_version,
+        _PREDICTION_KEYS.API_VERSION: api_version,
         _PREDICTION_KEYS.PREDICTIONS:
             {
                 _PREDICTION_KEYS.ID: id_keys[0],
@@ -76,7 +76,7 @@ def _make_error_payload(error, user_data):
     # of a subclass of cls
     if isinstance(error, exc.ModelContextError):
         payload[_PREDICTION_KEYS.MODEL_NAME] = error.model_name
-        payload[_PREDICTION_KEYS.MODEL_VERSION] = error.model_version
+        payload[_PREDICTION_KEYS.API_VERSION] = error.api_version
         payload.update(error.model_meta)
     # getattr() is used to work around werkzeug's bad implementation of
     # HTTPException (i.e. HTTPException inherits from Exception but exposes a

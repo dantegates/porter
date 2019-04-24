@@ -66,7 +66,7 @@ class TestPredictionService(unittest.TestCase):
         ]
         mock_model = mock.Mock()
         test_model_name = 'model'
-        test_model_version = '1.0.0'
+        test_api_version = '1.0.0'
         mock_preprocessor = mock.Mock()
         mock_postprocessor = mock.Mock()
         allow_nulls = False
@@ -84,7 +84,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=mock_model,
             name=test_model_name,
-            version=test_model_version,
+            api_version=test_api_version,
             meta={'1': '2', '3': 4},
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
@@ -95,7 +95,7 @@ class TestPredictionService(unittest.TestCase):
         actual = serve_prediction()
         expected = {
             'model_name': test_model_name,
-            'model_version': test_model_version,
+            'api_version': test_api_version,
             '1': '2',
             '3': 4,
             'predictions': [
@@ -116,7 +116,7 @@ class TestPredictionService(unittest.TestCase):
         mock_request_json.return_value = {'id': 1, 'feature1': 10, 'feature2': 0}
         mock_model = mock.Mock()
         test_model_name = 'model'
-        test_model_version = '1.0.0'
+        test_api_version = '1.0.0'
         mock_preprocessor = mock.Mock()
         mock_postprocessor = mock.Mock()
         allow_nulls = False
@@ -134,7 +134,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=mock_model,
             name=test_model_name,
-            version=test_model_version,
+            api_version=test_api_version,
             meta={'1': '2', '3': 4},
             preprocessor=mock_preprocessor,
             postprocessor=mock_postprocessor,
@@ -145,7 +145,7 @@ class TestPredictionService(unittest.TestCase):
         actual = serve_prediction()
         expected = {
             'model_name': test_model_name,
-            'model_version': test_model_version,
+            'api_version': test_api_version,
             '1': '2',
             '3': 4,
             'predictions': {'id': 1, 'prediction': 20}
@@ -164,14 +164,14 @@ class TestPredictionService(unittest.TestCase):
         meta = {}
         with self.assertRaises(exc.PredictionError) as ctx:
             sp = PredictionService(
-                model=mock.Mock(), name=name, version=version,
+                model=mock.Mock(), name=name, api_version=version,
                 meta=meta, preprocessor=mock.Mock(), postprocessor=mock.Mock(),
                 allow_nulls=mock.Mock(), batch_prediction=mock.Mock(),
                 additional_checks=mock.Mock())
             sp()
             # porter.responses.make_error_response counts on these attributes being filled out
             self.assertEqual(ctx.exception.model_name, name)
-            self.assertEqual(ctx.exception.model_version, version)
+            self.assertEqual(ctx.exception.api_version, version)
             self.assertEqual(ctx.exception.model_meta, meta)
 
     @mock.patch('flask.request')
@@ -184,11 +184,11 @@ class TestPredictionService(unittest.TestCase):
         mock_preprocessor.process.return_value = {}
         mock_postprocessor = mock.Mock()
         mock_postprocessor.process.return_value = []
-        model_name = model_version = mock.MagicMock()
+        model_name = api_version = mock.MagicMock()
         serve_prediction = PredictionService(
             model=mock_model,
             name=model_name,
-            version=model_version,
+            api_version=api_version,
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=mock_preprocessor,
@@ -206,13 +206,13 @@ class TestPredictionService(unittest.TestCase):
     def test_serve_no_processing_batch(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
         model = allow_nulls = mock.Mock()
-        model_name = model_version = mock.MagicMock()
+        model_name = api_version = mock.MagicMock()
         mock_flask_request.get_json.return_value = [{'id': None}]
         model.predict.return_value = []
         serve_prediction = PredictionService(
             model=model,
             name=model_name,
-            version=model_version,
+            api_version=api_version,
             meta={},
             allow_nulls=allow_nulls,
             preprocessor=None,
@@ -226,7 +226,7 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('flask.jsonify')
     def test_serve_with_processing_single(self, mock_flask_jsonify, mock_flask_request):
         model = allow_nulls = mock.Mock()
-        model_name = model_version = mock.MagicMock()
+        model_name = api_version = mock.MagicMock()
         mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = [1]
         mock_preprocessor = mock.Mock()
@@ -236,7 +236,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=model,
             name=model_name,
-            version=model_version,
+            api_version=api_version,
             meta={},
             allow_nulls=allow_nulls,
             preprocessor=mock_preprocessor,
@@ -254,13 +254,13 @@ class TestPredictionService(unittest.TestCase):
     def test_serve_no_processing_single(self, mock_flask_jsonify, mock_flask_request):
         # make sure it doesn't break when processors are None
         model = allow_nulls = mock.Mock()
-        model_name = model_version = mock.MagicMock()
+        model_name = api_version = mock.MagicMock()
         mock_flask_request.get_json.return_value = {'id': None}
         model.predict.return_value = [1]
         serve_prediction = PredictionService(
             model=model,
             name=model_name,
-            version=model_version,
+            api_version=api_version,
             meta={},
             allow_nulls=allow_nulls,
             preprocessor=None,
@@ -345,7 +345,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock_name,
-            version=mock_version,
+            api_version=mock_version,
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -361,7 +361,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.MagicMock(),
-            version=mock.MagicMock(),
+            api_version=mock.MagicMock(),
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -384,7 +384,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=mock_model,
             name=mock.MagicMock(),
-            version=mock.MagicMock(),
+            api_version=mock.MagicMock(),
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -400,7 +400,7 @@ class TestPredictionService(unittest.TestCase):
         serve_prediction = PredictionService(
             model=mock.Mock(),
             name=mock.MagicMock(),
-            version=mock.MagicMock(),
+            api_version=mock.MagicMock(),
             meta={},
             allow_nulls=mock.Mock(),
             preprocessor=None,
@@ -415,7 +415,7 @@ class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor(self):
         service_config = PredictionService(
-            model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
+            model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4})
 
     @mock.patch('porter.services.PredictionService.reserved_keys', ['1', '2'])
     @mock.patch('porter.services.BaseService._ids', set())
@@ -423,10 +423,10 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
             with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
                 service_config = PredictionService(
-                    model=None, name='foo', version='bar', meta=object())
+                    model=None, name='foo', api_version='bar', meta=object())
         with self.assertRaisesRegex(exc.PorterError, '.*keys are reserved for prediction.*'):
             service_config = PredictionService(
-                model=None, name='foo', version='bar', meta={'1': '2', '3': 4})
+                model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4})
         with self.assertRaisesRegex(exc.PorterError, '.*callable.*'):
             service_config = PredictionService(
                 model=None, additional_checks=1)
@@ -466,18 +466,18 @@ class TestMiddlewareService(unittest.TestCase):
         meta = {}
         with self.assertRaises(exc.PredictionError) as ctx:
             sp = MiddlewareService(
-                name=name, version=version,
+                name=name, api_version=version,
                 meta=meta, model_endpoint=mock.Mock(), max_workers=mock.Mock())
             sp()
             # porter.responses.make_error_response counts on these attributes being filled out
             self.assertEqual(ctx.exception.model_name, name)
-            self.assertEqual(ctx.exception.model_version, version)
+            self.assertEqual(ctx.exception.api_version, version)
             self.assertEqual(ctx.exception.model_meta, meta)
 
     def test_constructor(self):
         middleware_service = MiddlewareService(
             name='a-model',
-            version='v1',
+            api_version='v1',
             meta={'foo': 1, 'bar': 'baz'},
             model_endpoint='http://localhost:5000/a-model/prediction',
             max_workers=20
@@ -488,7 +488,7 @@ class TestMiddlewareService(unittest.TestCase):
                          'model_endpoint': 'http://localhost:5000/a-model/prediction',
                          'max_workers': 20}
         self.assertEqual(middleware_service.name, 'a-model')
-        self.assertEqual(middleware_service.version, 'v1')
+        self.assertEqual(middleware_service.api_version, 'v1')
         self.assertEqual(middleware_service.id, expected_id)
         self.assertEqual(middleware_service.endpoint, expected_endpoint)
         self.assertEqual(middleware_service.meta, expected_meta)
@@ -498,7 +498,7 @@ class TestMiddlewareService(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, 'url'):
             middleware_service = MiddlewareService(
                     name='a-model',
-                    version='1.0',
+                    api_version='1.0',
                     meta={'foo': 1, 'bar': 'baz'},
                     model_endpoint='localhost:5000/a-model/prediction',
                     max_workers=20
@@ -510,7 +510,7 @@ class TestMiddlewareService(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, 'url'):
             middleware_service = MiddlewareService(
                 name='a-model',
-                version='1.0',
+                api_version='1.0',
                 meta={'foo': 1, 'bar': 'baz'},
                 model_endpoint='http://localhost:5000/a-model/prediction',
                 max_workers=20
@@ -582,7 +582,7 @@ class TestModelApp(unittest.TestCase):
         class service1:
             id = 'service1'
             name = 'foo'
-            version = 'bar'
+            api_version = 'bar'
             endpoint = '/an/endpoint'
             meta = {'key1': 'value1', 'key2': 2}
             status = 'ready'
@@ -590,7 +590,7 @@ class TestModelApp(unittest.TestCase):
         class service2:
             id = 'service2'
             name = 'foobar'
-            version = '1'
+            api_version = '1'
             endpoint = '/foobar'
             meta = {}
             status = 'ready'
@@ -598,7 +598,7 @@ class TestModelApp(unittest.TestCase):
         class service3:
             id = 'service3'
             name = 'supa-dupa-model'
-            version = '1.0'
+            api_version = '1.0'
             endpoint = '/supa/dupa'
             meta = {'key1': 1}
             status = 'not ready'
@@ -613,21 +613,21 @@ class TestModelApp(unittest.TestCase):
             'services': {
                 'service1': {
                     'name': 'foo',
-                    'version': 'bar',
+                    'api_version': 'bar',
                     'endpoint': '/an/endpoint',
                     'meta': {'key1': 'value1', 'key2': 2},
                     'status': 'ready',
                 },
                 'service2': {
                     'name': 'foobar',
-                    'version': '1',
+                    'api_version': '1',
                     'endpoint': '/foobar',
                     'meta': {},
                     'status': 'ready',
                 },
                 'service3': {
                     'name': 'supa-dupa-model',
-                    'version': '1.0',
+                    'api_version': '1.0',
                     'endpoint': '/supa/dupa',
                     'meta': {'key1': 1},
                     'status': 'not ready',
@@ -772,15 +772,15 @@ class TestBaseService(unittest.TestCase):
 
         with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
             with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
-                SC(name='foo', version='bar', meta=object())
-        service_config = SC(name='foo', version='bar', meta=None)
+                SC(name='foo', api_version='bar', meta=object())
+        service_config = SC(name='foo', api_version='bar', meta=None)
         self.assertEqual(service_config.endpoint, '/an/endpoint')
         # make sure this gets set -- shouldn't raise AttributeError
         service_config.id
         # make sure that creating a config with same name and version raises
         # error
         with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
-            service_config = SC(name='foo', version='bar', meta=None)
+            service_config = SC(name='foo', api_version='bar', meta=None)
 
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
@@ -795,7 +795,7 @@ class TestBaseService(unittest.TestCase):
                 return 'ready'
 
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
-            service1 = Service(name='name1', version='version1', log_api_calls=True)
+            service1 = Service(name='name1', api_version='version1', log_api_calls=True)
             served = service1()
             mock__logger.info.assert_called_with(
                 'api logging',
@@ -807,7 +807,7 @@ class TestBaseService(unittest.TestCase):
                 )
 
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
-            service2 = Service(name='name2', version='version2', log_api_calls=False)
+            service2 = Service(name='name2', api_version='version2', log_api_calls=False)
             service2()
             mock__logger.assert_not_called()
 
@@ -824,7 +824,7 @@ class TestBaseService(unittest.TestCase):
                 return 'ready'
 
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
-            service1 = Service(name='name1', version='version1', log_api_calls=True)
+            service1 = Service(name='name1', api_version='version1', log_api_calls=True)
             with self.assertRaisesRegex(Exception, 'testing'):
                 service1()
             mock__logger.info.assert_called_with(
@@ -837,7 +837,7 @@ class TestBaseService(unittest.TestCase):
                 )
 
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
-            service2 = Service(name='name2', version='version2', log_api_calls=False)
+            service2 = Service(name='name2', api_version='version2', log_api_calls=False)
             with self.assertRaisesRegex(Exception, 'testing'):
                 service2()
             mock__logger.assert_not_called()
@@ -855,7 +855,7 @@ class TestBaseService(unittest.TestCase):
             def status(self):
                 return 'ready'
 
-        service = Service(name='name', version='version')
+        service = Service(name='name', api_version='version')
         with self.assertRaisesRegex(Exception, 'testing'):
             service()
         mock__logger.exception.assert_called_with(
