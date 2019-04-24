@@ -14,6 +14,7 @@ class ERRORS:
                 USER_DATA: Key for user data.
             """
             ERROR = 'error'
+            REQUEST_ID = 'request_id'
             NAME = 'name'
             MESSAGES = 'messages'
             TRACEBACK = 'traceback'

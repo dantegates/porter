@@ -63,8 +63,10 @@ def make_error_response(error, *, include_message, include_traceback, include_us
     # silent=True -> flask.request.get_json(...) returns None if user did not
     # provide data
     user_data = api.request_json(silent=True, force=True) if include_user_data else None
+    request_id = api.request_id()
     payload = _make_error_payload(
         error,
+        request_id,
         user_data=user_data,
         include_message=include_message,
         include_traceback=include_traceback,
@@ -74,8 +76,25 @@ def make_error_response(error, *, include_message, include_traceback, include_us
     return response
 
 
-def _make_error_payload(error, *, user_data, include_message, include_traceback, include_user_data):
+def _make_error_payload(error, request_id, *, user_data, include_message,
+                        include_traceback, include_user_data):
     payload = {}
+    payload[_ERROR_KEYS.ERROR] = error_dict = {}
+    # all errors should at least return the name and a request ID for debugging
+    error_dict[_ERROR_KEYS.NAME] = type(error).__name__
+    error_dict[_ERROR_KEYS.REQUEST_ID] = request_id
+    # include optional attributes
+    if include_message:
+        # getattr() is used to work around werkzeug's bad implementation of
+        # HTTPException (i.e. HTTPException inherits from Exception but exposes a
+        # different API, namely Exception.message -> HTTPException.description).
+        messages = [error.description] if hasattr(error, 'description') else error.args
+        error_dict[_ERROR_KEYS.MESSAGES] = messages
+    if include_traceback:
+        error_dict[_ERROR_KEYS.TRACEBACK] = traceback.format_exc()
+    if include_user_data:
+        error_dict[_ERROR_KEYS.USER_DATA] = user_data
+
     # if the error was generated while predicting add model meta data to error
     # message - note that isinstance(obj, cls) is True if obj is an instance
     # of a subclass of cls
@@ -83,18 +102,7 @@ def _make_error_payload(error, *, user_data, include_message, include_traceback,
         payload[_PREDICTION_KEYS.MODEL_NAME] = error.model_name
         payload[_PREDICTION_KEYS.API_VERSION] = error.api_version
         payload.update(error.model_meta)
-    # getattr() is used to work around werkzeug's bad implementation of
-    # HTTPException (i.e. HTTPException inherits from Exception but exposes a
-    # different API, namely Exception.message -> HTTPException.description).
-    messages = [error.description] if hasattr(error, 'description') else error.args
-    payload[_ERROR_KEYS.ERROR] = error_dict = {}
-    error_dict[_ERROR_KEYS.NAME] = type(error).__name__
-    if include_message:
-        error_dict[_ERROR_KEYS.MESSAGES] = messages
-    if include_traceback:
-        error_dict[_ERROR_KEYS.TRACEBACK] = traceback.format_exc()
-    if include_user_data:
-        error_dict[_ERROR_KEYS.USER_DATA] = user_data
+
     return payload
 
 

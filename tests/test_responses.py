@@ -1,5 +1,6 @@
 import re
 import unittest
+from unittest import mock
 
 from porter.exceptions import PredictionError
 from porter.responses import (_is_ready, _make_batch_prediction_payload,
@@ -39,12 +40,13 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, user_data='foo',
+            actual = _make_error_payload(error, 123, user_data='foo',
                 include_message=True, include_traceback=True,
                 include_user_data=True)
         expected = {
             'error': {
                 'name': 'Exception',
+                'request_id': 123,
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test__make_error_payload_non_porter_error\n'
@@ -54,6 +56,7 @@ class TestFunctions(unittest.TestCase):
             }
         }
         self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
 
@@ -64,7 +67,7 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, user_data='foo',
+            actual = _make_error_payload(error, 123, user_data='foo',
                 include_message=True, include_traceback=True,
                 include_user_data=True)
         expected = {
@@ -74,6 +77,7 @@ class TestFunctions(unittest.TestCase):
             '2': 2,
             'error': {
                 'name': 'PredictionError',
+                'request_id': 123,
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test__make_error_payload_porter_error\n'
@@ -83,6 +87,7 @@ class TestFunctions(unittest.TestCase):
             }
         }
         self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
@@ -92,12 +97,13 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, user_data='foo',
+            actual = _make_error_payload(error, 123, user_data='foo',
                 include_message=True, include_traceback=True,
                 include_user_data=False)
         expected = {
             'error': {
                 'name': 'Exception',
+                'request_id': 123,
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test__make_error_payload_custom_response_keys_no_user_data\n'
@@ -106,6 +112,7 @@ class TestFunctions(unittest.TestCase):
             }
         }
         self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
         self.assertNotIn('user_data', actual['error'])
@@ -115,15 +122,17 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, user_data='foo',
+            actual = _make_error_payload(error, 123, user_data='foo',
                 include_message=False, include_traceback=False,
                 include_user_data=False)
         expected = {
             'error': {
                 'name': 'Exception',
+                'request_id': 123,
             }
         }
         self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertNotIn('messages', actual['error'])
         self.assertNotIn('traceback', actual['error'])
         self.assertNotIn('user_data', actual['error'])
@@ -133,16 +142,18 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, user_data='foo',
+            actual = _make_error_payload(error, 123, user_data='foo',
                 include_message=True, include_traceback=False,
                 include_user_data=False)
         expected = {
             'error': {
                 'name': 'Exception',
+                'request_id': 123,
                 'messages': ('foo bar baz',),
             }
         }
         self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertNotIn('traceback', actual['error'])
         self.assertNotIn('user_data', actual['error'])
