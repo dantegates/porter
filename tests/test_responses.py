@@ -1,6 +1,5 @@
 import re
 import unittest
-from unittest import mock
 
 from porter.exceptions import PredictionError
 from porter.responses import (_is_ready, _make_batch_prediction_payload,
