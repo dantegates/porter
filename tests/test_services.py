@@ -9,7 +9,7 @@ from porter import constants as cn
 from porter import exceptions as exc
 from porter.services import (BaseService, MiddlewareService, ModelApp,
                              PredictionService, StatefulRoute,
-                             serve_error_message)
+                             ServeErrorMessage)
 
 
 class TestFuntionsUnit(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestFuntionsUnit(unittest.TestCase):
         # if the current error does not have an error code make sure
         # the response gets a 500
         error = ValueError('an error message')
-        actual = serve_error_message(error)
+        actual = ServeErrorMessage()(error)
         actual_status_code = 500
         expected_status_code = 500
         self.assertEqual(actual_status_code, expected_status_code)
@@ -30,7 +30,7 @@ class TestFuntionsUnit(unittest.TestCase):
         # make sure that workzeug error codes get passed on to response
         error = ValueError('an error message')
         error.code = 123
-        actual = serve_error_message(error)
+        actual = ServeErrorMessage()(error)
         actual_status_code = 123
         expected_status_code = 123
         self.assertEqual(actual_status_code, expected_status_code)

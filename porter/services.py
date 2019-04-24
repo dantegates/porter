@@ -42,15 +42,6 @@ _ID = cn.PREDICTION.RESPONSE.KEYS.ID
 _logger = logging.getLogger(__name__)
 
 
-def serve_error_message(error):
-    """Return a response with JSON payload describing the most recent
-    exception.
-    """
-    response = porter_responses.make_error_response(error)
-    _logger.exception(response.data)
-    return response
-
-
 def serve_root():
     """Return a helpful description of how to use the app."""
 
@@ -74,6 +65,16 @@ class StatefulRoute:
         cls._instances += 1
         instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
         return instance
+
+
+class ServeErrorMessage:
+    """Return a response with JSON payload describing the most recent
+    exception.
+    """
+    def __call__(self, error):
+        response = porter_responses.make_error_response(error)
+        _logger.exception(response.data)
+        return response
 
 
 class ServeAlive(StatefulRoute):
@@ -805,12 +806,12 @@ class ModelApp:
             An instance of `api.App`.
         """
         app = api.App(__name__)
-        # register a custom JSON encoder that handles numpy data types.
+        # register a custom JSON encoder
         app.json_encoder = self.json_encoder
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
-            app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(exc.PredictionError, serve_error_message)
+            app.register_error_handler(error, ServeErrorMessage())
+        app.register_error_handler(exc.PredictionError, ServeErrorMessage())
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
