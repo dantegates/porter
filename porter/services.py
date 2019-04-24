@@ -71,16 +71,14 @@ class ServeErrorMessage:
     """Return a response with JSON payload describing the most recent
     exception.
     """
-    def __init__(self, *, include_message, include_traceback, include_user_data):
-        self.include_message = include_message
-        self.include_traceback = include_traceback
-        self.include_user_data = include_user_data
+    def __init__(self, app):
+        self.app = app
 
     def __call__(self, error):
         response = porter_responses.make_error_response(error,
-            include_message=self.include_message,
-            include_traceback=self.include_traceback,
-            include_user_data=self.include_user_data)
+            include_message=self.app.return_message_on_error,
+            include_traceback=self.app.return_traceback_on_error,
+            include_user_data=self.app.return_user_data_on_error)
         _logger.exception(response.data)
         return response
 
@@ -841,10 +839,7 @@ class ModelApp:
         # register a custom JSON encoder
         app.json_encoder = self.json_encoder
         # register error handler for all werkzeug default exceptions
-        serve_error_message = ServeErrorMessage(
-            include_message=self.return_message_on_error,
-            include_traceback=self.return_traceback_on_error,
-            include_user_data=self.return_user_data_on_error)
+        serve_error_message = ServeErrorMessage(self)
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)
