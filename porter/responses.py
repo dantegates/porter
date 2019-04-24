@@ -59,17 +59,22 @@ def make_middleware_response(objects):
     return api.jsonify(objects)
 
 
-def make_error_response(error):
+def make_error_response(error, *, include_message, include_traceback, include_user_data):
     # silent=True -> flask.request.get_json(...) returns None if user did not
     # provide data
-    user_data = api.request_json(silent=True, force=True)
-    payload = _make_error_payload(error, user_data)
+    user_data = api.request_json(silent=True, force=True) if include_user_data else None
+    payload = _make_error_payload(
+        error,
+        user_data=user_data,
+        include_message=include_message,
+        include_traceback=include_traceback,
+        include_user_data=include_user_data)
     response = api.jsonify(payload)
     response.status_code = getattr(error, 'code', 500)
     return response
 
 
-def _make_error_payload(error, user_data):
+def _make_error_payload(error, *, user_data, include_message, include_traceback, include_user_data):
     payload = {}
     # if the error was generated while predicting add model meta data to error
     # message - note that isinstance(obj, cls) is True if obj is an instance
@@ -82,11 +87,14 @@ def _make_error_payload(error, user_data):
     # HTTPException (i.e. HTTPException inherits from Exception but exposes a
     # different API, namely Exception.message -> HTTPException.description).
     messages = [error.description] if hasattr(error, 'description') else error.args
-    payload[_ERROR_KEYS.ERROR] = {
-        _ERROR_KEYS.NAME: type(error).__name__,
-        _ERROR_KEYS.MESSAGES: messages,
-        _ERROR_KEYS.TRACEBACK: traceback.format_exc(),
-        _ERROR_KEYS.USER_DATA: user_data}
+    payload[_ERROR_KEYS.ERROR] = error_dict = {}
+    error_dict[_ERROR_KEYS.NAME] = type(error).__name__
+    if include_message:
+        error_dict[_ERROR_KEYS.MESSAGES] = messages
+    if include_traceback:
+        error_dict[_ERROR_KEYS.TRACEBACK] = traceback.format_exc()
+    if include_user_data:
+        error_dict[_ERROR_KEYS.USER_DATA] = user_data
     return payload
 
 

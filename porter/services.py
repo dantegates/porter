@@ -42,15 +42,6 @@ _ID = cn.PREDICTION.RESPONSE.KEYS.ID
 _logger = logging.getLogger(__name__)
 
 
-def serve_error_message(error):
-    """Return a response with JSON payload describing the most recent
-    exception.
-    """
-    response = porter_responses.make_error_response(error)
-    _logger.exception(response.data)
-    return response
-
-
 def serve_root():
     """Return a helpful description of how to use the app."""
 
@@ -74,6 +65,22 @@ class StatefulRoute:
         cls._instances += 1
         instance.__name__ = '%s_%s' % (cls.__name__.lower(), cls._instances)
         return instance
+
+
+class ServeErrorMessage:
+    """Return a response with JSON payload describing the most recent
+    exception.
+    """
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, error):
+        response = porter_responses.make_error_response(error,
+            include_message=self.app.return_message_on_error,
+            include_traceback=self.app.return_traceback_on_error,
+            include_user_data=self.app.return_user_data_on_error)
+        _logger.exception(response.data)
+        return response
 
 
 class ServeAlive(StatefulRoute):
@@ -723,13 +730,37 @@ class ModelApp:
     models.
 
     Essentially this class is a wrapper around an instance of `flask.Flask`.
+
+    Args:
+        json_encoder (json.JSONEncoder subclass): A JSON encoder used to
+            format response data. Several useful implementations can be found
+            in `porter.utils`. Defaults to `porter.config.json_encoder`.
+        return_message_on_error (bool): Whether to include the exception
+            message in response on errors. Defaults to
+            `porter.config.return_message_on_error`.
+        return_traceback_on_error (bool): Whether to return the exception
+            traceback in response on errors. Defaults to
+            `porter.config.return_traceback_on_error`.
+        return_user_data_on_error (bool): Whether to return the user data in
+            response on errors. Defaults to
+            `porter.config.include_user_data_on_error`.
     """
-
     json_encoder = cf.json_encoder
+    return_message_on_error = cf.return_message_on_error
+    return_traceback_on_error = cf.return_traceback_on_error
+    return_user_data_on_error = cf.return_user_data_on_error
 
-    def __init__(self):
-        self.app = self._build_app()
+    def __init__(self, json_encoder=None, return_message_on_error=None,
+                 return_traceback_on_error=None, return_user_data_on_error=None):
+        self.json_encoder = cf.json_encoder if json_encoder is None else json_encoder
+        if return_message_on_error is not None:
+            self.return_message_on_error = return_message_on_error
+        if return_traceback_on_error is not None:
+            self.return_traceback_on_error = return_traceback_on_error
+        if return_user_data_on_error is not None:
+            self.return_user_data_on_error = return_user_data_on_error
         self._services = {}
+        self.app = self._build_app()
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
@@ -805,9 +836,10 @@ class ModelApp:
             An instance of `api.App`.
         """
         app = api.App(__name__)
-        # register a custom JSON encoder that handles numpy data types.
+        # register a custom JSON encoder
         app.json_encoder = self.json_encoder
         # register error handler for all werkzeug default exceptions
+        serve_error_message = ServeErrorMessage(self)
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)

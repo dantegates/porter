@@ -39,7 +39,9 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 'foo')
+            actual = _make_error_payload(error, user_data='foo',
+                include_message=True, include_traceback=True,
+                include_user_data=True)
         expected = {
             'error': {
                 'name': 'Exception',
@@ -62,7 +64,9 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 'foo')
+            actual = _make_error_payload(error, user_data='foo',
+                include_message=True, include_traceback=True,
+                include_user_data=True)
         expected = {
             'model_name': 'M',
             'api_version': 'V',
@@ -81,6 +85,67 @@ class TestFunctions(unittest.TestCase):
         self.assertEqual(actual['error']['name'], expected['error']['name'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
+        self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
+
+    def test__make_error_payload_custom_response_keys_no_user_data(self):
+        error = Exception('foo bar baz')
+        try:
+            raise error
+        except Exception:
+            actual = _make_error_payload(error, user_data='foo',
+                include_message=True, include_traceback=True,
+                include_user_data=False)
+        expected = {
+            'error': {
+                'name': 'Exception',
+                'messages': ('foo bar baz',),
+                'traceback': ('.*'
+                              'line [0-9]*, in test__make_error_payload_custom_response_keys_no_user_data\n'
+                              '    raise error\n'
+                              'Exception: foo bar baz.*')
+            }
+        }
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
+        self.assertNotIn('user_data', actual['error'])
+
+    def test__make_error_payload_custom_response_keys_name_only(self):
+        error = Exception('foo bar baz')
+        try:
+            raise error
+        except Exception:
+            actual = _make_error_payload(error, user_data='foo',
+                include_message=False, include_traceback=False,
+                include_user_data=False)
+        expected = {
+            'error': {
+                'name': 'Exception',
+            }
+        }
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertNotIn('messages', actual['error'])
+        self.assertNotIn('traceback', actual['error'])
+        self.assertNotIn('user_data', actual['error'])
+
+    def test__make_error_payload_custom_response_keys_name_and_messages(self):
+        error = Exception('foo bar baz')
+        try:
+            raise error
+        except Exception:
+            actual = _make_error_payload(error, user_data='foo',
+                include_message=True, include_traceback=False,
+                include_user_data=False)
+        expected = {
+            'error': {
+                'name': 'Exception',
+                'messages': ('foo bar baz',),
+            }
+        }
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertNotIn('traceback', actual['error'])
+        self.assertNotIn('user_data', actual['error'])
 
     def test__is_ready(self):
         app_state = {
