@@ -449,7 +449,8 @@ class PredictionService(BaseService):
                 use to add to the errors response.
         """
         if api.request_method() == 'GET':
-            return 'This endpoint is live. Send POST requests for predictions'
+            return porter_responses.Response(
+                'This endpoint is live. Send POST requests for predictions')
         try:
             response = self._predict()
         # all we have to do with the exception handling here is
@@ -678,7 +679,8 @@ class MiddlewareService(BaseService):
 
     def serve(self):
         if api.request_method() == 'GET':
-            return 'This endpoint is live. Send POST requests for batch predictions'
+            return porter_responses.Response(
+                'This endpoint is live. Send POST requests for batch predictions')
         try:
             response = self._serve()
         # all we have to do with the exception handling here is

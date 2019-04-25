@@ -235,6 +235,14 @@ class TestAppPredictions(unittest.TestCase):
             for key, value in expectations.items():
                 self.assertEqual(actual_error_obj[key], value)
 
+    def test_get_prediction_endpoints(self):
+        resp1 = self.app.get('/a-model/v0/prediction')
+        resp2 = self.app.get('/model-3/v0.0-alpha/prediction')
+        resp3 = self.app.get('/anotherModel/v1/prediction')
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp3.status_code, 200)
+
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
