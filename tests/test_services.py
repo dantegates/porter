@@ -798,7 +798,9 @@ class TestBaseService(unittest.TestCase):
             def define_endpoint(self):
                 return '/foo'
             def serve(self):
-                return {'foo': '1', 'p': {10: '10'}}
+                m = mock.Mock()
+                m.jsonify.side_effect = lambda: {'foo': '1', 'p': {10: '10'}}
+                return m
             def status(self):
                 return 'ready'
 

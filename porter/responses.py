@@ -15,6 +15,18 @@ _HEALTH_CHECK_KEYS = cn.HEALTH_CHECK.RESPONSE.KEYS
 # that require a context, e.g. `api.jsonify`
 
 
+class Response:
+    def __init__(self, data, status_code=None):
+        self.data = data
+        self.status_code = status_code
+
+    def jsonify(self):
+        jsonified = api.jsonify(self.data)
+        if self.status_code is not None:
+            jsonified.status_code = self.status_code
+        return jsonified
+
+
 def make_prediction_response(model_name, api_version, model_meta, id_keys,
                              predictions, batch_prediction):
     if batch_prediction:
@@ -23,7 +35,7 @@ def make_prediction_response(model_name, api_version, model_meta, id_keys,
     else:
         payload = _make_single_prediction_payload(model_name, api_version, model_meta,
                                                   id_keys, predictions)
-    return api.jsonify(payload)
+    return Response(payload)
 
 
 def _make_batch_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
@@ -56,7 +68,7 @@ def _make_single_prediction_payload(model_name, api_version, model_meta, id_keys
 
 
 def make_middleware_response(objects):
-    return api.jsonify(objects)
+    return Response(objects)
 
 
 def make_error_response(error, *, include_message, include_traceback, include_user_data):
@@ -71,8 +83,7 @@ def make_error_response(error, *, include_message, include_traceback, include_us
         include_message=include_message,
         include_traceback=include_traceback,
         include_user_data=include_user_data)
-    response = api.jsonify(payload)
-    response.status_code = getattr(error, 'code', 500)
+    response = Response(payload, getattr(error, 'code', 500))
     return response
 
 
@@ -107,13 +118,12 @@ def _make_error_payload(error, request_id, *, user_data, include_message,
 
 
 def make_alive_response(app_state):
-    return api.jsonify(app_state)
+    return Response(app_state)
 
 
 def make_ready_response(app_state):
     ready = _is_ready(app_state)
-    response = api.jsonify(app_state)
-    response.status_code = 200 if ready else 503  # service unavailable
+    response = Response(app_state, 200 if ready else 503)
     return response
 
 

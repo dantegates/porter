@@ -80,7 +80,7 @@ class ServeErrorMessage:
             include_traceback=self.app.return_traceback_on_error,
             include_user_data=self.app.return_user_data_on_error)
         _logger.exception(response.data)
-        return response
+        return response.jsonify()
 
 
 class ServeAlive(StatefulRoute):
@@ -99,7 +99,7 @@ class ServeAlive(StatefulRoute):
     def __call__(self):
         """Serve liveness response."""
         self.logger.info(self.app.state)
-        return porter_responses.make_alive_response(self.app.state)
+        return porter_responses.make_alive_response(self.app.state).jsonify()
 
 
 class ServeReady(StatefulRoute):
@@ -118,7 +118,7 @@ class ServeReady(StatefulRoute):
     def __call__(self):
         """Serve readiness response."""
         self.logger.info(self.app.state)
-        return porter_responses.make_ready_response(self.app.state)
+        return porter_responses.make_ready_response(self.app.state).jsonify()
 
 
 class PredictSchema:
@@ -195,6 +195,7 @@ class BaseService(abc.ABC, StatefulRoute):
         response = None
         try:
             response = self.serve()
+            response = response.jsonify()
         except exc.ModelContextError as err:
             err.update_model_context(
                 model_name=self.name, api_version=self.api_version,
@@ -207,7 +208,6 @@ class BaseService(abc.ABC, StatefulRoute):
             self._log_error(err)
             raise err
         finally:
-            # always log at least the API call request data
             if self.log_api_calls:
                 request_data = api.request_json()
                 if response is not None:
@@ -223,8 +223,9 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @abc.abstractmethod
     def serve(self):
-        """Return a response to be served to the user (should be a response
-        object returned by one of the functions in `porter.responses`.
+        """Return a response to be served to the user (should be the return
+        value of one of the functions in `porter.responses` or an instance of
+        `porter.responses.Response`).
         """
 
     @abc.abstractproperty
