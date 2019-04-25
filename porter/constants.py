@@ -76,6 +76,7 @@ class HEALTH_CHECK:
             META = 'meta'
             PORTER_VERSION = 'porter_version'
             DEPLOYED_ON = 'deployed_on'
+            APP_META = 'app_meta'
 
         class VALUES:
             STATUS_IS_READY = 'READY'

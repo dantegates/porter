@@ -9,21 +9,21 @@ from porter import constants as cn
 from porter import exceptions as exc
 from porter.services import (BaseService, MiddlewareService, ModelApp,
                              PredictionService, StatefulRoute,
-                             ServeErrorMessage)
+                             serve_error_message)
 
 
 class TestFunctionsUnit(unittest.TestCase):
     @mock.patch('porter.services.porter_responses.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify')
     @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
+    @mock.patch('porter.services.cf.return_message_on_error', True)
+    @mock.patch('porter.services.cf.return_traceback_on_error', True)
+    @mock.patch('porter.services.cf.return_user_data_on_error', True)
     def test_serve_error_message_status_codes_arbitrary_error(self, mock_flask_request, mock_flask_jsonify):
         # if the current error does not have an error code make sure
         # the response gets a 500
         error = ValueError('an error message')
-        mock_app = mock.Mock(return_message_on_error=True,
-                             return_traceback_on_error=True,
-                             return_user_data_on_error=True)
-        actual = ServeErrorMessage(mock_app)(error)
+        actual = serve_error_message(error)
         actual_status_code = 500
         expected_status_code = 500
         self.assertEqual(actual_status_code, expected_status_code)
@@ -31,14 +31,14 @@ class TestFunctionsUnit(unittest.TestCase):
     @mock.patch('porter.services.porter_responses.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify')
     @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
+    @mock.patch('porter.services.cf.return_message_on_error', True)
+    @mock.patch('porter.services.cf.return_traceback_on_error', True)
+    @mock.patch('porter.services.cf.return_user_data_on_error', True)
     def test_serve_error_message_status_codes_werkzeug_error(self, mock_flask_request, mock_flask_jsonify):
         # make sure that workzeug error codes get passed on to response
         error = ValueError('an error message')
         error.code = 123
-        mock_app = mock.Mock(return_message_on_error=True,
-                             return_traceback_on_error=True,
-                             return_user_data_on_error=True)
-        actual = ServeErrorMessage(mock_app)(error)
+        actual = serve_error_message(error)
         actual_status_code = 123
         expected_status_code = 123
         self.assertEqual(actual_status_code, expected_status_code)

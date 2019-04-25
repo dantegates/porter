@@ -346,8 +346,12 @@ class TestAppHealthChecks(unittest.TestCase):
 
 
 @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
+@mock.patch('porter.services.cf.return_message_on_error', True)
+@mock.patch('porter.services.cf.return_traceback_on_error', True)
+@mock.patch('porter.services.cf.return_user_data_on_error', True)
 class TestAppErrorHandling(unittest.TestCase):
     @classmethod
+    @mock.patch('porter.services.BaseService._ids', set())
     def setUpClass(cls):
         # DO NOT set app.testing = True here
         # doing so *disables* error handling in the application and instead
@@ -356,9 +360,7 @@ class TestAppErrorHandling(unittest.TestCase):
         # In this class we actually want to test the applications error handling
         # and thus do not set this attribute.
         # See, http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
-        cls.model_app = ModelApp(return_message_on_error=True,
-                                 return_traceback_on_error=True,
-                                 return_user_data_on_error=True)
+        cls.model_app = ModelApp()
         flask_app = cls.model_app.app
         @flask_app.route('/test-error-handling/', methods=['POST'])
         def test_error():
@@ -484,37 +486,64 @@ class TestAppErrorHandling(unittest.TestCase):
             api_version='B', model=None, meta={'1': 'one', 'two': 2})
         cls.model_app.add_service(prediction_service)
 
+
+@mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
+@mock.patch('porter.services.cf.return_message_on_error', True)
+@mock.patch('porter.services.cf.return_traceback_on_error', False)
+@mock.patch('porter.services.cf.return_user_data_on_error', False)
+class TestAppErrorHandlingCustomKeys(unittest.TestCase):
+    @classmethod
+    @mock.patch('porter.services.BaseService._ids', set())
+    def setUpClass(cls):
+        # DO NOT set app.testing = True here
+        # doing so *disables* error handling in the application and instead
+        # passes errors on to the test client (in our case, instances of
+        # unittest.TestCase).
+        # In this class we actually want to test the applications error handling
+        # and thus do not set this attribute.
+        # See, http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
+        cls.model_app = ModelApp()
+        flask_app = cls.model_app.app
+        @flask_app.route('/test-error-handling/', methods=['POST'])
+        def test_error():
+            flask.request.get_json(force=True)
+            raise Exception('exceptional testing of exceptions')
+        cls.app_test_client = flask_app.test_client()
+        cls.add_failing_model_service()
+
     @mock.patch('porter.services.PredictionService._predict')
-    def test_custom_error_keys(self, mock__predict):
-        with mock.patch.object(self.model_app, 'return_user_data_on_error', False), \
-                mock.patch.object(self.model_app, 'return_traceback_on_error', False):
-            mock__predict.side_effect = Exception('testing a failing model')
-            user_data = {'some test': 'data'}
-            resp = self.app_test_client.post('/failing-model/B/prediction', data=json.dumps(user_data))
-            actual = json.loads(resp.data)
-            expected = {
-                'model_name': 'failing-model',
-                'api_version': 'B',
-                '1': 'one',
-                'two': 2,
-                'error': {
-                    'name': 'PredictionError',
-                    'request_id': 123,
-                    'messages': ['an error occurred during prediction'],
-                    'user_data': user_data,
-                    'traceback': re.compile(r".*testing\sa\sfailing\smodel.*"),
-                }
+    def test(self, mock__predict):
+        mock__predict.side_effect = Exception('testing a failing model')
+        user_data = {'some test': 'data'}
+        resp = self.app_test_client.post('/failing-model/B/prediction', data=json.dumps(user_data))
+        actual = json.loads(resp.data)
+        expected = {
+            'model_name': 'failing-model',
+            'api_version': 'B',
+            '1': 'one',
+            'two': 2,
+            'error': {
+                'name': 'PredictionError',
+                'request_id': 123,
+                'messages': ['an error occurred during prediction'],
             }
-            self.assertEqual(resp.status_code, 500)
-            self.assertEqual(actual['model_name'], expected['model_name'])
-            self.assertEqual(actual['api_version'], expected['api_version'])
-            self.assertEqual(actual['1'], expected['1'])
-            self.assertEqual(actual['two'], expected['two'])
-            self.assertEqual(actual['error']['name'], expected['error']['name'])
-            self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
-            self.assertEqual(actual['error']['messages'], expected['error']['messages'])
-            self.assertNotIn('user_data', actual['error'])
-            self.assertNotIn('traceback', actual['error'])
+        }
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(actual['model_name'], expected['model_name'])
+        self.assertEqual(actual['api_version'], expected['api_version'])
+        self.assertEqual(actual['1'], expected['1'])
+        self.assertEqual(actual['two'], expected['two'])
+        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
+        self.assertNotIn('user_data', actual['error'])
+        self.assertNotIn('traceback', actual['error'])
+
+    @classmethod
+    def add_failing_model_service(cls):
+        prediction_service = PredictionService(name='failing-model',
+            api_version='B', model=None, meta={'1': 'one', 'two': 2})
+        cls.model_app.add_service(prediction_service)        
 
 
 if __name__ == '__main__':
