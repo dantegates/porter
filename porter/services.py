@@ -68,7 +68,6 @@ class StatefulRoute:
 
 
 def serve_error_message(error):
-    print('foooooo', cf.return_user_data_on_error)
     response = porter_responses.make_error_response(error,
         include_message=cf.return_message_on_error,
         include_traceback=cf.return_traceback_on_error,
@@ -801,7 +800,7 @@ class ModelApp:
         return {
             cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
             cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            # cn.HEALTH_CHECK.RESPONSE.KEYS.APP_META: self.meta,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.APP_META: self.meta,
             cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
                 service.id: {
                     cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,

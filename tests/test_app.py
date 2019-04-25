@@ -258,7 +258,8 @@ class TestAppHealthChecks(unittest.TestCase):
         expected_data = {
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            'services': {}
+            'services': {},
+            'app_meta': {}
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
@@ -281,6 +282,7 @@ class TestAppHealthChecks(unittest.TestCase):
         expected_data = {
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'app_meta': {},
             'services': {
                 'model1': {
                     'status': 'READY',
@@ -318,6 +320,7 @@ class TestAppHealthChecks(unittest.TestCase):
         expected_data = {
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'app_meta': {},
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',
