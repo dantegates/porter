@@ -9,21 +9,21 @@ from porter import constants as cn
 from porter import exceptions as exc
 from porter.services import (BaseService, MiddlewareService, ModelApp,
                              PredictionService, StatefulRoute,
-                             ServeErrorMessage)
+                             serve_error_message)
 
 
 class TestFunctionsUnit(unittest.TestCase):
     @mock.patch('porter.services.porter_responses.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify')
     @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
+    @mock.patch('porter.services.cf.return_message_on_error', True)
+    @mock.patch('porter.services.cf.return_traceback_on_error', True)
+    @mock.patch('porter.services.cf.return_user_data_on_error', True)
     def test_serve_error_message_status_codes_arbitrary_error(self, mock_flask_request, mock_flask_jsonify):
         # if the current error does not have an error code make sure
         # the response gets a 500
         error = ValueError('an error message')
-        mock_app = mock.Mock(return_message_on_error=True,
-                             return_traceback_on_error=True,
-                             return_user_data_on_error=True)
-        actual = ServeErrorMessage(mock_app)(error)
+        actual = serve_error_message(error)
         actual_status_code = 500
         expected_status_code = 500
         self.assertEqual(actual_status_code, expected_status_code)
@@ -31,14 +31,14 @@ class TestFunctionsUnit(unittest.TestCase):
     @mock.patch('porter.services.porter_responses.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify')
     @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
+    @mock.patch('porter.services.cf.return_message_on_error', True)
+    @mock.patch('porter.services.cf.return_traceback_on_error', True)
+    @mock.patch('porter.services.cf.return_user_data_on_error', True)
     def test_serve_error_message_status_codes_werkzeug_error(self, mock_flask_request, mock_flask_jsonify):
         # make sure that workzeug error codes get passed on to response
         error = ValueError('an error message')
         error.code = 123
-        mock_app = mock.Mock(return_message_on_error=True,
-                             return_traceback_on_error=True,
-                             return_user_data_on_error=True)
-        actual = ServeErrorMessage(mock_app)(error)
+        actual = serve_error_message(error)
         actual_status_code = 123
         expected_status_code = 123
         self.assertEqual(actual_status_code, expected_status_code)
@@ -585,7 +585,71 @@ class TestModelApp(unittest.TestCase):
 
     @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.api.App')
-    def test_state(self, mock_App, mock__build_app):
+    def test_state1(self, mock_App, mock__build_app):
+        model_app = ModelApp(meta={'metadatakey1': 'value1', 'metadatakey2': '2'})
+        class service1:
+            id = 'service1'
+            name = 'foo'
+            api_version = 'bar'
+            endpoint = '/an/endpoint'
+            meta = {'key1': 'value1', 'key2': 2}
+            status = 'ready'
+            route_kwargs = {}
+        class service2:
+            id = 'service2'
+            name = 'foobar'
+            api_version = '1'
+            endpoint = '/foobar'
+            meta = {}
+            status = 'ready'
+            route_kwargs = {}
+        class service3:
+            id = 'service3'
+            name = 'supa-dupa-model'
+            api_version = '1.0'
+            endpoint = '/supa/dupa'
+            meta = {'key1': 1}
+            status = 'not ready'
+            route_kwargs = {}
+        model_app.add_service(service1)
+        model_app.add_service(service2)
+        model_app.add_service(service3)
+        actual = model_app.state
+        expected = {
+            'porter_version': __version__,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'app_meta': {'metadatakey1': 'value1', 'metadatakey2': '2'},
+            'services': {
+                'service1': {
+                    'name': 'foo',
+                    'api_version': 'bar',
+                    'endpoint': '/an/endpoint',
+                    'meta': {'key1': 'value1', 'key2': 2},
+                    'status': 'ready',
+                },
+                'service2': {
+                    'name': 'foobar',
+                    'api_version': '1',
+                    'endpoint': '/foobar',
+                    'meta': {},
+                    'status': 'ready',
+                },
+                'service3': {
+                    'name': 'supa-dupa-model',
+                    'api_version': '1.0',
+                    'endpoint': '/supa/dupa',
+                    'meta': {'key1': 1},
+                    'status': 'not ready',
+                },
+            }
+        }
+        self.maxDiff = None
+        self.assertDictEqual(actual, expected)
+
+    @mock.patch('porter.services.ModelApp._build_app')
+    @mock.patch('porter.services.api.App')
+    def test_state2(self, mock_App, mock__build_app):
+        # same test as above but we don't add meta data
         model_app = ModelApp()
         class service1:
             id = 'service1'
@@ -618,6 +682,7 @@ class TestModelApp(unittest.TestCase):
         expected = {
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'app_meta': {},
             'services': {
                 'service1': {
                     'name': 'foo',

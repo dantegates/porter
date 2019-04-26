@@ -67,20 +67,13 @@ class StatefulRoute:
         return instance
 
 
-class ServeErrorMessage:
-    """Return a response with JSON payload describing the most recent
-    exception.
-    """
-    def __init__(self, app):
-        self.app = app
-
-    def __call__(self, error):
-        response = porter_responses.make_error_response(error,
-            include_message=self.app.return_message_on_error,
-            include_traceback=self.app.return_traceback_on_error,
-            include_user_data=self.app.return_user_data_on_error)
-        _logger.exception(response.data)
-        return response.jsonify()
+def serve_error_message(error):
+    response = porter_responses.make_error_response(error,
+        include_message=cf.return_message_on_error,
+        include_traceback=cf.return_traceback_on_error,
+        include_user_data=cf.return_user_data_on_error)
+    _logger.exception(response.data)
+    return response.jsonify()
 
 
 class ServeAlive(StatefulRoute):
@@ -748,20 +741,10 @@ class ModelApp:
             response on errors. Defaults to
             `porter.config.include_user_data_on_error`.
     """
-    json_encoder = cf.json_encoder
-    return_message_on_error = cf.return_message_on_error
-    return_traceback_on_error = cf.return_traceback_on_error
-    return_user_data_on_error = cf.return_user_data_on_error
 
-    def __init__(self, json_encoder=None, return_message_on_error=None,
-                 return_traceback_on_error=None, return_user_data_on_error=None):
-        self.json_encoder = cf.json_encoder if json_encoder is None else json_encoder
-        if return_message_on_error is not None:
-            self.return_message_on_error = return_message_on_error
-        if return_traceback_on_error is not None:
-            self.return_traceback_on_error = return_traceback_on_error
-        if return_user_data_on_error is not None:
-            self.return_user_data_on_error = return_user_data_on_error
+    def __init__(self, meta=None):
+        self.meta = {} if meta is None else meta
+        self.check_meta(self.meta)
         self._services = {}
         self.app = self._build_app()
 
@@ -817,6 +800,7 @@ class ModelApp:
         return {
             cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
             cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            cn.HEALTH_CHECK.RESPONSE.KEYS.APP_META: self.meta,
             cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
                 service.id: {
                     cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,
@@ -829,6 +813,21 @@ class ModelApp:
             }
         }
 
+    def check_meta(self, meta):
+        """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
+        cannot be converted to JSON properly.
+
+        Subclasses overriding this method should always use super() to call
+        this method on the superclass unless they have a good reason not to.
+        """
+        try:
+            # sort_keys=True tests the flask.jsonify implementation
+            _ = json.dumps(meta, cls=cf.json_encoder, sort_keys=True)
+        except TypeError:
+            raise exc.PorterError(
+                'Could not jsonify meta data. Make sure that meta data is '
+                'valid JSON and that all keys are of the same type.')
+
     def _build_app(self):
         """Build and return the app.
 
@@ -840,9 +839,8 @@ class ModelApp:
         """
         app = api.App(__name__)
         # register a custom JSON encoder
-        app.json_encoder = self.json_encoder
+        app.json_encoder = cf.json_encoder
         # register error handler for all werkzeug default exceptions
-        serve_error_message = ServeErrorMessage(self)
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)
