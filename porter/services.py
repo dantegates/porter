@@ -835,7 +835,7 @@ class ModelApp:
         Returns:
             An instance of `api.App`.
         """
-        app = api.App(__name__)
+        app = api.App(__name__, static_folder=None)
         # register a custom JSON encoder
         app.json_encoder = cf.json_encoder
         # register error handler for all werkzeug default exceptions
