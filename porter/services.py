@@ -150,7 +150,7 @@ class BaseService(abc.ABC, StatefulRoute):
             derived from this parameter.
         api_version (str): The service API version. The final routed endpoint is
             generally derived from this parameter.
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
 
@@ -159,7 +159,7 @@ class BaseService(abc.ABC, StatefulRoute):
         name (str): The model name. The final routed endpoint is generally
             derived from this attribute.
         api_version (str): The service version.
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         endpoint (str): The endpoint where the service is exposed.
@@ -323,7 +323,7 @@ class PredictionService(BaseService):
             "/<name>/<api version>/prediction/".
         api_version (str): The model API version. The final routed endpoint
             will become "/<name>/<api version>/prediction/".
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         model (object): An object implementing the interface defined by
@@ -353,7 +353,7 @@ class PredictionService(BaseService):
     Attributes:
         id (str): A unique ID for the model. Composed of `name` and `api_version`.
         name (str): The model's name.
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         api_version (str): The model API version.
@@ -728,24 +728,21 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
 
     Args:
-        json_encoder (json.JSONEncoder subclass): A JSON encoder used to
-            format response data. Several useful implementations can be found
-            in `porter.utils`. Defaults to `porter.config.json_encoder`.
-        return_message_on_error (bool): Whether to include the exception
-            message in response on errors. Defaults to
-            `porter.config.return_message_on_error`.
-        return_traceback_on_error (bool): Whether to return the exception
-            traceback in response on errors. Defaults to
-            `porter.config.return_traceback_on_error`.
-        return_user_data_on_error (bool): Whether to return the user data in
-            response on errors. Defaults to
-            `porter.config.include_user_data_on_error`.
+        meta (dict): Additional meta data added to the response body. Optional.
+        description (str or None): Description of the model app. Optional.
     """
 
-    def __init__(self, meta=None):
+    def __init__(self, meta=None, description=None):
         self.meta = {} if meta is None else meta
+        if description is not None:
+            self.meta['description'] = description
+        self.description = description
         self.check_meta(self.meta)
-        self._services = {}
+
+        self.services = []
+        # this is just a cache of service IDs we can use to verify that
+        # each service is given a unique ID
+        self._service_ids = set()
         self.app = self._build_app()
 
     def __call__(self, *args, **kwargs):
@@ -778,10 +775,11 @@ class ModelApp:
             porter.exceptions.PorterError: If the type of
                 `service` is not recognized.
         """
-        if service.id in self._services:
+        if service.id in self._service_ids:
              raise exc.PorterError(
                 f'a service has already been added using id={service.id}')
-        self._services[service.id] = service
+        self._service_ids.add(service.id)
+        self.services.append(service)
         self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
@@ -809,7 +807,7 @@ class ModelApp:
                     cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
                     cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status
                 }
-                for service in self._services.values()
+                for service in self.services
             }
         }
 
