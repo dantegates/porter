@@ -68,10 +68,7 @@ class StatefulRoute:
 
 
 def serve_error_message(error):
-    response = porter_responses.make_error_response(error,
-        include_message=cf.return_message_on_error,
-        include_traceback=cf.return_traceback_on_error,
-        include_user_data=cf.return_user_data_on_error)
+    response = porter_responses.make_error_response(error)
     _logger.exception(response.data)
     return response.jsonify()
 

@@ -1,8 +1,9 @@
 import traceback
 
-from . import api
+from . import config as cf
 from . import constants as cn
 from . import exceptions as exc
+from . import api
 
 # aliases for convenience
 _IS_READY = cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
@@ -71,39 +72,32 @@ def make_middleware_response(objects):
     return Response(objects)
 
 
-def make_error_response(error, *, include_message, include_traceback, include_user_data):
+def make_error_response(error):
     # silent=True -> flask.request.get_json(...) returns None if user did not
     # provide data
-    user_data = api.request_json(silent=True, force=True) if include_user_data else None
+    user_data = api.request_json(silent=True, force=True) if cf.return_user_data_on_error else None
     request_id = api.request_id()
-    payload = _make_error_payload(
-        error,
-        request_id,
-        user_data=user_data,
-        include_message=include_message,
-        include_traceback=include_traceback,
-        include_user_data=include_user_data)
+    payload = _make_error_payload(error, request_id, user_data)
     response = Response(payload, getattr(error, 'code', 500))
     return response
 
 
-def _make_error_payload(error, request_id, *, user_data, include_message,
-                        include_traceback, include_user_data):
+def _make_error_payload(error, request_id, user_data):
     payload = {}
     payload[_ERROR_KEYS.ERROR] = error_dict = {}
     # all errors should at least return the name and a request ID for debugging
     error_dict[_ERROR_KEYS.NAME] = type(error).__name__
     error_dict[_ERROR_KEYS.REQUEST_ID] = request_id
     # include optional attributes
-    if include_message:
+    if cf.return_message_on_error:
         # getattr() is used to work around werkzeug's bad implementation of
         # HTTPException (i.e. HTTPException inherits from Exception but exposes a
         # different API, namely Exception.message -> HTTPException.description).
         messages = [error.description] if hasattr(error, 'description') else error.args
         error_dict[_ERROR_KEYS.MESSAGES] = messages
-    if include_traceback:
+    if cf.return_traceback_on_error:
         error_dict[_ERROR_KEYS.TRACEBACK] = traceback.format_exc()
-    if include_user_data:
+    if cf.return_user_data_on_error:
         error_dict[_ERROR_KEYS.USER_DATA] = user_data
 
     # if the error was generated while predicting add model meta data to error

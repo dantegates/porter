@@ -1,5 +1,6 @@
 import re
 import unittest
+from unittest import mock
 
 from porter.exceptions import PredictionError
 from porter.responses import (_is_ready, _make_batch_prediction_payload,
@@ -34,14 +35,15 @@ class TestFunctions(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
+    @mock.patch('porter.responses.cf.return_message_on_error', True)
+    @mock.patch('porter.responses.cf.return_traceback_on_error', True)
+    @mock.patch('porter.responses.cf.return_user_data_on_error', False)
     def test__make_error_payload_non_porter_error(self):
         error = Exception('foo bar baz')
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 123, user_data='foo',
-                include_message=True, include_traceback=True,
-                include_user_data=True)
+            actual = _make_error_payload(error, 123, user_data='foo')
         expected = {
             'error': {
                 'name': 'Exception',
@@ -59,6 +61,9 @@ class TestFunctions(unittest.TestCase):
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
 
+    @mock.patch('porter.responses.cf.return_message_on_error', True)
+    @mock.patch('porter.responses.cf.return_traceback_on_error', True)
+    @mock.patch('porter.responses.cf.return_user_data_on_error', True)
     def test__make_error_payload_porter_error(self):
         error = PredictionError('foo bar baz')
         error.update_model_context(model_name='M', api_version='V',
@@ -66,9 +71,7 @@ class TestFunctions(unittest.TestCase):
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 123, user_data='foo',
-                include_message=True, include_traceback=True,
-                include_user_data=True)
+            actual = _make_error_payload(error, 123, user_data='foo')
         expected = {
             'model_name': 'M',
             'api_version': 'V',
@@ -91,14 +94,15 @@ class TestFunctions(unittest.TestCase):
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
 
+    @mock.patch('porter.responses.cf.return_message_on_error', True)
+    @mock.patch('porter.responses.cf.return_traceback_on_error', True)
+    @mock.patch('porter.responses.cf.return_user_data_on_error', False)
     def test__make_error_payload_custom_response_keys_no_user_data(self):
         error = Exception('foo bar baz')
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 123, user_data='foo',
-                include_message=True, include_traceback=True,
-                include_user_data=False)
+            actual = _make_error_payload(error, 123, user_data='foo')
         expected = {
             'error': {
                 'name': 'Exception',
@@ -116,14 +120,15 @@ class TestFunctions(unittest.TestCase):
         self.assertTrue(re.search(expected['error']['traceback'], actual['error']['traceback']))
         self.assertNotIn('user_data', actual['error'])
 
+    @mock.patch('porter.responses.cf.return_message_on_error', False)
+    @mock.patch('porter.responses.cf.return_traceback_on_error', False)
+    @mock.patch('porter.responses.cf.return_user_data_on_error', False)
     def test__make_error_payload_custom_response_keys_name_only(self):
         error = Exception('foo bar baz')
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 123, user_data='foo',
-                include_message=False, include_traceback=False,
-                include_user_data=False)
+            actual = _make_error_payload(error, 123, user_data='foo')
         expected = {
             'error': {
                 'name': 'Exception',
@@ -136,14 +141,15 @@ class TestFunctions(unittest.TestCase):
         self.assertNotIn('traceback', actual['error'])
         self.assertNotIn('user_data', actual['error'])
 
+    @mock.patch('porter.responses.cf.return_message_on_error', True)
+    @mock.patch('porter.responses.cf.return_traceback_on_error', False)
+    @mock.patch('porter.responses.cf.return_user_data_on_error', False)
     def test__make_error_payload_custom_response_keys_name_and_messages(self):
         error = Exception('foo bar baz')
         try:
             raise error
         except Exception:
-            actual = _make_error_payload(error, 123, user_data='foo',
-                include_message=True, include_traceback=False,
-                include_user_data=False)
+            actual = _make_error_payload(error, 123, user_data='foo')
         expected = {
             'error': {
                 'name': 'Exception',
