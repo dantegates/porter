@@ -30,16 +30,21 @@ class Response:
 
 def make_prediction_response(model_name, api_version, model_meta, id_keys,
                              predictions, batch_prediction):
+    if cf.return_request_id_with_prediction:
+        request_id = api.request_id()
+    else:
+        request_id = None
     if batch_prediction:
         payload = _make_batch_prediction_payload(model_name, api_version, model_meta,
-                                                 id_keys, predictions)
+                                                 id_keys, predictions, request_id)
     else:
         payload = _make_single_prediction_payload(model_name, api_version, model_meta,
-                                                  id_keys, predictions)
+                                                  id_keys, predictions, request_id)
     return Response(payload)
 
 
-def _make_batch_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
+def _make_batch_prediction_payload(model_name, api_version, model_meta, id_keys, predictions,
+                                   request_id):
     payload = {
         _PREDICTION_KEYS.MODEL_NAME: model_name,
         _PREDICTION_KEYS.API_VERSION: api_version,
@@ -50,11 +55,14 @@ def _make_batch_prediction_payload(model_name, api_version, model_meta, id_keys,
             }
             for id, p in zip(id_keys, predictions)]
     }
+    if cf.return_request_id_with_prediction:
+        payload[_PREDICTION_KEYS.REQUEST_ID] = request_id
     payload.update(model_meta)
     return payload
 
 
-def _make_single_prediction_payload(model_name, api_version, model_meta, id_keys, predictions):
+def _make_single_prediction_payload(model_name, api_version, model_meta, id_keys, predictions,
+                                    request_id):
     payload = {
         _PREDICTION_KEYS.MODEL_NAME: model_name,
         _PREDICTION_KEYS.API_VERSION: api_version,
@@ -64,6 +72,8 @@ def _make_single_prediction_payload(model_name, api_version, model_meta, id_keys
                 _PREDICTION_KEYS.PREDICTION: predictions[0]
             }
     }
+    if cf.return_request_id_with_prediction:
+        payload[_PREDICTION_KEYS.REQUEST_ID] = request_id
     payload.update(model_meta)
     return payload
 
