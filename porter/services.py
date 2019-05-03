@@ -734,9 +734,7 @@ class ModelApp:
 
     def __init__(self, meta=None, description=None):
         self.meta = {} if meta is None else meta
-        if description is not None:
-            self.meta['description'] = description
-        self.description = description
+        self.description = 'Model predictions' if description is None else description
         self.check_meta(self.meta)
 
         self.services = []
@@ -848,3 +846,7 @@ class ModelApp:
         app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self))
         app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self))
         return app
+
+    @property
+    def routes(self):
+        yield from self.app.url_map.iter_rules()
