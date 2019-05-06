@@ -8,3 +8,7 @@ json_encoder = AppEncoder
 return_message_on_error = True
 return_traceback_on_error = False
 return_user_data_on_error = False
+return_request_id_on_error = True
+
+# Configurations for prediction responses
+return_request_id_with_prediction = False

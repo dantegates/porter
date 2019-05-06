@@ -233,7 +233,7 @@ class TestAppPredictions(unittest.TestCase):
         for actual, expectations in zip(actuals, expected_model_context_values):
             actual_error_obj = json.loads(actual.data)
             for key, value in expectations.items():
-                self.assertEqual(actual_error_obj[key], value)
+                self.assertEqual(actual_error_obj['model_context'][key], value)
 
     def test_get_prediction_endpoints(self):
         resp1 = self.app.get('/a-model/v0/prediction')
@@ -460,10 +460,12 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.post('/failing-model/B/prediction', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
-            'model_name': 'failing-model',
-            'api_version': 'B',
-            '1': 'one',
-            'two': 2,
+            'model_context': {
+                'model_name': 'failing-model',
+                'api_version': 'B',
+                '1': 'one',
+                'two': 2
+            },
             'error': {
                 'name': 'PredictionError',
                 'request_id': 123,
@@ -473,10 +475,10 @@ class TestAppErrorHandling(unittest.TestCase):
             }
         }
         self.assertEqual(resp.status_code, 500)
-        self.assertEqual(actual['model_name'], expected['model_name'])
-        self.assertEqual(actual['api_version'], expected['api_version'])
-        self.assertEqual(actual['1'], expected['1'])
-        self.assertEqual(actual['two'], expected['two'])
+        self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
+        self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
+        self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
+        self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
         self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
@@ -521,10 +523,12 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
         resp = self.app_test_client.post('/failing-model/B/prediction', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
-            'model_name': 'failing-model',
-            'api_version': 'B',
-            '1': 'one',
-            'two': 2,
+            'model_context': {
+                'model_name': 'failing-model',
+                'api_version': 'B',
+                '1': 'one',
+                'two': 2
+            },
             'error': {
                 'name': 'PredictionError',
                 'request_id': 123,
@@ -532,10 +536,10 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             }
         }
         self.assertEqual(resp.status_code, 500)
-        self.assertEqual(actual['model_name'], expected['model_name'])
-        self.assertEqual(actual['api_version'], expected['api_version'])
-        self.assertEqual(actual['1'], expected['1'])
-        self.assertEqual(actual['two'], expected['two'])
+        self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
+        self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
+        self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
+        self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
         self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])

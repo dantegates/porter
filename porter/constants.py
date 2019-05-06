@@ -1,6 +1,9 @@
 import datetime
 
 
+_REQUEST_ID = 'request_id'
+
+
 class ERRORS:
     """Container for error response constants."""
     class RESPONSE:
@@ -14,11 +17,12 @@ class ERRORS:
                 USER_DATA: Key for user data.
             """
             ERROR = 'error'
-            REQUEST_ID = 'request_id'
+            REQUEST_ID = _REQUEST_ID
             NAME = 'name'
             MESSAGES = 'messages'
             TRACEBACK = 'traceback'
             USER_DATA = 'user_data'
+            MODEL_CONTEXT = 'model_context'
 
 
 class PREDICTION:
@@ -43,6 +47,7 @@ class PREDICTION:
             PREDICTIONS = 'predictions'
             PREDICTION = 'prediction'
             ERROR = ERRORS.RESPONSE.KEYS.ERROR
+            REQUEST_ID = _REQUEST_ID
 
 
 class BATCH_PREDICTION:
