@@ -454,20 +454,29 @@ class PredictionService(BaseService):
 
     def _predict(self):
         X_input = self.get_post_data()
+
         if self._validate_input:
             self.check_request(X_input, self.schema.input_columns,
                 self.allow_nulls, self.additional_checks)
             X_preprocessed = X_input.loc[:,self.schema.input_features]
         else:
             X_preprocessed = X_input
+
         if self._preprocess_model_input:
             X_preprocessed = self.preprocessor.process(X_preprocessed)
+
         preds = self.model.predict(X_preprocessed)
+
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
-        response = porter_responses.make_prediction_response(
-            self.name, self.api_version, self.meta, X_input[_ID], preds,
-            self.batch_prediction)
+
+        if self.batch_prediction:
+            response = porter_responses.make_batch_prediction_response(
+                self.name, self.api_version, self.meta, X_input[_ID], preds)
+        else:
+            response = porter_responses.make_prediction_response(
+                self.name, self.api_version, self.meta, X_input[_ID].iloc[0], preds[0])
+
         return response
 
     @classmethod

@@ -22,6 +22,7 @@ class ERRORS:
             MESSAGES = 'messages'
             TRACEBACK = 'traceback'
             USER_DATA = 'user_data'
+            MODEL_CONTEXT = 'model_context'
 
 
 class PREDICTION:
