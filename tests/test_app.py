@@ -352,6 +352,7 @@ class TestAppHealthChecks(unittest.TestCase):
 @mock.patch('porter.services.cf.return_message_on_error', True)
 @mock.patch('porter.services.cf.return_traceback_on_error', True)
 @mock.patch('porter.services.cf.return_user_data_on_error', True)
+@mock.patch('porter.services.cf.return_request_id_on_error', True)
 class TestAppErrorHandling(unittest.TestCase):
     @classmethod
     @mock.patch('porter.services.BaseService._ids', set())
@@ -377,9 +378,9 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.post('/test-error-handling/', data='bad data')
         actual = json.loads(resp.data)
         expected = {
+            'request_id': 123,
             'error': {
                 'name': 'BadRequest',
-                'request_id': 123,
                 'messages': ['The browser (or proxy) sent a request that this server could not understand.'],
                 # user_data is None when not passed or unreadable
                 'user_data': None,
@@ -388,7 +389,7 @@ class TestAppErrorHandling(unittest.TestCase):
         }
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(actual['error']['name'], expected['error']['name'])
-        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
@@ -397,9 +398,9 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.get('/not-found/')
         actual = json.loads(resp.data)
         expected = {
+            'request_id': 123,
             'error': {
                 'name': 'NotFound',
-                'request_id': 123,
                 'messages': ['The requested URL was not found on the server.  '
                              'If you entered the URL manually please check your spelling and '
                              'try again.'],
@@ -409,7 +410,7 @@ class TestAppErrorHandling(unittest.TestCase):
         }
         self.assertEqual(resp.status_code, 404)
         self.assertEqual(actual['error']['name'], expected['error']['name'])
-        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
@@ -418,9 +419,9 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.get('/test-error-handling/')
         actual = json.loads(resp.data)
         expected = {
+            'request_id': 123,
             'error': {
                 'name': 'MethodNotAllowed',
-                'request_id': 123,
                 'messages': ['The method is not allowed for the requested URL.'],
                 'user_data': None,
                 'traceback': re.compile(r'.*raise\sMethodNotAllowed.*')
@@ -428,7 +429,7 @@ class TestAppErrorHandling(unittest.TestCase):
         }
         self.assertEqual(resp.status_code, 405)
         self.assertEqual(actual['error']['name'], expected['error']['name'])
-        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
@@ -438,9 +439,9 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.post('/test-error-handling/', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
+                'request_id': 123,
             'error': {
                 'name': 'Exception',
-                'request_id': 123,
                 'messages': ['exceptional testing of exceptions'],
                 'user_data': user_data,
                 'traceback': re.compile(r'.*raise\sException')
@@ -448,7 +449,7 @@ class TestAppErrorHandling(unittest.TestCase):
         }
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(actual['error']['name'], expected['error']['name'])
-        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
@@ -466,9 +467,9 @@ class TestAppErrorHandling(unittest.TestCase):
                 '1': 'one',
                 'two': 2
             },
+            'request_id': 123,
             'error': {
                 'name': 'PredictionError',
-                'request_id': 123,
                 'messages': ['an error occurred during prediction'],
                 'user_data': user_data,
                 'traceback': re.compile(r".*testing\sa\sfailing\smodel.*"),
@@ -480,7 +481,7 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
         self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
-        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
@@ -496,6 +497,7 @@ class TestAppErrorHandling(unittest.TestCase):
 @mock.patch('porter.services.cf.return_message_on_error', True)
 @mock.patch('porter.services.cf.return_traceback_on_error', False)
 @mock.patch('porter.services.cf.return_user_data_on_error', False)
+@mock.patch('porter.responses.cf.return_request_id_on_error', True)
 class TestAppErrorHandlingCustomKeys(unittest.TestCase):
     @classmethod
     @mock.patch('porter.services.BaseService._ids', set())
@@ -529,9 +531,9 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
                 '1': 'one',
                 'two': 2
             },
+            'request_id': 123,
             'error': {
                 'name': 'PredictionError',
-                'request_id': 123,
                 'messages': ['an error occurred during prediction'],
             }
         }
@@ -541,7 +543,7 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
         self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
         self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
-        self.assertEqual(actual['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
         self.assertNotIn('user_data', actual['error'])
         self.assertNotIn('traceback', actual['error'])

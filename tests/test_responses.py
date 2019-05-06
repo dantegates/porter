@@ -46,6 +46,7 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', True)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
+    @mock.patch('porter.responses.cf.return_request_id_on_error', True)
     def test_make_error_response_non_porter_error(self):
         error = Exception('foo bar baz')
         try:
@@ -55,9 +56,9 @@ class TestErrorResponses(unittest.TestCase):
             actual_data = actual.data
             actual_status_code = actual.status_code
         expected = {
+            'request_id': 123,
             'error': {
                 'name': 'Exception',
-                'request_id': 123,
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test_make_error_response_non_porter_error\n'
@@ -67,13 +68,14 @@ class TestErrorResponses(unittest.TestCase):
             }
         }
         self.assertEqual(actual_data['error']['name'], expected['error']['name'])
-        self.assertEqual(actual_data['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual_data['request_id'], expected['request_id'])
         self.assertEqual(actual_data['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual_data['error']['traceback']))
 
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', True)
     @mock.patch('porter.responses.cf.return_user_data_on_error', True)
+    @mock.patch('porter.responses.cf.return_request_id_on_error', True)
     def test_make_error_response_porter_error(self):
         error = PredictionError('foo bar baz')
         error.update_model_context(model_name='M', api_version='V',
@@ -91,9 +93,9 @@ class TestErrorResponses(unittest.TestCase):
                 1: '1',
                 '2': 2,
             },
+            'request_id': 123,
             'error': {
                 'name': 'PredictionError',
-                'request_id': 123,
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test_make_error_response_porter_error\n'
@@ -104,7 +106,7 @@ class TestErrorResponses(unittest.TestCase):
         }
         self.assertEqual(actual_data['model_context'], expected['model_context'])
         self.assertEqual(actual_data['error']['name'], expected['error']['name'])
-        self.assertEqual(actual_data['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual_data['request_id'], expected['request_id'])
         self.assertEqual(actual_data['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual_data['error']['traceback']))
         self.assertEqual(actual_data['error']['user_data'], expected['error']['user_data'])
@@ -112,6 +114,7 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', True)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
+    @mock.patch('porter.responses.cf.return_request_id_on_error', True)
     def test_make_error_response_custom_response_keys_no_user_data(self):
         error = Exception('foo bar baz')
         try:
@@ -121,9 +124,9 @@ class TestErrorResponses(unittest.TestCase):
             actual_data = actual.data
             actual_status_code = actual.status_code
         expected = {
+            'request_id': 123,
             'error': {
                 'name': 'Exception',
-                'request_id': 123,
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
                               'line [0-9]*, in test_make_error_response_custom_response_keys_no_user_data\n'
@@ -132,7 +135,7 @@ class TestErrorResponses(unittest.TestCase):
             }
         }
         self.assertEqual(actual_data['error']['name'], expected['error']['name'])
-        self.assertEqual(actual_data['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual_data['request_id'], expected['request_id'])
         self.assertEqual(actual_data['error']['messages'], expected['error']['messages'])
         self.assertTrue(re.search(expected['error']['traceback'], actual_data['error']['traceback']))
         self.assertNotIn('user_data', actual_data['error'])
@@ -140,6 +143,7 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', False)
     @mock.patch('porter.responses.cf.return_traceback_on_error', False)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
+    @mock.patch('porter.responses.cf.return_request_id_on_error', False)
     def test_make_error_response_custom_response_keys_name_only(self):
         error = Exception('foo bar baz')
         try:
@@ -151,11 +155,10 @@ class TestErrorResponses(unittest.TestCase):
         expected = {
             'error': {
                 'name': 'Exception',
-                'request_id': 123,
             }
         }
         self.assertEqual(actual_data['error']['name'], expected['error']['name'])
-        self.assertEqual(actual_data['error']['request_id'], expected['error']['request_id'])
+        self.assertNotIn('request_id', actual_data)
         self.assertNotIn('messages', actual_data['error'])
         self.assertNotIn('traceback', actual_data['error'])
         self.assertNotIn('user_data', actual_data['error'])
@@ -163,6 +166,7 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', False)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
+    @mock.patch('porter.responses.cf.return_request_id_on_error', True)
     def test_make_error_response_custom_response_keys_name_and_messages(self):
         error = Exception('foo bar baz')
         try:
@@ -172,14 +176,14 @@ class TestErrorResponses(unittest.TestCase):
             actual_data = actual.data
             actual_status_code = actual.status_code
         expected = {
+            'request_id': 123,
             'error': {
                 'name': 'Exception',
-                'request_id': 123,
                 'messages': ('foo bar baz',),
             }
         }
         self.assertEqual(actual_data['error']['name'], expected['error']['name'])
-        self.assertEqual(actual_data['error']['request_id'], expected['error']['request_id'])
+        self.assertEqual(actual_data['request_id'], expected['request_id'])
         self.assertEqual(actual_data['error']['messages'], expected['error']['messages'])
         self.assertNotIn('traceback', actual_data['error'])
         self.assertNotIn('user_data', actual_data['error'])

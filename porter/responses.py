@@ -75,9 +75,19 @@ def make_error_response(error):
     error_dict[_ERROR_KEYS.NAME] = type(error).__name__
 
     # include optional attributes
+
+    ## these are "top-level" attributes
     if cf.return_request_id_on_error:
-        error_dict[_ERROR_KEYS.REQUEST_ID] = api.request_id()
-    
+        payload[_ERROR_KEYS.REQUEST_ID] = api.request_id()
+
+    # if the error was generated while predicting add model meta data to error
+    # message - note that isinstance(obj, cls) is True if obj is an instance
+    # of a subclass of cls
+    if isinstance(error, exc.ModelContextError):
+        payload[_ERROR_KEYS.MODEL_CONTEXT] = \
+            _init_model_context(error.model_name, error.api_version, error.model_meta)
+
+    ## these are "error specific" attributes
     if cf.return_message_on_error:
         # getattr() is used to work around werkzeug's bad implementation of
         # HTTPException (i.e. HTTPException inherits from Exception but exposes a
@@ -91,13 +101,6 @@ def make_error_response(error):
     if cf.return_user_data_on_error:
         # silent=True -> flask.request.get_json(...) returns None if user did not
         error_dict[_ERROR_KEYS.USER_DATA] = api.request_json(silent=True, force=True)
-
-    # if the error was generated while predicting add model meta data to error
-    # message - note that isinstance(obj, cls) is True if obj is an instance
-    # of a subclass of cls
-    if isinstance(error, exc.ModelContextError):
-        payload[_ERROR_KEYS.MODEL_CONTEXT] = \
-            _init_model_context(error.model_name, error.api_version, error.model_meta)
 
     return Response(payload, getattr(error, 'code', 500))
 
