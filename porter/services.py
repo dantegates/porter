@@ -737,7 +737,7 @@ class ModelApp:
         self.description = 'Model predictions' if description is None else description
         self.check_meta(self.meta)
 
-        self.services = []
+        self._services = {}
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
@@ -776,9 +776,10 @@ class ModelApp:
         if service.id in self._service_ids:
              raise exc.PorterError(
                 f'a service has already been added using id={service.id}')
+        if not type(service) in self._services:
+            self._services[type(service)] = {}
+        self._services[type(service)][(service.name, service.id)] = service
         self._service_ids.add(service.id)
-        self.services.append(service)
-        self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
         """
@@ -805,7 +806,7 @@ class ModelApp:
                     cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
                     cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status
                 }
-                for service in self.services
+                for service in self._services
             }
         }
 
@@ -845,8 +846,13 @@ class ModelApp:
         app.route('/', methods=['GET'])(serve_root)
         app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self))
         app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self))
+        app.route(cn.PREDICTION.ENDPOINT_TEMPLATE, methods=PREDICTION.methods)(serve_from_model)
+        app.route(cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE, methods=BATCH_PREDICTION.methods)(serve_bacth_from_model)
         return app
 
-    @property
-    def routes(self):
-        yield from self.app.url_map.iter_rules()
+    def _route_to_prediction(self, model_name, api_version):
+        # TODO: is this actually what I want to do?
+        service = self._services.get((model_name, api_verison))
+        if service is None:
+            return 404
+        return service()
