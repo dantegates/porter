@@ -21,7 +21,9 @@ install:
 
 docs:
 	docker run \
-	    -v $(pwd)/docs:/local \
+	    -v $(shell pwd)/docs:/local \
 	    --entrypoint docker-entrypoint.sh \
 	    openapitools/openapi-generator-cli \
-	    generate -i /local/porter-api.yaml -g html -o /local/html
+	    generate -i /local/porter-api.yaml -g html -o /local/html --skip-validate-spec
+
+.PHONY: docs
