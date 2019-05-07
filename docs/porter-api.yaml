@@ -108,8 +108,9 @@ components:
           format: date-time
         app_meta:
           type: object
-          properties: {}
-          description: Meta data associated with the application.
+          additionalProperties:
+            type: string
+          description: Arbitrary meta data associated with the application.
         services:
           $ref: '#/components/schemas/HealthCheckServices'
     HealthCheckServices:

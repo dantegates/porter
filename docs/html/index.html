@@ -183,7 +183,7 @@ font-style: italic;
     <div class="app-desc">REST API exposed by the porter framework.</div>
     <div class="app-desc">More information: <a href="https://openapi-generator.tech">https://openapi-generator.tech</a></div>
     <div class="app-desc">Contact Info: <a href="team@openapitools.org">team@openapitools.org</a></div>
-    <div class="app-desc">Version: v1</div>
+    <div class="app-desc">Version: 0.13.1</div>
     <div class="app-desc">BasePath:</div>
     <div class="license-info">All rights reserved</div>
     <div class="license-url">http://apache.org/licenses/LICENSE-2.0.html</div>
@@ -233,7 +233,9 @@ app is up and running but models are not guaranteed to be available.</div>
     <pre class="example"><code>{
   "deployed_on" : "2000-01-23T04:56:07.000+00:00",
   "porter_version" : "porter_version",
-  "app_meta" : "{}"
+  "app_meta" : {
+    "key" : "app_meta"
+  }
 }</code></pre>
 
     <h3 class="field-label">Produces</h3>
@@ -277,7 +279,9 @@ and ready for prediction.</div>
     <pre class="example"><code>{
   "deployed_on" : "2000-01-23T04:56:07.000+00:00",
   "porter_version" : "porter_version",
-  "app_meta" : "{}"
+  "app_meta" : {
+    "key" : "app_meta"
+  }
 }</code></pre>
 
     <h3 class="field-label">Produces</h3>
@@ -433,7 +437,7 @@ but this does not necessitate a model API change. default: null </div>
     <div class="field-items">
       <div class="param">porter_version (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> The version of porter on the deployed application. </div>
 <div class="param">deployed_on (optional)</div><div class="param-desc"><span class="param-type"><a href="#DateTime">Date</a></span> Start up time of the application. format: date-time</div>
-<div class="param">app_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#">Object</a></span> Meta data associated with the application. </div>
+<div class="param">app_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">map[String, String]</a></span> Meta data associated with the application. </div>
 <div class="param">services (optional)</div><div class="param-desc"><span class="param-type"><a href="#HealthCheckServices">HealthCheckServices</a></span>  </div>
     </div>  <!-- field-items -->
   </div>
