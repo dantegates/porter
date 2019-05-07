@@ -1,0 +1,191 @@
+openapi: 3.0.1
+info:
+  title: Porter REST API.
+  description: REST API exposed by the porter framework.
+  version: v1
+servers: []
+paths:
+  /-/alive:
+    get:
+      tags:
+      - health check
+      summary: The app's 'liveness'.
+      description: |
+        This endpoint returns 200 if the app is "alive". Liveness means the
+        app is up and running but models are not guaranteed to be available.
+      responses:
+        200:
+          description: The application is alive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+  /-/ready:
+    get:
+      tags:
+      - health check
+      summary: The app's 'readiness'.
+      description: |
+        This endpoint returns 200 if the app is "ready" and 503 otherwise.
+        Readiness means the app is up and running and all models are loaded
+        and ready for prediction.
+      responses:
+        200:
+          description: The application is ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        503:
+          description: The application is alive, but models are not yet ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+  /{model_name}/{api_version}/prediction:
+    get:
+      summary: Return 200 if the model endpoint is ready for prediction.
+      parameters:
+        - $ref: '#/components/paramters/model_name'
+        - $ref: '#/components/paramters/api_version'
+      responses:
+        200:
+          description: Prediction endpoint is available.
+          content: {}
+    # post:
+    #   summary: Get a prediction.
+    #   parameters:
+    #     - $ref: '#/components/paramters/PredictionParameters'
+      # requestBody:
+      #   description: Instance(s) to predict on.
+      #   content:
+      #     application/json:
+      #       schema: {}
+        required: true
+      responses:
+        200:
+          description: Successfully predicted on input.
+        #   content:
+        #     application/json:
+        #       schema: {}
+        # 400:
+        #   description: |
+        #     Bad request. Payload could not be parsed.
+        #   content:
+        #     application/json:
+        #       schema:
+        #         $ref: '#/components/schemas/ModelContextError'
+        # 422:
+        #   description: |
+        #     Unprocessable entity. Payload was parsed but contained invalid data.
+        #   content:
+        #     application/json:
+        #       schema:
+        #         $ref: '#/components/schemas/ModelContextError'
+        # 500:
+        #   description: |
+        #     Internal server error. An error occurred during prediction.
+        #   content:
+        #     application/json:
+        #       schema:
+        #         $ref: '#/components/schemas/ModelContextError'
+components:
+  schemas:
+    HealthCheck:
+      type: object
+      properties:
+        porter_version:
+          type: string
+          description: The version of porter on the deployed application.
+        deployed_on:
+          type: string
+          description: Start up time of the application.
+          format: date-time
+        app_meta:
+          type: object
+          properties: {}
+          description: Meta data associated with the application.
+        services:
+          type: array
+          description: Models available for predicting in the application.
+          items:
+            type: object
+            properties:
+              endpoint:
+                type: string
+                description: Path the model is exposed on.
+              meta:
+                type: object
+                properties: {}
+                description: Meta data associated with the model.
+              name:
+                type: string
+                description: Name of the model.
+              api_version:
+                type: string
+                description: API version of the model input.
+              status:
+                type: string
+                description: Status of the model (ready, not ready, etc.)
+      description: Description of the application's status.
+  parameters:
+    mdoel_name:
+      in: path
+      name: model_name
+      schema:
+        type: string
+      description: |
+        The name of the model you wish to receive a prediction from.
+      required: True
+    api_version:
+      in: path
+      name: api_version
+      schema:
+        type: string
+      description: |
+        The model API version. This corresponds to the schema of the
+        input/output. Note that the underlying algorithm could change
+        but this does not necessitate a model API change.
+      required: True
+      # GenericError:
+      #   type: object
+      #   properties:
+      #     request_id:
+      #       type: string
+      #       description: A unique ID for the request.
+      #     error:
+      #       type: object:
+      #         properties:
+      #           messages:
+      #             description: Error messages
+      #             type: array
+      #               items: string
+      #           name:
+      #             type: string
+      #             description: Name of the error
+      # ModelContextError:
+      #   type: object
+      #   properties:
+      #     request_id:
+      #       type: string
+      #       description: A unique ID for the request.
+      #     error:
+      #       type: object:
+      #         properties:
+      #           messages:
+      #             description: Error messages
+      #             type: array
+      #               items: string
+      #           name:
+      #             type: string
+      #             description: Name of the error
+      #     model_context:
+      #       api_version:
+      #         type: string
+      #         description: The model API version.
+      #       model_name:
+      #         type: string
+      #         description: The name of the model.
+      #       request_id:
+      #         type: string
+      #         description: A unique ID for the request.
