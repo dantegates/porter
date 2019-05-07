@@ -24,7 +24,7 @@ class InvalidModelInput(ModelContextError):
     """Exception class to raise when the POST JSON is not valid for
     predicting.
     """
-    code = 400
+    code = 422
 
 
 class PredictionError(ModelContextError):

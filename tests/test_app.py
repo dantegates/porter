@@ -205,7 +205,7 @@ class TestAppPredictions(unittest.TestCase):
             self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data6)),
         ]
         # check status codes
-        self.assertTrue(all(actual.status_code == 400 for actual in actuals))
+        self.assertTrue(all(actual.status_code == 422 for actual in actuals))
         # check that all objects have error key
         self.assertTrue(all('error' in json.loads(actual.data) for actual in actuals))
         # check response values
