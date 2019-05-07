@@ -378,12 +378,6 @@ class PredictionService(BaseService):
             if POST request is invalid.
     """
 
-    # response keys that model meta data cannot override
-    reserved_keys = (cn.MODEL_CONTEXT_KEYS.MODEL_NAME,
-                     cn.MODEL_CONTEXT_KEYS.API_VERSION,
-                     cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION,
-                     cn.GENERIC_ERROR_KEYS.ERROR)
-
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
@@ -406,17 +400,6 @@ class PredictionService(BaseService):
     def define_endpoint(self):
         return cn.PREDICTION_ENDPOINT_TEMPLATE.format(
             model_name=self.name, api_version=self.api_version)
-
-    def check_meta(self, meta):
-        """Perform standard meta data checks and inspect meta data keys for
-        reserved keywords.
-        """
-        super().check_meta(meta)
-        invalid_keys = [key for key in meta if key in self.reserved_keys]
-        if invalid_keys:
-            raise exc.PorterError(
-                'the following keys are reserved for prediction response payloads '
-                f'and cannot be used in `meta`: {invalid_keys}')
 
     @property
     def status(self):

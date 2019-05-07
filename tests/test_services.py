@@ -427,22 +427,17 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
 
-    @mock.patch('porter.services.PredictionService.reserved_keys', [])
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor(self):
         service_config = PredictionService(
             model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4})
 
-    @mock.patch('porter.services.PredictionService.reserved_keys', ['1', '2'])
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor_fail(self):
         with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
             with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
                 service_config = PredictionService(
                     model=None, name='foo', api_version='bar', meta=object())
-        with self.assertRaisesRegex(exc.PorterError, '.*keys are reserved for prediction.*'):
-            service_config = PredictionService(
-                model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4})
         with self.assertRaisesRegex(exc.PorterError, '.*callable.*'):
             service_config = PredictionService(
                 model=None, additional_checks=1)
