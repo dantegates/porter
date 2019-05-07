@@ -13,3 +13,6 @@ virtualenv -p $(which python3.6) testenv
 source testenv/bin/activate
 make install
 rm -rf testenv
+
+# generate docs
+make docs
