@@ -24,6 +24,13 @@ docs:
 	    -v $(shell pwd)/docs:/local \
 	    --entrypoint docker-entrypoint.sh \
 	    openapitools/openapi-generator-cli \
-	    generate -i /local/porter-api.yaml -g html -o /local/html --skip-validate-spec
+	    generate -i /local/porter-api.yaml -g html -o /local/html --skip-validate-spec --generate-alias-as-model
+
+test-docs:
+	docker run \
+	    -v $(shell pwd)/docs:/local \
+	    --entrypoint docker-entrypoint.sh \
+	    openapitools/openapi-generator-cli \
+	    generate -i /local/porter-api.yaml -g python -o /local/python
 
 .PHONY: docs
