@@ -112,22 +112,23 @@ components:
             type: string
           description: Arbitrary meta data associated with the application.
         services:
-          $ref: '#/components/schemas/HealthCheckServices'
-    HealthCheckServices:
-      type: object
-      description: Models available for predicting in the application.
-      additionalProperties:
-        type: object
-        properties:
-          endpoint:
-            type: string
-            description: Path the model is exposed on.
-          status:
-            type: string
-            description: Status of the model (ready, not ready, etc.)
-          model_context:
-            $ref: '#/components/schemas/ModelContext'
-        description: Description of the application's status.
+          type: object
+          description: Models available for predicting in the application.
+          additionalProperties:
+            type: object
+            properties:
+              endpoint:
+                type: string
+                description: Path the model is exposed on.
+              status:
+                type: string
+                description: |
+                  Status of the model. If the app is ready the value will be "READY".
+                  Otherwise the value will be a string indicating the status of the
+                  service.
+              model_context:
+                $ref: '#/components/schemas/ModelContext'
+            description: Description of the application's status.
     GenericError:
       type: object
       properties:
@@ -168,6 +169,8 @@ components:
           description: The version of the models API.
         model_meta:
           type: object
+          additionalProperties:
+            type: string
           description: Arbitrary meta-data associated with the model.
   parameters:
     model_name:

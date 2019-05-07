@@ -235,6 +235,19 @@ app is up and running but models are not guaranteed to be available.</div>
   "porter_version" : "porter_version",
   "app_meta" : {
     "key" : "app_meta"
+  },
+  "services" : {
+    "key" : {
+      "endpoint" : "endpoint",
+      "model_context" : {
+        "model_name" : "model_name",
+        "api_version" : "api_version",
+        "model_meta" : {
+          "key" : "model_meta"
+        }
+      },
+      "status" : "status"
+    }
   }
 }</code></pre>
 
@@ -281,6 +294,19 @@ and ready for prediction.</div>
   "porter_version" : "porter_version",
   "app_meta" : {
     "key" : "app_meta"
+  },
+  "services" : {
+    "key" : {
+      "endpoint" : "endpoint",
+      "model_context" : {
+        "model_name" : "model_name",
+        "api_version" : "api_version",
+        "model_meta" : {
+          "key" : "model_meta"
+        }
+      },
+      "status" : "status"
+    }
   }
 }</code></pre>
 
@@ -410,7 +436,7 @@ but this does not necessitate a model API change. default: null </div>
     <li><a href="#ErrorBody"><code>ErrorBody</code> - </a></li>
     <li><a href="#GenericError"><code>GenericError</code> - </a></li>
     <li><a href="#HealthCheck"><code>HealthCheck</code> - </a></li>
-    <li><a href="#HealthCheckServices"><code>HealthCheckServices</code> - </a></li>
+    <li><a href="#HealthCheck_services"><code>HealthCheck_services</code> - </a></li>
     <li><a href="#ModelContext"><code>ModelContext</code> - </a></li>
     <li><a href="#ModelContextError"><code>ModelContextError</code> - </a></li>
   </ol>
@@ -437,15 +463,18 @@ but this does not necessitate a model API change. default: null </div>
     <div class="field-items">
       <div class="param">porter_version (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> The version of porter on the deployed application. </div>
 <div class="param">deployed_on (optional)</div><div class="param-desc"><span class="param-type"><a href="#DateTime">Date</a></span> Start up time of the application. format: date-time</div>
-<div class="param">app_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">map[String, String]</a></span> Meta data associated with the application. </div>
-<div class="param">services (optional)</div><div class="param-desc"><span class="param-type"><a href="#HealthCheckServices">HealthCheckServices</a></span>  </div>
+<div class="param">app_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">map[String, String]</a></span> Arbitrary meta data associated with the application. </div>
+<div class="param">services (optional)</div><div class="param-desc"><span class="param-type"><a href="#HealthCheck_services">map[String, HealthCheck_services]</a></span> Models available for predicting in the application. </div>
     </div>  <!-- field-items -->
   </div>
   <div class="model">
-    <h3><a name="HealthCheckServices"><code>HealthCheckServices</code> - </a> <a class="up" href="#__Models">Up</a></h3>
-    <div class='model-description'>Models available for predicting in the application.</div>
+    <h3><a name="HealthCheck_services"><code>HealthCheck_services</code> - </a> <a class="up" href="#__Models">Up</a></h3>
+    <div class='model-description'>Description of the application's status.</div>
     <div class="field-items">
-          </div>  <!-- field-items -->
+      <div class="param">endpoint (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Path the model is exposed on. </div>
+<div class="param">status (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Status of the model (ready, not ready, etc.) </div>
+<div class="param">model_context (optional)</div><div class="param-desc"><span class="param-type"><a href="#ModelContext">ModelContext</a></span>  </div>
+    </div>  <!-- field-items -->
   </div>
   <div class="model">
     <h3><a name="ModelContext"><code>ModelContext</code> - </a> <a class="up" href="#__Models">Up</a></h3>
@@ -453,7 +482,7 @@ but this does not necessitate a model API change. default: null </div>
     <div class="field-items">
       <div class="param">model_name (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> The name of the model. </div>
 <div class="param">api_version (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> The version of the models API. </div>
-<div class="param">model_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#">Object</a></span> Arbitrary meta-data associated with the model. </div>
+<div class="param">model_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">map[String, String]</a></span> Arbitrary meta-data associated with the model. </div>
     </div>  <!-- field-items -->
   </div>
   <div class="model">
