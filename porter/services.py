@@ -36,7 +36,7 @@ from . import exceptions as exc
 from . import responses as porter_responses
 
 # alias for convenience
-_ID = cn.PREDICTION.RESPONSE.KEYS.ID
+_ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
 
 _logger = logging.getLogger(__name__)
 
@@ -379,10 +379,10 @@ class PredictionService(BaseService):
     """
 
     # response keys that model meta data cannot override
-    reserved_keys = (cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME,
-                     cn.PREDICTION.RESPONSE.KEYS.API_VERSION,
-                     cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS,
-                     cn.PREDICTION.RESPONSE.KEYS.ERROR)
+    reserved_keys = (cn.MODEL_CONTEXT_KEYS.MODEL_NAME,
+                     cn.MODEL_CONTEXT_KEYS.API_VERSION,
+                     cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION,
+                     cn.GENERIC_ERROR_KEYS.ERROR)
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
 
@@ -404,7 +404,7 @@ class PredictionService(BaseService):
         super().__init__(**kwargs)
 
     def define_endpoint(self):
-        return cn.PREDICTION.ENDPOINT_TEMPLATE.format(
+        return cn.PREDICTION_ENDPOINT_TEMPLATE.format(
             model_name=self.name, api_version=self.api_version)
 
     def check_meta(self, meta):
@@ -421,7 +421,7 @@ class PredictionService(BaseService):
     @property
     def status(self):
         """Return 'READY'. Instances of this class are always ready."""
-        return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
+        return cn.HEALTH_CHECK_VALUES.IS_READY
 
     def serve(self):
         """Retrive POST request data from flask and return a response
@@ -614,8 +614,8 @@ class MiddlewareService(BaseService):
     """
 
     reserved_keys = (
-        cn.BATCH_PREDICTION.RESPONSE.KEYS.MODEL_ENDPOINT,
-        cn.BATCH_PREDICTION.RESPONSE.KEYS.MAX_WORKERS
+        cn.MIDDLEWARE_MODEL_CONTEXT_KEYS.BACKEND_MODEL_ENDPOINT,
+        cn.MIDDLEWARE_MODEL_CONTEXT_KEYS.MAX_WORKERS
     )
 
     route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
@@ -638,7 +638,7 @@ class MiddlewareService(BaseService):
         return f'{self.name}:middleware:{self.api_version}'
 
     def define_endpoint(self):
-        return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(
+        return cn.BATCH_PREDICTION_ENDPOINT_TEMPLATE.format(
             model_name=self.name, api_version=self.api_version)
 
     def check_meta(self, meta):
@@ -671,7 +671,7 @@ class MiddlewareService(BaseService):
             error = err
         else:
             if model_status == 200:
-                return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
+                return cn.HEALTH_CHECK_VALUES.IS_READY
             return f'GET {self.model_endpoint} returned {model_status}'
         return f'cannot communicate with {self.model_endpoint}: {error}'
 
@@ -829,6 +829,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self))
-        app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self))
+        app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(ServeAlive(self))
+        app.route(cn.READINESS_ENDPOINT, methods=['GET'])(ServeReady(self))
         return app

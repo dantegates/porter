@@ -279,7 +279,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
             'app_meta': {}
         }
@@ -306,7 +306,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {
                 'foo:bar': {
                     'status': 'NOTREADY',
@@ -340,7 +340,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
             'services': {
                 'model1': {
@@ -380,7 +380,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
             'services': {
                 'model1:1.0.0': {

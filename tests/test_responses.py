@@ -230,7 +230,7 @@ class TestHealthChecks(unittest.TestCase):
         actual = _build_app_state(mock_app)
         expected = {
             'porter_version': VERSION,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {'foo': 1},
             'services': {
                 0: {
@@ -276,7 +276,7 @@ class TestHealthChecks(unittest.TestCase):
         actual = _build_app_state(mock_app)
         expected = {
             'porter_version': VERSION,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {'foo': 1},
             'services': {}
         }

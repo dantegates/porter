@@ -539,7 +539,7 @@ class TestMiddlewareService(unittest.TestCase):
         mock_get.return_value = mock.Mock(status_code=200)
         middleware_service = MiddlewareService()
         middleware_service.model_endpoint = 'localhost:5000/a-model/prediction'
-        self.assertEqual(middleware_service.status, cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY)
+        self.assertEqual(middleware_service.status, cn.HEALTH_CHECK_VALUES.IS_READY)
 
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.get')

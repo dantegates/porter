@@ -111,20 +111,22 @@ components:
           properties: {}
           description: Meta data associated with the application.
         services:
-          type: array
-          description: Models available for predicting in the application.
-          items:
-            type: object
-            properties:
-              endpoint:
-                type: string
-                description: Path the model is exposed on.
-              status:
-                type: string
-                description: Status of the model (ready, not ready, etc.)
-              model_context:
-                $ref: '#/components/schemas/ModelContext'
-      description: Description of the application's status.
+          $ref: '#/components/schemas/HealthCheckServices'
+    HealthCheckServices:
+      type: object
+      description: Models available for predicting in the application.
+      additionalProperties:
+        type: object
+        properties:
+          endpoint:
+            type: string
+            description: Path the model is exposed on.
+          status:
+            type: string
+            description: Status of the model (ready, not ready, etc.)
+          model_context:
+            $ref: '#/components/schemas/ModelContext'
+        description: Description of the application's status.
     GenericError:
       type: object
       properties:
