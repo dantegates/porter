@@ -37,58 +37,63 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
         503:
-          description: The application is alive, but models are not yet ready.
+          description: The application is alive, but models are not yet read
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
   /{model_name}/{api_version}/prediction:
     get:
+      tags:
+      - predictions
       summary: Return 200 if the model endpoint is ready for prediction.
       parameters:
-        - $ref: '#/components/paramters/model_name'
-        - $ref: '#/components/paramters/api_version'
+        - $ref: '#/components/parameters/model_name'
+        - $ref: '#/components/parameters/api_version'
       responses:
         200:
           description: Prediction endpoint is available.
           content: {}
-    # post:
-    #   summary: Get a prediction.
-    #   parameters:
-    #     - $ref: '#/components/paramters/PredictionParameters'
-      # requestBody:
-      #   description: Instance(s) to predict on.
-      #   content:
-      #     application/json:
-      #       schema: {}
+    post:
+      tags:
+      - predictions
+      summary: Get a prediction.
+      parameters:
+        - $ref: '#/components/parameters/model_name'
+        - $ref: '#/components/parameters/api_version'
+      requestBody:
+        description: Instance(s) to predict on.
+        content:
+          application/json:
+            schema: {}
         required: true
       responses:
         200:
           description: Successfully predicted on input.
-        #   content:
-        #     application/json:
-        #       schema: {}
-        # 400:
-        #   description: |
-        #     Bad request. Payload could not be parsed.
-        #   content:
-        #     application/json:
-        #       schema:
-        #         $ref: '#/components/schemas/ModelContextError'
-        # 422:
-        #   description: |
-        #     Unprocessable entity. Payload was parsed but contained invalid data.
-        #   content:
-        #     application/json:
-        #       schema:
-        #         $ref: '#/components/schemas/ModelContextError'
-        # 500:
-        #   description: |
-        #     Internal server error. An error occurred during prediction.
-        #   content:
-        #     application/json:
-        #       schema:
-        #         $ref: '#/components/schemas/ModelContextError'
+          content:
+            application/json:
+              schema: {}
+        400:
+          description: |
+            Bad request. Payload could not be parsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelContextError'
+        422:
+          description: |
+            Unprocessable entity. Payload was parsed but contained invalid data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelContextError'
+        500:
+          description: |
+            Internal server error. An error occurred during prediction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelContextError'
 components:
   schemas:
     HealthCheck:
@@ -114,22 +119,55 @@ components:
               endpoint:
                 type: string
                 description: Path the model is exposed on.
-              meta:
-                type: object
-                properties: {}
-                description: Meta data associated with the model.
-              name:
-                type: string
-                description: Name of the model.
-              api_version:
-                type: string
-                description: API version of the model input.
               status:
                 type: string
                 description: Status of the model (ready, not ready, etc.)
+              model_context:
+                $ref: '#/components/schemas/ModelContext'
       description: Description of the application's status.
+    GenericError:
+      type: object
+      properties:
+        request_id:
+          type: string
+          description: A unique ID for the request.
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    ErrorBody:
+      type: object
+      properties:
+        messages:
+          description: Error messages
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+          description: Name of the error
+    ModelContextError:
+      type: object
+      properties:
+        request_id:
+          type: string
+          description: A unique ID for the request.
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        model_context:
+          $ref: '#/components/schemas/ModelContext'
+    ModelContext:
+      type: object
+      properties:
+        model_name:
+          type: string
+          description: The name of the model.
+        api_version:
+          type: string
+          description: The version of the models API.
+        model_meta:
+          type: object
+          description: Arbitrary meta-data associated with the model.
   parameters:
-    mdoel_name:
+    model_name:
       in: path
       name: model_name
       schema:
@@ -147,45 +185,4 @@ components:
         input/output. Note that the underlying algorithm could change
         but this does not necessitate a model API change.
       required: True
-      # GenericError:
-      #   type: object
-      #   properties:
-      #     request_id:
-      #       type: string
-      #       description: A unique ID for the request.
-      #     error:
-      #       type: object:
-      #         properties:
-      #           messages:
-      #             description: Error messages
-      #             type: array
-      #               items: string
-      #           name:
-      #             type: string
-      #             description: Name of the error
-      # ModelContextError:
-      #   type: object
-      #   properties:
-      #     request_id:
-      #       type: string
-      #       description: A unique ID for the request.
-      #     error:
-      #       type: object:
-      #         properties:
-      #           messages:
-      #             description: Error messages
-      #             type: array
-      #               items: string
-      #           name:
-      #             type: string
-      #             description: Name of the error
-      #     model_context:
-      #       api_version:
-      #         type: string
-      #         description: The model API version.
-      #       model_name:
-      #         type: string
-      #         description: The name of the model.
-      #       request_id:
-      #         type: string
-      #         description: A unique ID for the request.
+ 
