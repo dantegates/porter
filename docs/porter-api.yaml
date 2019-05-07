@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: Porter REST API.
   description: REST API exposed by the porter framework.
-  version: v1
+  version: 0.13.1
 servers: []
 paths:
   /-/alive:
