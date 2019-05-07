@@ -50,6 +50,7 @@ class MODEL_CONTEXT_KEYS:
     MODEL_NAME = 'model_name'
     API_VERSION = 'api_version'
     MODEL_META = 'model_meta'
+    REQUEST_ID = _REQUEST_ID
 
 
 class MIDDLEWARE_MODEL_CONTEXT_KEYS(MODEL_CONTEXT_KEYS):
