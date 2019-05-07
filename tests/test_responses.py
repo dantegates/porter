@@ -59,6 +59,58 @@ class Test(unittest.TestCase):
         self.assertEqual(actual.data, expected)
         self.assertIsNone(actual.status_code)
 
+    @mock.patch('porter.responses.cf.return_request_id_with_prediction', True)
+    @mock.patch('porter.responses.api.request_id', lambda: 123)
+    def test_make_batch_prediction_response_with_request_id(self):
+        # on setting name after instantiation see
+        # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
+        mock_model_service = mock.Mock(
+            api_version='1', meta={1: '2', '3': 4})
+        mock_model_service.configure_mock(name='a-model')
+        actual = make_batch_prediction_response(mock_model_service, [1, 2, 3], [10.0, 11.0, 12.0])
+        expected = {
+            'request_id': 123,
+            'model_context': {
+                'model_name': 'a-model',
+                'api_version': '1',
+                'model_meta': {
+                    1: '2',
+                    '3': 4,
+                }
+            },
+            'predictions': [
+                {'id': 1, 'prediction': 10.0},
+                {'id': 2, 'prediction': 11.0},
+                {'id': 3, 'prediction': 12.0}
+            ]
+        }
+        self.assertEqual(actual.data, expected)
+        self.assertIsNone(actual.status_code)
+
+    @mock.patch('porter.responses.cf.return_request_id_with_prediction', True)
+    @mock.patch('porter.responses.api.request_id', lambda: 123)
+    def test_make_prediction_response_with_request_id(self):
+        # on setting name after instantiation see
+        # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
+        mock_model_service = mock.Mock(
+            api_version='1', meta={1: '2', '3': 4})
+        mock_model_service.configure_mock(name='a-model')
+        actual = make_prediction_response(mock_model_service, 1, 10.0)
+        expected = {
+            'request_id': 123,
+            'model_context': {
+                'model_name': 'a-model',
+                'api_version': '1',
+                'model_meta': {
+                    1: '2',
+                    '3': 4
+                }
+            },
+            'predictions': {'id': 1, 'prediction': 10.0}
+        }
+        self.assertEqual(actual.data, expected)
+        self.assertIsNone(actual.status_code)
+
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)
 @mock.patch('porter.responses.api.request_json', lambda *args, **kwargs: {'foo': 1})

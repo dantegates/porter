@@ -16,6 +16,7 @@ from porter.services import ModelApp, PredictionService, MiddlewareService
 from porter import constants as cn
 
 
+@mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestAppPredictions(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -121,6 +122,7 @@ class TestAppPredictions(unittest.TestCase):
         actual3 = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
+            'request_id': 0,
             'model_context': {
                 'model_name': 'a-model',
                 'api_version': 'v0',
@@ -135,6 +137,7 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected2 = {
+            'request_id': 1,
             'model_context': {
                 'model_name': 'anotherModel',
                 'api_version': 'v1',
@@ -149,6 +152,7 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected3 = {
+            'request_id': 123,
             'model_context': {
                 'model_name': 'model-3',
                 'api_version': 'v0.0-alpha',
@@ -607,15 +611,11 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             }
         }
         self.assertEqual(resp.status_code, 500)
-        self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
-        self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
-        self.assertEqual(actual['model_context']['model_meta']['1'], expected['model_context']['model_meta']['1'])
-        self.assertEqual(actual['model_context']['model_meta']['two'], expected['model_context']['model_meta']['two'])
-        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['model_context'], expected['model_context'])
+        self.assertEqual(actual['model_context']['model_meta'], expected['model_context']['model_meta'])
+        self.assertEqual(actual['error'], expected['error'])
         self.assertEqual(actual['request_id'], expected['request_id'])
-        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
-        self.assertNotIn('user_data', actual['error'])
-        self.assertNotIn('traceback', actual['error'])
+        self.assertEqual(actual['error'], expected['error'])
 
     @classmethod
     def add_failing_model_service(cls):
