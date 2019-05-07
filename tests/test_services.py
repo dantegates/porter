@@ -102,10 +102,14 @@ class TestPredictionService(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            'model_name': test_model_name,
-            'api_version': test_api_version,
-            '1': '2',
-            '3': 4,
+            'model_context': {
+                'model_name': test_model_name,
+                'api_version': test_api_version,
+                'model_meta': {
+                    '1': '2',
+                    '3': 4
+                }
+            },
             'predictions': [
                 {'id': 1, 'prediction': 20},
                 {'id': 2, 'prediction': 26},
@@ -152,10 +156,14 @@ class TestPredictionService(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            'model_name': test_model_name,
-            'api_version': test_api_version,
-            '1': '2',
-            '3': 4,
+            'model_context': {
+                'model_name': test_model_name,
+                'api_version': test_api_version,
+                'model_meta': {
+                    '1': '2',
+                    '3': 4
+                }
+            },
             'predictions': {'id': 1, 'prediction': 20}
         }
         self.assertEqual(actual, expected)

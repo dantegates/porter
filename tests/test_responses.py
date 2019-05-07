@@ -14,10 +14,14 @@ class Test(unittest.TestCase):
     def test_make_batch_prediction_response(self):
         actual = make_batch_prediction_response('a-model', '1', {1: '2', '3': 4}, [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
-            'model_name': 'a-model',
-            'api_version': '1',
-            1: '2',
-            '3': 4,
+            'model_context': {
+                'model_name': 'a-model',
+                'api_version': '1',
+                'model_meta': {
+                    1: '2',
+                    '3': 4,
+                }
+            },
             'predictions': [
                 {'id': 1, 'prediction': 10.0},
                 {'id': 2, 'prediction': 11.0},
@@ -30,10 +34,14 @@ class Test(unittest.TestCase):
     def test_make_prediction_response(self):
         actual = make_prediction_response('a-model', '1', {1: '2', '3': 4}, 1, 10.0)
         expected = {
-            'model_name': 'a-model',
-            'api_version': '1',
-            1: '2',
-            '3': 4,
+            'model_context': {
+                'model_name': 'a-model',
+                'api_version': '1',
+                'model_meta': {
+                    1: '2',
+                    '3': 4
+                }
+            },
             'predictions': {'id': 1, 'prediction': 10.0}
         }
         self.assertEqual(actual.data, expected)
@@ -90,8 +98,10 @@ class TestErrorResponses(unittest.TestCase):
             'model_context': {
                 'model_name': 'M',
                 'api_version': 'V',
-                1: '1',
-                '2': 2,
+                'model_meta': {
+                    1: '1',
+                    '2': 2
+                }
             },
             'request_id': 123,
             'error': {

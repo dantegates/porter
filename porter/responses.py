@@ -30,7 +30,9 @@ class Response:
 
 def make_prediction_response(model_name, api_version, model_meta, id_value,
                              prediction):
-    payload = _init_model_context(model_name, api_version, model_meta)
+    payload = {}
+    payload[_PREDICTION_KEYS.MODEL_CONTEXT] = \
+        _init_model_context(model_name, api_version, model_meta)
     payload[_PREDICTION_KEYS.PREDICTIONS] = {
         _PREDICTION_KEYS.ID: id_value,
         _PREDICTION_KEYS.PREDICTION: prediction
@@ -41,7 +43,9 @@ def make_prediction_response(model_name, api_version, model_meta, id_value,
 
 def make_batch_prediction_response(model_name, api_version, model_meta, id_values,
                                    predictions):
-    payload = _init_model_context(model_name, api_version, model_meta)
+    payload = {}
+    payload[_PREDICTION_KEYS.MODEL_CONTEXT] = \
+        _init_model_context(model_name, api_version, model_meta)
     payload[_PREDICTION_KEYS.PREDICTIONS] = [
         {
             _PREDICTION_KEYS.ID: id,
@@ -59,7 +63,7 @@ def _init_model_context(model_name, api_version, model_meta):
     }
     if cf.return_request_id_with_prediction:
         payload[_PREDICTION_KEYS.REQUEST_ID] = api.request_id()
-    payload.update(model_meta)
+    payload[_PREDICTION_KEYS.MODEL_META] = model_meta
     return payload
 
 

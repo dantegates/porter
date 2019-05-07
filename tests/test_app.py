@@ -121,8 +121,11 @@ class TestAppPredictions(unittest.TestCase):
         actual3 = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
-            'model_name': 'a-model',
-            'api_version': 'v0',
+            'model_context': {
+                'model_name': 'a-model',
+                'api_version': 'v0',
+                'model_meta': {}
+            },
             'predictions': [
                 {'id': 1, 'prediction': 0},
                 {'id': 2, 'prediction': -2},
@@ -132,8 +135,11 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected2 = {
-            'model_name': 'anotherModel',
-            'api_version': 'v1',
+            'model_context': {
+                'model_name': 'anotherModel',
+                'api_version': 'v1',
+                'model_meta': {}
+            },
             'predictions': [
                 {'id': 1, 'prediction': 10},
                 {'id': 2, 'prediction': 11},
@@ -143,15 +149,20 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected3 = {
-            'model_name': 'model-3',
-            'api_version': 'v0.0-alpha',
-            'algorithm': 'randomforest',
-            'lasttrained': 1,
+            'model_context': {
+                'model_name': 'model-3',
+                'api_version': 'v0.0-alpha',
+                'model_meta': {
+                    'algorithm': 'randomforest',
+                    'lasttrained': 1
+                }
+            },
             'predictions': {'id': 1, 'prediction': -5}
         }
-        self.assertEqual(actual1, expected1)
-        self.assertEqual(actual2, expected2)
-        self.assertEqual(actual3, expected3)
+        for key in ['model_context', 'predictions']:
+            self.assertCountEqual(actual1[key], expected1[key])
+            self.assertCountEqual(actual2[key], expected2[key])
+            self.assertCountEqual(actual3[key], expected3[key])
 
     @mock.patch('porter.services.api.post')
     def test_middleware(self, mock_post):
@@ -168,11 +179,17 @@ class TestAppPredictions(unittest.TestCase):
         actual = self.app.post('/model-3/version1/batchPrediction', data=json.dumps(post_data))
         actual = json.loads(actual.data)
         expected = [
-            {'model_name': 'model-3',
-             'api_version': 'v0.0-alpha',
-             'algorithm': 'randomforest',
-             'lasttrained': 1,
-             'predictions': {'id': d['id'], 'prediction': -d['feature1']}}
+            {
+                'model_context': {
+                    'model_name': 'model-3',
+                    'api_version': 'v0.0-alpha',
+                    'model_meta': {
+                        'algorithm': 'randomforest',
+                        'lasttrained': 1
+                    }
+                },
+                'predictions': {'id': d['id'], 'prediction': -d['feature1']}
+            }
             for d in post_data
         ]
         actual_hashable = [sorted(tuple(x.items())) for x in actual]
@@ -224,9 +241,11 @@ class TestAppPredictions(unittest.TestCase):
         # check that model context data is passed into responses
         expected_model_context_values = [
             {'model_name': 'a-model', 'api_version': 'v0'},
-            {'model_name': 'model-3', 'api_version': 'v0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'model-3', 'api_version': 'v0.0-alpha',
+             'model_meta': {'algorithm': 'randomforest', 'lasttrained': 1}},
             {'model_name': 'anotherModel', 'api_version': 'v1'},
-            {'model_name': 'model-3', 'api_version': 'v0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'model-3', 'api_version': 'v0.0-alpha',
+             'model_meta': {'algorithm': 'randomforest', 'lasttrained': 1}},
             {'model_name': 'a-model', 'api_version': 'v0'},
             {'model_name': 'anotherModel', 'api_version': 'v1'},
         ]
@@ -439,7 +458,7 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.post('/test-error-handling/', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
-                'request_id': 123,
+            'request_id': 123,
             'error': {
                 'name': 'Exception',
                 'messages': ['exceptional testing of exceptions'],
@@ -464,8 +483,10 @@ class TestAppErrorHandling(unittest.TestCase):
             'model_context': {
                 'model_name': 'failing-model',
                 'api_version': 'B',
-                '1': 'one',
-                'two': 2
+                'model_meta': {
+                    '1': 'one',
+                    'two': 2
+                },
             },
             'request_id': 123,
             'error': {
@@ -478,8 +499,8 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
         self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
-        self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
-        self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
+        self.assertEqual(actual['model_context']['model_meta']['1'], expected['model_context']['model_meta']['1'])
+        self.assertEqual(actual['model_context']['model_meta']['two'], expected['model_context']['model_meta']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
         self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
@@ -528,8 +549,10 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             'model_context': {
                 'model_name': 'failing-model',
                 'api_version': 'B',
-                '1': 'one',
-                'two': 2
+                'model_meta': {
+                    '1': 'one',
+                    'two': 2
+                }
             },
             'request_id': 123,
             'error': {
@@ -540,8 +563,8 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
         self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
-        self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
-        self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
+        self.assertEqual(actual['model_context']['model_meta']['1'], expected['model_context']['model_meta']['1'])
+        self.assertEqual(actual['model_context']['model_meta']['two'], expected['model_context']['model_meta']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
         self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])

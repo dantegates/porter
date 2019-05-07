@@ -28,7 +28,7 @@ class ERRORS:
 class PREDICTION:
     """Container prediction endpoint constants."""
 
-    ENDPOINT_TEMPLATE = '/<string:model_name>/<string:api_version>/prediction'
+    ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/prediction'
     METHODS = ('GET', 'POST')
 
 
@@ -50,12 +50,14 @@ class PREDICTION:
             PREDICTION = 'prediction'
             ERROR = ERRORS.RESPONSE.KEYS.ERROR
             REQUEST_ID = _REQUEST_ID
+            MODEL_CONTEXT = 'model_context'
+            MODEL_META = 'model_meta'
 
 
 class BATCH_PREDICTION:
     """Container prediction endpoint constants."""
 
-    ENDPOINT_TEMPLATE = '/<string:model_name>/<string:api_version>/batchPrediction'
+    ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/batchPrediction'
     METHODS = ('GET', 'POST')
 
     class RESPONSE:
