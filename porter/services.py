@@ -717,12 +717,10 @@ class ModelApp:
 
     Args:
         meta (dict): Additional meta data added to the response body. Optional.
-        description (str or None): Description of the model app. Optional.
     """
 
     def __init__(self, meta=None, description=None):
         self.meta = {} if meta is None else meta
-        self.description = 'Model predictions' if description is None else description
         self.check_meta(self.meta)
 
         self._services = []
