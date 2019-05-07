@@ -29,7 +29,6 @@ import warnings
 import pandas as pd
 import werkzeug.exceptions
 
-from . import __version__ as VERSION
 from . import api
 from . import config as cf
 from . import constants as cn
@@ -88,8 +87,9 @@ class ServeAlive(StatefulRoute):
 
     def __call__(self):
         """Serve liveness response."""
-        self.logger.info(self.app.state)
-        return porter_responses.make_alive_response(self.app.state).jsonify()
+        response = porter_responses.make_alive_response(self.app)
+        self.logger.info(response.data)
+        return response.jsonify()
 
 
 class ServeReady(StatefulRoute):
@@ -107,8 +107,9 @@ class ServeReady(StatefulRoute):
 
     def __call__(self):
         """Serve readiness response."""
-        self.logger.info(self.app.state)
-        return porter_responses.make_ready_response(self.app.state).jsonify()
+        response = porter_responses.make_ready_response(self.app)
+        self.logger.info(response.data)
+        return response.jsonify()
 
 
 class PredictSchema:
@@ -187,9 +188,7 @@ class BaseService(abc.ABC, StatefulRoute):
             response = self.serve()
             response = response.jsonify()
         except exc.ModelContextError as err:
-            err.update_model_context(
-                model_name=self.name, api_version=self.api_version,
-                model_meta=self.meta)
+            err.update_model_context(self)
             self._log_error(err)
             raise err
         # technically we should never get here. self.serve() should always
@@ -472,10 +471,10 @@ class PredictionService(BaseService):
 
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(
-                self.name, self.api_version, self.meta, X_input[_ID], preds)
+                self, X_input[_ID], preds)
         else:
             response = porter_responses.make_prediction_response(
-                self.name, self.api_version, self.meta, X_input[_ID].iloc[0], preds[0])
+                self, X_input[_ID].iloc[0], preds[0])
 
         return response
 
@@ -780,7 +779,7 @@ class ModelApp:
                 `service` is not recognized.
         """
         if service.id in self._service_ids:
-             raise exc.PorterError(
+            raise exc.PorterError(
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
@@ -795,25 +794,6 @@ class ModelApp:
             **kwargs: Keyword arguments passed on to the wrapped `flask` app.
         """
         self.app.run(*args, **kwargs)
-
-    @property
-    def state(self):
-        """Return the app state as a "jsonify-able" object."""
-        return {
-            cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.APP_META: self.meta,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
-                service.id: {
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.API_VERSION: service.api_version,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.ENDPOINT: service.endpoint,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status
-                }
-                for service in self._services
-            }
-        }
 
     def check_meta(self, meta):
         """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`

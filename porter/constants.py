@@ -88,6 +88,7 @@ class HEALTH_CHECK:
             PORTER_VERSION = 'porter_version'
             DEPLOYED_ON = 'deployed_on'
             APP_META = 'app_meta'
+            MODEL_CONTEXT = 'model_context'
 
         class VALUES:
             STATUS_IS_READY = 'READY'

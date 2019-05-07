@@ -1,5 +1,6 @@
 import traceback
 
+from . import __version__ as VERSION
 from . import config as cf
 from . import constants as cn
 from . import exceptions as exc
@@ -28,11 +29,9 @@ class Response:
         return jsonified
 
 
-def make_prediction_response(model_name, api_version, model_meta, id_value,
-                             prediction):
+def make_prediction_response(model_service, id_value, prediction):
     payload = {}
-    payload[_PREDICTION_KEYS.MODEL_CONTEXT] = \
-        _init_model_context(model_name, api_version, model_meta)
+    payload[_PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
     payload[_PREDICTION_KEYS.PREDICTIONS] = {
         _PREDICTION_KEYS.ID: id_value,
         _PREDICTION_KEYS.PREDICTION: prediction
@@ -41,11 +40,9 @@ def make_prediction_response(model_name, api_version, model_meta, id_value,
     return Response(payload)
 
 
-def make_batch_prediction_response(model_name, api_version, model_meta, id_values,
-                                   predictions):
+def make_batch_prediction_response(model_service, id_values, predictions):
     payload = {}
-    payload[_PREDICTION_KEYS.MODEL_CONTEXT] = \
-        _init_model_context(model_name, api_version, model_meta)
+    payload[_PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
     payload[_PREDICTION_KEYS.PREDICTIONS] = [
         {
             _PREDICTION_KEYS.ID: id,
@@ -56,14 +53,14 @@ def make_batch_prediction_response(model_name, api_version, model_meta, id_value
     return Response(payload)
 
 
-def _init_model_context(model_name, api_version, model_meta):
+def _init_model_context(model_service):
     payload = {
-        _PREDICTION_KEYS.MODEL_NAME: model_name,
-        _PREDICTION_KEYS.API_VERSION: api_version,
+        _PREDICTION_KEYS.MODEL_NAME: model_service.name,
+        _PREDICTION_KEYS.API_VERSION: model_service.api_version,
     }
     if cf.return_request_id_with_prediction:
         payload[_PREDICTION_KEYS.REQUEST_ID] = api.request_id()
-    payload[_PREDICTION_KEYS.MODEL_META] = model_meta
+    payload[_PREDICTION_KEYS.MODEL_META] = model_service.meta
     return payload
 
 
@@ -88,8 +85,7 @@ def make_error_response(error):
     # message - note that isinstance(obj, cls) is True if obj is an instance
     # of a subclass of cls
     if isinstance(error, exc.ModelContextError):
-        payload[_ERROR_KEYS.MODEL_CONTEXT] = \
-            _init_model_context(error.model_name, error.api_version, error.model_meta)
+        payload[_ERROR_KEYS.MODEL_CONTEXT] = _init_model_context(error.model_service)
 
     ## these are "error specific" attributes
     if cf.return_message_on_error:
@@ -109,11 +105,13 @@ def make_error_response(error):
     return Response(payload, getattr(error, 'code', 500))
 
 
-def make_alive_response(app_state):
+def make_alive_response(app):
+    app_state = _build_app_state(app)
     return Response(app_state)
 
 
-def make_ready_response(app_state):
+def make_ready_response(app):
+    app_state = _build_app_state(app)
     ready = _is_ready(app_state)
     response = Response(app_state, 200 if ready else 503)
     return response
@@ -121,6 +119,25 @@ def make_ready_response(app_state):
 
 def _is_ready(app_state):
     services = app_state[_HEALTH_CHECK_KEYS.SERVICES]
+    print(app_state)
     # app must define services and all services must be ready
     return services and all(svc[_HEALTH_CHECK_KEYS.STATUS] is _IS_READY
                             for svc in services.values())
+
+
+def _build_app_state(app):
+    """Return the app state as a "jsonify-able" object."""
+    return {
+        _HEALTH_CHECK_KEYS.PORTER_VERSION: VERSION,
+        _HEALTH_CHECK_KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+        _HEALTH_CHECK_KEYS.APP_META: app.meta,
+        _HEALTH_CHECK_KEYS.SERVICES: {
+            service.id: {
+                _HEALTH_CHECK_KEYS.MODEL_CONTEXT: _init_model_context(service),
+                _HEALTH_CHECK_KEYS.STATUS: service.status,
+                _HEALTH_CHECK_KEYS.ENDPOINT: service.endpoint,
+            }
+            for service in app._services
+        }
+    }
+ 

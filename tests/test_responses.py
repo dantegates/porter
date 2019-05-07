@@ -2,8 +2,10 @@ import re
 import unittest
 from unittest import mock
 
+from porter import __version__ as VERSION
+from porter import constants as cn
 from porter.exceptions import PredictionError
-from porter.responses import (_init_model_context, _is_ready,
+from porter.responses import (_build_app_state, _init_model_context, _is_ready,
                               make_alive_response,
                               make_batch_prediction_response,
                               make_error_response, make_middleware_response,
@@ -12,7 +14,12 @@ from porter.responses import (_init_model_context, _is_ready,
 
 class Test(unittest.TestCase):
     def test_make_batch_prediction_response(self):
-        actual = make_batch_prediction_response('a-model', '1', {1: '2', '3': 4}, [1, 2, 3], [10.0, 11.0, 12.0])
+        # on setting name after instantiation see
+        # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
+        mock_model_service = mock.Mock(
+            api_version='1', meta={1: '2', '3': 4})
+        mock_model_service.configure_mock(name='a-model')
+        actual = make_batch_prediction_response(mock_model_service, [1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'model_context': {
                 'model_name': 'a-model',
@@ -32,7 +39,12 @@ class Test(unittest.TestCase):
         self.assertIsNone(actual.status_code)
 
     def test_make_prediction_response(self):
-        actual = make_prediction_response('a-model', '1', {1: '2', '3': 4}, 1, 10.0)
+        # on setting name after instantiation see
+        # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
+        mock_model_service = mock.Mock(
+            api_version='1', meta={1: '2', '3': 4})
+        mock_model_service.configure_mock(name='a-model')
+        actual = make_prediction_response(mock_model_service, 1, 10.0)
         expected = {
             'model_context': {
                 'model_name': 'a-model',
@@ -85,9 +97,14 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_user_data_on_error', True)
     @mock.patch('porter.responses.cf.return_request_id_on_error', True)
     def test_make_error_response_porter_error(self):
+        # on setting name after instantiation see
+        # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
         error = PredictionError('foo bar baz')
-        error.update_model_context(model_name='M', api_version='V',
-            model_meta={1: '1', '2': 2})
+        mock_model_service = mock.Mock(
+            api_version='V', meta={1: '1', '2': 2},
+            id='M:V')
+        mock_model_service.configure_mock(name='M')
+        error.update_model_context(mock_model_service)
         try:
             raise error
         except Exception:
@@ -197,6 +214,77 @@ class TestErrorResponses(unittest.TestCase):
         self.assertEqual(actual_data['error']['messages'], expected['error']['messages'])
         self.assertNotIn('traceback', actual_data['error'])
         self.assertNotIn('user_data', actual_data['error'])
+
+
+class TestHealthChecks(unittest.TestCase):
+    def test__build_app_state(self):
+        mock_app = mock.Mock(meta={'foo': 1})
+        mock_app.meta
+        mock_app._services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
+                                        api_version=str(i),
+                                        meta={'k': i, 'v': i+1},
+                                        id=i,
+                                        endpoint=f'/{i}')
+                              for i in range(3)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        actual = _build_app_state(mock_app)
+        expected = {
+            'porter_version': VERSION,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'app_meta': {'foo': 1},
+            'services': {
+                0: {
+                    'model_context': {
+                        'model_name': 'svc0',
+                        'api_version': '0',
+                        'model_meta': {'k': 0, 'v': 1}
+                    },
+                    'status': 'READY',
+                    'endpoint': '/0'
+                },
+                1: {
+                    'model_context': {
+                        'model_name': 'svc1',
+                        'api_version': '1',
+                        'model_meta': {'k': 1, 'v': 2}
+                    },
+                    'status': 'NOTREADY',
+                    'endpoint': '/1'
+                },
+                2: {
+                    'model_context': {
+                        'model_name': 'svc2',
+                        'api_version': '2',
+                        'model_meta': {'k': 2, 'v': 3}
+                    },
+                    'status': 'READY',
+                    'endpoint': '/2'
+                }
+            }
+        }
+        self.assertCountEqual(actual, expected)
+        self.assertCountEqual(actual['app_meta'], expected['app_meta'])
+        self.assertCountEqual(actual['services'], expected['services'])
+        for key in actual['services']:
+            self.assertCountEqual(actual['services'][key], expected['services'][key])
+        for key in actual['services']:
+            self.assertEqual(actual['services'][key]['model_context'], expected['services'][key]['model_context'])
+
+    def test__build_app_state_no_services(self):
+        mock_app = mock.Mock(meta={'foo': 1}, _services=[])
+        mock_app.meta
+        actual = _build_app_state(mock_app)
+        expected = {
+            'porter_version': VERSION,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'app_meta': {'foo': 1},
+            'services': {}
+        }
+        self.assertCountEqual(actual, expected)
+        self.assertCountEqual(actual['app_meta'], expected['app_meta'])
+        self.assertCountEqual(actual['services'], expected['services'])
+        for key in actual['services']:
+            self.assertCountEqual(actual['services'][key], expected['services'][key])
 
     def test__is_ready(self):
         app_state = {

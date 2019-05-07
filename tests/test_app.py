@@ -267,17 +267,57 @@ class TestAppHealthChecks(unittest.TestCase):
         self.model_app = ModelApp()
         self.app = self.model_app.app.test_client()
 
+    def tearDown(self):
+        self.model_app._services = []
+
     def test_liveness_live(self):
         resp = self.app.get('/-/alive')
         self.assertEqual(resp.status_code, 200)
 
-    def test_readiness_not_ready(self):
+    def test_readiness_not_ready1(self):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
             'services': {},
+            'app_meta': {}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 503)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    @mock.patch('porter.services.PredictionService.__init__')
+    @mock.patch('porter.services.api.App')
+    def test_readiness_not_ready2(self, mock_App, mock_init):
+        mock_init.return_value = None
+        class C(PredictionService):
+            status = 'NOTREADY'
+        cf = C()
+        cf.name  = 'foo'
+        cf.api_version = 'bar'
+        cf.meta = {'k': 1}
+        cf.id = 'foo:bar'
+        cf.endpoint = '/foo/bar/'
+        cf.route_kwargs = {}
+        self.model_app.add_service(cf)
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'porter_version': __version__,
+            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'services': {
+                'foo:bar': {
+                    'status': 'NOTREADY',
+                    'endpoint': '/foo/bar/',
+                    'model_context': {
+                        'model_name': 'foo',
+                        'api_version': 'bar',
+                        'model_meta': {'k': 1}
+                    }
+                }
+            },
             'app_meta': {}
         }
         self.assertEqual(resp_alive.status_code, 200)
@@ -305,10 +345,12 @@ class TestAppHealthChecks(unittest.TestCase):
             'services': {
                 'model1': {
                     'status': 'READY',
-                    'name': 'model1',
-                    'api_version': '1.0.0',
                     'endpoint': '/model1/1.0.0/prediction',
-                    'meta': {'foo': 1, 'bar': 2}
+                    'model_context': {
+                        'model_name': 'model1',
+                        'api_version': '1.0.0',
+                        'model_meta': {'foo': 1, 'bar': 2}
+                    }
                 }
             }
         }
@@ -343,17 +385,21 @@ class TestAppHealthChecks(unittest.TestCase):
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',
-                    'name': 'model1',
-                    'api_version': '1.0.0',
                     'endpoint': '/model1/1.0.0/prediction',
-                    'meta': {'foo': 1, 'bar': 2},
+                    'model_context': {
+                        'model_name': 'model1',
+                        'api_version': '1.0.0',
+                        'model_meta': {'foo': 1, 'bar': 2},
+                    }
                 },
                 'model2:v0': {
                     'status': 'READY',
-                    'name': 'model2',
-                    'api_version': 'v0',
                     'endpoint': '/model2/v0/prediction',
-                    'meta': {'foo': 1},
+                    'model_context': {
+                        'model_name': 'model2',
+                        'api_version': 'v0',
+                        'model_meta': {'foo': 1},
+                    }
                 }
             }
         }
