@@ -430,6 +430,7 @@ class PredictionService(BaseService):
         # If it's a werkzeug exception let it fall through.
         except (exc.ModelContextError, werkzeug.exceptions.HTTPException) as err:
             raise err
+        # All other errors should be wrapped in a PredictionError and raise 500
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediction')
             raise error from err
