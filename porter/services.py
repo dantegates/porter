@@ -425,9 +425,10 @@ class PredictionService(BaseService):
                 'This endpoint is live. Send POST requests for predictions')
         try:
             response = self._predict()
-        # all we have to do with the exception handling here is
-        # signal to __call__() that this is a model context error
-        except exc.ModelContextError as err:
+        # All we have to do with the exception handling here is
+        # signal to __call__() that this is a model context error.
+        # If it's a werkzeug exception let it fall through.
+        except (exc.ModelContextError, werkzeug.exceptions.HTTPException) as err:
             raise err
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediction')

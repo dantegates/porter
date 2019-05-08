@@ -200,7 +200,22 @@ class TestAppPredictions(unittest.TestCase):
         expected_hashable = [sorted(tuple(x.items())) for x in expected]
         self.assertCountEqual(actual_hashable, expected_hashable)
 
-    def test_prediction_bad_requests(self):
+    @mock.patch('porter.responses.cf.return_request_id_on_error', True)
+    def test_prediction_bad_requests_400(self):
+        actual = self.app.post('/a-model/v0/prediction', data='cannot be parsed')
+        self.assertTrue(actual.status_code, 400)
+        expectd_data = {
+            'request_id': 123,
+            'error': {
+                'name': 'BadRequest',
+                'messages': ['The browser (or proxy) sent a request that this server could not understand.'],
+            }
+        }
+        actual_data = json.loads(actual.data)
+        self.assertIn('request_id', actual_data)
+        self.assertEqual(expectd_data['error'], actual_data['error'])
+
+    def test_prediction_bad_requests_422(self):
         # should be array when sent to model1
         post_data1 = {'id': 1, 'feature1': 2, 'feature2': 1}
         # should be single object when sent to model3
@@ -237,6 +252,7 @@ class TestAppPredictions(unittest.TestCase):
             {'name': 'RequestContainsNulls'},
             {'name': 'RequestContainsNulls'},
             {'name': 'InvalidModelInput'},
+            {'name': 'BadRequest'},
         ]
         for actual, expectations in zip(actuals, expected_error_values):
             actual_error_obj = json.loads(actual.data)['error']
