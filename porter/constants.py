@@ -1,7 +1,6 @@
 import datetime
 
 
-_REQUEST_ID = 'request_id'
 _MODEL_CONTEXT = 'model_context'
 _PREDICTIONS = 'predictions'
 
@@ -12,7 +11,11 @@ PREDICTION_ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/prediction'
 BATCH_PREDICTION_ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/batchPrediction'
 
 
-class HEALTH_CHECK_KEYS:
+class BASE_KEYS:
+    REQUEST_ID = 'request_id'
+
+
+class HEALTH_CHECK_KEYS(BASE_KEYS):
     PORTER_VERSION = 'porter_version'
     DEPLOYED_ON = 'deployed_on'
     APP_META = 'app_meta'
@@ -30,9 +33,8 @@ class HEALTH_CHECK_SERVICES_KEYS:
     MODEL_CONTEXT = _MODEL_CONTEXT
 
 
-class GENERIC_ERROR_KEYS:
+class GENERIC_ERROR_KEYS(BASE_KEYS):
     ERROR = 'error'
-    REQUEST_ID = _REQUEST_ID
 
 
 class MODEL_CONTEXT_ERROR_KEYS:
@@ -57,10 +59,9 @@ class MIDDLEWARE_MODEL_CONTEXT_KEYS(MODEL_CONTEXT_KEYS):
     MAX_WORKERS = 'max_workers'
 
 
-class PREDICTION_KEYS:
+class PREDICTION_KEYS(BASE_KEYS):
     MODEL_CONTEXT = _MODEL_CONTEXT
     PREDICTIONS = _PREDICTIONS 
-    REQUEST_ID = _REQUEST_ID
 
 
 class PREDICTION_PREDICTIONS_KEYS:

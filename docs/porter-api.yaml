@@ -99,6 +99,9 @@ components:
     HealthCheck:
       type: object
       properties:
+        request_id:
+          type: string
+          description: Hex value of UUID assigned to the request.
         porter_version:
           type: string
           description: The version of porter on the deployed application.
@@ -134,7 +137,7 @@ components:
       properties:
         request_id:
           type: string
-          description: A unique ID for the request.
+          description: Hex value of UUID assigned to the request.
         error:
           $ref: '#/components/schemas/ErrorBody'
     ErrorBody:
@@ -153,7 +156,7 @@ components:
       properties:
         request_id:
           type: string
-          description: A unique ID for the request.
+          description: Hex value of UUID assigned to the request.
         error:
           $ref: '#/components/schemas/ErrorBody'
         model_context:

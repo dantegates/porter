@@ -23,10 +23,15 @@ class Response:
         return jsonified
 
 
-def make_prediction_response(model_service, id_value, prediction):
+def _init_base_response():
     payload = {}
-    if cf.return_request_id_with_prediction:
-        payload[cn.PREDICTION_KEYS.REQUEST_ID] = api.request_id()
+    if cf.return_request_id:
+        payload[cn.BASE_KEYS.REQUEST_ID] = api.request_id()
+    return payload
+
+
+def make_prediction_response(model_service, id_value, prediction):
+    payload = _init_base_response()
     payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
     payload[cn.PREDICTION_KEYS.PREDICTIONS] = {
         cn.PREDICTION_PREDICTIONS_KEYS.ID: id_value,
@@ -37,9 +42,7 @@ def make_prediction_response(model_service, id_value, prediction):
 
 
 def make_batch_prediction_response(model_service, id_values, predictions):
-    payload = {}
-    if cf.return_request_id_with_prediction:
-        payload[cn.PREDICTION_KEYS.REQUEST_ID] = api.request_id()
+    payload = _init_base_response()
     payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
     payload[cn.PREDICTION_KEYS.PREDICTIONS] = [
         {
@@ -65,7 +68,7 @@ def make_middleware_response(objects):
 
 
 def make_error_response(error):
-    payload = {}
+    payload = _init_base_response()
     payload[cn.GENERIC_ERROR_KEYS.ERROR] = error_dict = {}
 
     # all errors should at least return the name
@@ -74,8 +77,6 @@ def make_error_response(error):
     # include optional attributes
 
     ## these are "top-level" attributes
-    if cf.return_request_id_on_error:
-        payload[cn.GENERIC_ERROR_KEYS.REQUEST_ID] = api.request_id()
 
     # if the error was generated while predicting add model meta data to error
     # message - note that isinstance(obj, cls) is True if obj is an instance
@@ -103,14 +104,18 @@ def make_error_response(error):
 
 
 def make_alive_response(app):
+    payload = _init_base_response()
     app_state = _build_app_state(app)
-    return Response(app_state)
+    payload.update(app_state)
+    return Response(payload, 200)
 
 
 def make_ready_response(app):
+    payload = _init_base_response()
     app_state = _build_app_state(app)
+    payload.update(app_state)
     ready = _is_ready(app_state)
-    response = Response(app_state, 200 if ready else 503)
+    response = Response(payload, 200 if ready else 503)
     return response
 
 

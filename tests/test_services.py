@@ -59,6 +59,7 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual3, expected3)
 
 
+@mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify', lambda payload: payload)
@@ -102,6 +103,7 @@ class TestPredictionService(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
+            'request_id': 123,
             'model_context': {
                 'model_name': test_model_name,
                 'api_version': test_api_version,
@@ -156,6 +158,7 @@ class TestPredictionService(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
+            'request_id': 123,
             'model_context': {
                 'model_name': test_model_name,
                 'api_version': test_api_version,

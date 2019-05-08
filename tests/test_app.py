@@ -184,6 +184,7 @@ class TestAppPredictions(unittest.TestCase):
         actual = json.loads(actual.data)
         expected = [
             {
+                'request_id': 123,
                 'model_context': {
                     'model_name': 'model-3',
                     'api_version': 'v0.0-alpha',
@@ -200,7 +201,6 @@ class TestAppPredictions(unittest.TestCase):
         expected_hashable = [sorted(tuple(x.items())) for x in expected]
         self.assertCountEqual(actual_hashable, expected_hashable)
 
-    @mock.patch('porter.responses.cf.return_request_id_on_error', True)
     def test_prediction_bad_requests_400(self):
         actual = self.app.post('/a-model/v0/prediction', data='cannot be parsed')
         self.assertTrue(actual.status_code, 400)
@@ -282,6 +282,8 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(resp2.status_code, 200)
         self.assertEqual(resp3.status_code, 200)
 
+
+@mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
@@ -298,6 +300,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
@@ -325,6 +328,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {
@@ -359,6 +363,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
@@ -399,6 +404,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
@@ -437,7 +443,6 @@ class TestAppHealthChecks(unittest.TestCase):
 @mock.patch('porter.services.cf.return_message_on_error', True)
 @mock.patch('porter.services.cf.return_traceback_on_error', True)
 @mock.patch('porter.services.cf.return_user_data_on_error', True)
-@mock.patch('porter.services.cf.return_request_id_on_error', True)
 class TestAppErrorHandling(unittest.TestCase):
     @classmethod
     @mock.patch('porter.services.BaseService._ids', set())
@@ -584,7 +589,6 @@ class TestAppErrorHandling(unittest.TestCase):
 @mock.patch('porter.services.cf.return_message_on_error', True)
 @mock.patch('porter.services.cf.return_traceback_on_error', False)
 @mock.patch('porter.services.cf.return_user_data_on_error', False)
-@mock.patch('porter.responses.cf.return_request_id_on_error', True)
 class TestAppErrorHandlingCustomKeys(unittest.TestCase):
     @classmethod
     @mock.patch('porter.services.BaseService._ids', set())
