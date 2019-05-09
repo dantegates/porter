@@ -128,71 +128,35 @@ gunicorn app:model_app
 ```
 
 # API
-A `porter` defines the following endpoints.
 
-**/-/alive** (Methods=`[GET]`):
-  An endpoint used to determine if the app is alive (i.e. running). This endpoint returns the
-  same JSON payload returned by **/-/ready**. Returns 200.
-  
-**/-/ready** (Methods=`[GET]`):
-  Returns a JSON object representing the app's state as follows. The object has a single key
-  `"services"`. Services is itself a JSON object with a key for every service added to the app.
-  These service objects contain keys for their respective endpoint and status. Returns 200 if
-  all services are ready and 503 otherwise.
+The complete details of an API exposed by `porter` can be found in the [openapi](https://openapi.tools/) spec
+[in this repository](./docs/porter-api.yaml).
 
-  The JSON below is the response you would get from the app defined in
-  [the AB test script](./examples/ab_test.py).
-  
-  ```javascript
-    {
-      "services": {
-        "supa-dupa-model-ab-test": {
-          "endpoint": "/supa-dupa-model/prediction",
-          "status": "READY"
-        }
-      }
-    }
-  ```
-  
-**/<model name\>/prediction**: (Methods=`[POST]`):
-  Each model added to the app will have an endpoint for accessing the model's predictions.
-  The endpoint accepts `POST` requests with the input schema dependent on the model and
-  resturns a JSON object with the following schema for batch predictions.
-  
-  ```javascript
-    {
-      "model_id": A unique identifier for the model,
-      "model_version": A string identifying the model version,
-      "predictions": [
-         {"id": ..., "prediction": ...},
-         ...
-      ]
-    }
-  ```
-  
-  Single instance predictions return a JSON object with the schema
-  
-   ```javascript
-    {
-      "model_id": A unique identifier for the model,
-      "model_version": A string identifying the model version,
-      "predictions": {"id": ..., "prediction": ...}
-    }
-  ```
-  
-## Errors
-If an error occurs while processing a request the user will receive a response with a non-200 status
-code and JSON payload with the following keys
+Additionally you can open the [static documentation](./docs/html/index.html) generated from this spec
+in your web browser. On a Mac
 
-- "error": `string`. A simple name describing the error.
-- "message": `string`. A more detailed error message.
-- "traceback": `string`. The traceback of the `Exception` causing the error.
-- "user_data": `object` or `null`. If the request contained a JSON payload it is returned to
-  the user in this field. Otherwise, if no data was passed or the data was not valid JSON `null`
-  is returned.
-  
-If the error resulted in a model context (during prediction, processing, etc.) the model context
-data (model ID, version and any model meta data) described above will be present in the error object.
+```shell
+open docs/html/index.html
+```
+
+For those who just want to get a sense of the API a quick overview is below.
+
+## Quick guide
+
+Two healtch check endpoints are exposed by each `porter` app: `/-/alive` and `/-/ready`. These
+are useful for deploying a `porter` app in an environment like Kubernets or behind a load balancer.
+
+Additionally there is a prediction endpoint for each model service added to the `ModelApp` instance.
+The endpoint is computed from the name and version attributes of the model services:
+`/<model name>/<model version>/prediction`. For example
+
+```python
+service1 = PredictionService(name='foo', version='v1', ...)
+service2 = PredictionService(name='bar', version='v2', ...)
+model_app.add_services(service1, service2)
+```
+will expose two models on the endpoints `/foo/v1/prediction` and `/foo/v2/prediction`. The endpoints
+accept POST requests with JSON payloads.
 
 # Logging
 API calls (request and response payloads) can be logged by passing `log_api_calls=True` when instantiating
