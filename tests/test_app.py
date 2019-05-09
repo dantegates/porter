@@ -16,6 +16,7 @@ from porter.services import ModelApp, PredictionService, MiddlewareService
 from porter import constants as cn
 
 
+@mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestAppPredictions(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -121,8 +122,12 @@ class TestAppPredictions(unittest.TestCase):
         actual3 = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
         expected1 = {
-            'model_name': 'a-model',
-            'api_version': 'v0',
+            'request_id': 0,
+            'model_context': {
+                'model_name': 'a-model',
+                'api_version': 'v0',
+                'model_meta': {}
+            },
             'predictions': [
                 {'id': 1, 'prediction': 0},
                 {'id': 2, 'prediction': -2},
@@ -132,8 +137,12 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected2 = {
-            'model_name': 'anotherModel',
-            'api_version': 'v1',
+            'request_id': 1,
+            'model_context': {
+                'model_name': 'anotherModel',
+                'api_version': 'v1',
+                'model_meta': {}
+            },
             'predictions': [
                 {'id': 1, 'prediction': 10},
                 {'id': 2, 'prediction': 11},
@@ -143,15 +152,21 @@ class TestAppPredictions(unittest.TestCase):
             ]
         }
         expected3 = {
-            'model_name': 'model-3',
-            'api_version': 'v0.0-alpha',
-            'algorithm': 'randomforest',
-            'lasttrained': 1,
+            'request_id': 123,
+            'model_context': {
+                'model_name': 'model-3',
+                'api_version': 'v0.0-alpha',
+                'model_meta': {
+                    'algorithm': 'randomforest',
+                    'lasttrained': 1
+                }
+            },
             'predictions': {'id': 1, 'prediction': -5}
         }
-        self.assertEqual(actual1, expected1)
-        self.assertEqual(actual2, expected2)
-        self.assertEqual(actual3, expected3)
+        for key in ['model_context', 'predictions']:
+            self.assertCountEqual(actual1[key], expected1[key])
+            self.assertCountEqual(actual2[key], expected2[key])
+            self.assertCountEqual(actual3[key], expected3[key])
 
     @mock.patch('porter.services.api.post')
     def test_middleware(self, mock_post):
@@ -168,18 +183,39 @@ class TestAppPredictions(unittest.TestCase):
         actual = self.app.post('/model-3/version1/batchPrediction', data=json.dumps(post_data))
         actual = json.loads(actual.data)
         expected = [
-            {'model_name': 'model-3',
-             'api_version': 'v0.0-alpha',
-             'algorithm': 'randomforest',
-             'lasttrained': 1,
-             'predictions': {'id': d['id'], 'prediction': -d['feature1']}}
+            {
+                'request_id': 123,
+                'model_context': {
+                    'model_name': 'model-3',
+                    'api_version': 'v0.0-alpha',
+                    'model_meta': {
+                        'algorithm': 'randomforest',
+                        'lasttrained': 1
+                    }
+                },
+                'predictions': {'id': d['id'], 'prediction': -d['feature1']}
+            }
             for d in post_data
         ]
         actual_hashable = [sorted(tuple(x.items())) for x in actual]
         expected_hashable = [sorted(tuple(x.items())) for x in expected]
         self.assertCountEqual(actual_hashable, expected_hashable)
 
-    def test_prediction_bad_requests(self):
+    def test_prediction_bad_requests_400(self):
+        actual = self.app.post('/a-model/v0/prediction', data='cannot be parsed')
+        self.assertTrue(actual.status_code, 400)
+        expectd_data = {
+            'request_id': 123,
+            'error': {
+                'name': 'BadRequest',
+                'messages': ['The browser (or proxy) sent a request that this server could not understand.'],
+            }
+        }
+        actual_data = json.loads(actual.data)
+        self.assertIn('request_id', actual_data)
+        self.assertEqual(expectd_data['error'], actual_data['error'])
+
+    def test_prediction_bad_requests_422(self):
         # should be array when sent to model1
         post_data1 = {'id': 1, 'feature1': 2, 'feature2': 1}
         # should be single object when sent to model3
@@ -205,7 +241,7 @@ class TestAppPredictions(unittest.TestCase):
             self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data6)),
         ]
         # check status codes
-        self.assertTrue(all(actual.status_code == 400 for actual in actuals))
+        self.assertTrue(all(actual.status_code == 422 for actual in actuals))
         # check that all objects have error key
         self.assertTrue(all('error' in json.loads(actual.data) for actual in actuals))
         # check response values
@@ -216,6 +252,7 @@ class TestAppPredictions(unittest.TestCase):
             {'name': 'RequestContainsNulls'},
             {'name': 'RequestContainsNulls'},
             {'name': 'InvalidModelInput'},
+            {'name': 'BadRequest'},
         ]
         for actual, expectations in zip(actuals, expected_error_values):
             actual_error_obj = json.loads(actual.data)['error']
@@ -224,9 +261,11 @@ class TestAppPredictions(unittest.TestCase):
         # check that model context data is passed into responses
         expected_model_context_values = [
             {'model_name': 'a-model', 'api_version': 'v0'},
-            {'model_name': 'model-3', 'api_version': 'v0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'model-3', 'api_version': 'v0.0-alpha',
+             'model_meta': {'algorithm': 'randomforest', 'lasttrained': 1}},
             {'model_name': 'anotherModel', 'api_version': 'v1'},
-            {'model_name': 'model-3', 'api_version': 'v0.0-alpha', 'algorithm': 'randomforest', 'lasttrained': 1},
+            {'model_name': 'model-3', 'api_version': 'v0.0-alpha',
+             'model_meta': {'algorithm': 'randomforest', 'lasttrained': 1}},
             {'model_name': 'a-model', 'api_version': 'v0'},
             {'model_name': 'anotherModel', 'api_version': 'v1'},
         ]
@@ -243,22 +282,66 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(resp2.status_code, 200)
         self.assertEqual(resp3.status_code, 200)
 
+
+@mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
         self.app = self.model_app.app.test_client()
 
+    def tearDown(self):
+        self.model_app._services = []
+
     def test_liveness_live(self):
         resp = self.app.get('/-/alive')
         self.assertEqual(resp.status_code, 200)
 
-    def test_readiness_not_ready(self):
+    def test_readiness_not_ready1(self):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
+            'app_meta': {}
+        }
+        self.assertEqual(resp_alive.status_code, 200)
+        self.assertEqual(resp_ready.status_code, 503)
+        self.assertEqual(json.loads(resp_alive.data), expected_data)
+        self.assertEqual(json.loads(resp_ready.data), expected_data)
+
+    @mock.patch('porter.services.PredictionService.__init__')
+    @mock.patch('porter.services.api.App')
+    def test_readiness_not_ready2(self, mock_App, mock_init):
+        mock_init.return_value = None
+        class C(PredictionService):
+            status = 'NOTREADY'
+        cf = C()
+        cf.name  = 'foo'
+        cf.api_version = 'bar'
+        cf.meta = {'k': 1}
+        cf.id = 'foo:bar'
+        cf.endpoint = '/foo/bar/'
+        cf.route_kwargs = {}
+        self.model_app.add_service(cf)
+        resp_alive = self.app.get('/-/alive')
+        resp_ready = self.app.get('/-/ready')
+        expected_data = {
+            'request_id': 123,
+            'porter_version': __version__,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
+            'services': {
+                'foo:bar': {
+                    'status': 'NOTREADY',
+                    'endpoint': '/foo/bar/',
+                    'model_context': {
+                        'model_name': 'foo',
+                        'api_version': 'bar',
+                        'model_meta': {'k': 1}
+                    }
+                }
+            },
             'app_meta': {}
         }
         self.assertEqual(resp_alive.status_code, 200)
@@ -280,16 +363,19 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
             'services': {
                 'model1': {
                     'status': 'READY',
-                    'name': 'model1',
-                    'api_version': '1.0.0',
                     'endpoint': '/model1/1.0.0/prediction',
-                    'meta': {'foo': 1, 'bar': 2}
+                    'model_context': {
+                        'model_name': 'model1',
+                        'api_version': '1.0.0',
+                        'model_meta': {'foo': 1, 'bar': 2}
+                    }
                 }
             }
         }
@@ -318,23 +404,28 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
+            'request_id': 123,
             'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
+            'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',
-                    'name': 'model1',
-                    'api_version': '1.0.0',
                     'endpoint': '/model1/1.0.0/prediction',
-                    'meta': {'foo': 1, 'bar': 2},
+                    'model_context': {
+                        'model_name': 'model1',
+                        'api_version': '1.0.0',
+                        'model_meta': {'foo': 1, 'bar': 2},
+                    }
                 },
                 'model2:v0': {
                     'status': 'READY',
-                    'name': 'model2',
-                    'api_version': 'v0',
                     'endpoint': '/model2/v0/prediction',
-                    'meta': {'foo': 1},
+                    'model_context': {
+                        'model_name': 'model2',
+                        'api_version': 'v0',
+                        'model_meta': {'foo': 1},
+                    }
                 }
             }
         }
@@ -352,7 +443,6 @@ class TestAppHealthChecks(unittest.TestCase):
 @mock.patch('porter.services.cf.return_message_on_error', True)
 @mock.patch('porter.services.cf.return_traceback_on_error', True)
 @mock.patch('porter.services.cf.return_user_data_on_error', True)
-@mock.patch('porter.services.cf.return_request_id_on_error', True)
 class TestAppErrorHandling(unittest.TestCase):
     @classmethod
     @mock.patch('porter.services.BaseService._ids', set())
@@ -439,7 +529,7 @@ class TestAppErrorHandling(unittest.TestCase):
         resp = self.app_test_client.post('/test-error-handling/', data=json.dumps(user_data))
         actual = json.loads(resp.data)
         expected = {
-                'request_id': 123,
+            'request_id': 123,
             'error': {
                 'name': 'Exception',
                 'messages': ['exceptional testing of exceptions'],
@@ -464,8 +554,10 @@ class TestAppErrorHandling(unittest.TestCase):
             'model_context': {
                 'model_name': 'failing-model',
                 'api_version': 'B',
-                '1': 'one',
-                'two': 2
+                'model_meta': {
+                    '1': 'one',
+                    'two': 2
+                },
             },
             'request_id': 123,
             'error': {
@@ -478,8 +570,8 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
         self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
-        self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
-        self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
+        self.assertEqual(actual['model_context']['model_meta']['1'], expected['model_context']['model_meta']['1'])
+        self.assertEqual(actual['model_context']['model_meta']['two'], expected['model_context']['model_meta']['two'])
         self.assertEqual(actual['error']['name'], expected['error']['name'])
         self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error']['messages'], expected['error']['messages'])
@@ -497,7 +589,6 @@ class TestAppErrorHandling(unittest.TestCase):
 @mock.patch('porter.services.cf.return_message_on_error', True)
 @mock.patch('porter.services.cf.return_traceback_on_error', False)
 @mock.patch('porter.services.cf.return_user_data_on_error', False)
-@mock.patch('porter.responses.cf.return_request_id_on_error', True)
 class TestAppErrorHandlingCustomKeys(unittest.TestCase):
     @classmethod
     @mock.patch('porter.services.BaseService._ids', set())
@@ -528,8 +619,10 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             'model_context': {
                 'model_name': 'failing-model',
                 'api_version': 'B',
-                '1': 'one',
-                'two': 2
+                'model_meta': {
+                    '1': 'one',
+                    'two': 2
+                }
             },
             'request_id': 123,
             'error': {
@@ -538,15 +631,11 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             }
         }
         self.assertEqual(resp.status_code, 500)
-        self.assertEqual(actual['model_context']['model_name'], expected['model_context']['model_name'])
-        self.assertEqual(actual['model_context']['api_version'], expected['model_context']['api_version'])
-        self.assertEqual(actual['model_context']['1'], expected['model_context']['1'])
-        self.assertEqual(actual['model_context']['two'], expected['model_context']['two'])
-        self.assertEqual(actual['error']['name'], expected['error']['name'])
+        self.assertEqual(actual['model_context'], expected['model_context'])
+        self.assertEqual(actual['model_context']['model_meta'], expected['model_context']['model_meta'])
+        self.assertEqual(actual['error'], expected['error'])
         self.assertEqual(actual['request_id'], expected['request_id'])
-        self.assertEqual(actual['error']['messages'], expected['error']['messages'])
-        self.assertNotIn('user_data', actual['error'])
-        self.assertNotIn('traceback', actual['error'])
+        self.assertEqual(actual['error'], expected['error'])
 
     @classmethod
     def add_failing_model_service(cls):

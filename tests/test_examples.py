@@ -60,8 +60,8 @@ class TestExample(unittest.TestCase):
         expected_predictions = {
             id_: pred for id_, pred in zip(self.X['id'], self.predictions)
         }
-        self.assertEqual(actual_response_data['model_name'], expected_model_name)
-        self.assertEqual(actual_response_data['api_version'], expected_api_version)
+        self.assertEqual(actual_response_data['model_context']['model_name'], expected_model_name)
+        self.assertEqual(actual_response_data['model_context']['api_version'], expected_api_version)
         for rec in actual_response_data['predictions']:
             actual_id, actual_pred = rec['id'], rec['prediction']
             expected_pred = expected_predictions[actual_id]

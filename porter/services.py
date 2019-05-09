@@ -29,7 +29,6 @@ import warnings
 import pandas as pd
 import werkzeug.exceptions
 
-from . import __version__ as VERSION
 from . import api
 from . import config as cf
 from . import constants as cn
@@ -37,7 +36,7 @@ from . import exceptions as exc
 from . import responses as porter_responses
 
 # alias for convenience
-_ID = cn.PREDICTION.RESPONSE.KEYS.ID
+_ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
 
 _logger = logging.getLogger(__name__)
 
@@ -88,8 +87,9 @@ class ServeAlive(StatefulRoute):
 
     def __call__(self):
         """Serve liveness response."""
-        self.logger.info(self.app.state)
-        return porter_responses.make_alive_response(self.app.state).jsonify()
+        response = porter_responses.make_alive_response(self.app)
+        self.logger.info(response.data)
+        return response.jsonify()
 
 
 class ServeReady(StatefulRoute):
@@ -107,8 +107,9 @@ class ServeReady(StatefulRoute):
 
     def __call__(self):
         """Serve readiness response."""
-        self.logger.info(self.app.state)
-        return porter_responses.make_ready_response(self.app.state).jsonify()
+        response = porter_responses.make_ready_response(self.app)
+        self.logger.info(response.data)
+        return response.jsonify()
 
 
 class PredictSchema:
@@ -147,7 +148,7 @@ class BaseService(abc.ABC, StatefulRoute):
             derived from this parameter.
         api_version (str): The service API version. The final routed endpoint is
             generally derived from this parameter.
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
 
@@ -156,7 +157,7 @@ class BaseService(abc.ABC, StatefulRoute):
         name (str): The model name. The final routed endpoint is generally
             derived from this attribute.
         api_version (str): The service version.
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         endpoint (str): The endpoint where the service is exposed.
@@ -187,9 +188,7 @@ class BaseService(abc.ABC, StatefulRoute):
             response = self.serve()
             response = response.jsonify()
         except exc.ModelContextError as err:
-            err.update_model_context(
-                model_name=self.name, api_version=self.api_version,
-                model_meta=self.meta)
+            err.update_model_context(self)
             self._log_error(err)
             raise err
         # technically we should never get here. self.serve() should always
@@ -320,7 +319,7 @@ class PredictionService(BaseService):
             "/<name>/<api version>/prediction/".
         api_version (str): The model API version. The final routed endpoint
             will become "/<name>/<api version>/prediction/".
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         model (object): An object implementing the interface defined by
@@ -350,7 +349,7 @@ class PredictionService(BaseService):
     Attributes:
         id (str): A unique ID for the model. Composed of `name` and `api_version`.
         name (str): The model's name.
-        meta (dict): Additional meta data added to the response body.
+        meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         api_version (str): The model API version.
@@ -379,12 +378,6 @@ class PredictionService(BaseService):
             if POST request is invalid.
     """
 
-    # response keys that model meta data cannot override
-    reserved_keys = (cn.PREDICTION.RESPONSE.KEYS.MODEL_NAME,
-                     cn.PREDICTION.RESPONSE.KEYS.API_VERSION,
-                     cn.PREDICTION.RESPONSE.KEYS.PREDICTIONS,
-                     cn.PREDICTION.RESPONSE.KEYS.ERROR)
-
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
@@ -405,24 +398,13 @@ class PredictionService(BaseService):
         super().__init__(**kwargs)
 
     def define_endpoint(self):
-        return cn.PREDICTION.ENDPOINT_TEMPLATE.format(
+        return cn.PREDICTION_ENDPOINT_TEMPLATE.format(
             model_name=self.name, api_version=self.api_version)
-
-    def check_meta(self, meta):
-        """Perform standard meta data checks and inspect meta data keys for
-        reserved keywords.
-        """
-        super().check_meta(meta)
-        invalid_keys = [key for key in meta if key in self.reserved_keys]
-        if invalid_keys:
-            raise exc.PorterError(
-                'the following keys are reserved for prediction response payloads '
-                f'and cannot be used in `meta`: {invalid_keys}')
 
     @property
     def status(self):
         """Return 'READY'. Instances of this class are always ready."""
-        return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
+        return cn.HEALTH_CHECK_VALUES.IS_READY
 
     def serve(self):
         """Retrive POST request data from flask and return a response
@@ -443,10 +425,12 @@ class PredictionService(BaseService):
                 'This endpoint is live. Send POST requests for predictions')
         try:
             response = self._predict()
-        # all we have to do with the exception handling here is
-        # signal to __call__() that this is a model context error
-        except exc.ModelContextError as err:
+        # All we have to do with the exception handling here is
+        # signal to __call__() that this is a model context error.
+        # If it's a werkzeug exception let it fall through.
+        except (exc.ModelContextError, werkzeug.exceptions.HTTPException) as err:
             raise err
+        # All other errors should be wrapped in a PredictionError and raise 500
         except Exception as err:
             error = exc.PredictionError('an error occurred during prediction')
             raise error from err
@@ -472,10 +456,10 @@ class PredictionService(BaseService):
 
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(
-                self.name, self.api_version, self.meta, X_input[_ID], preds)
+                self, X_input[_ID], preds)
         else:
             response = porter_responses.make_prediction_response(
-                self.name, self.api_version, self.meta, X_input[_ID].iloc[0], preds[0])
+                self, X_input[_ID].iloc[0], preds[0])
 
         return response
 
@@ -615,8 +599,8 @@ class MiddlewareService(BaseService):
     """
 
     reserved_keys = (
-        cn.BATCH_PREDICTION.RESPONSE.KEYS.MODEL_ENDPOINT,
-        cn.BATCH_PREDICTION.RESPONSE.KEYS.MAX_WORKERS
+        cn.MIDDLEWARE_MODEL_CONTEXT_KEYS.BACKEND_MODEL_ENDPOINT,
+        cn.MIDDLEWARE_MODEL_CONTEXT_KEYS.MAX_WORKERS
     )
 
     route_kwargs = {'methods': ['POST'], 'strict_slashes': False}
@@ -639,7 +623,7 @@ class MiddlewareService(BaseService):
         return f'{self.name}:middleware:{self.api_version}'
 
     def define_endpoint(self):
-        return cn.BATCH_PREDICTION.ENDPOINT_TEMPLATE.format(
+        return cn.BATCH_PREDICTION_ENDPOINT_TEMPLATE.format(
             model_name=self.name, api_version=self.api_version)
 
     def check_meta(self, meta):
@@ -672,7 +656,7 @@ class MiddlewareService(BaseService):
             error = err
         else:
             if model_status == 200:
-                return cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY
+                return cn.HEALTH_CHECK_VALUES.IS_READY
             return f'GET {self.model_endpoint} returned {model_status}'
         return f'cannot communicate with {self.model_endpoint}: {error}'
 
@@ -734,24 +718,17 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of `flask.Flask`.
 
     Args:
-        json_encoder (json.JSONEncoder subclass): A JSON encoder used to
-            format response data. Several useful implementations can be found
-            in `porter.utils`. Defaults to `porter.config.json_encoder`.
-        return_message_on_error (bool): Whether to include the exception
-            message in response on errors. Defaults to
-            `porter.config.return_message_on_error`.
-        return_traceback_on_error (bool): Whether to return the exception
-            traceback in response on errors. Defaults to
-            `porter.config.return_traceback_on_error`.
-        return_user_data_on_error (bool): Whether to return the user data in
-            response on errors. Defaults to
-            `porter.config.include_user_data_on_error`.
+        meta (dict): Additional meta data added to the response body. Optional.
     """
 
-    def __init__(self, meta=None):
+    def __init__(self, meta=None, description=None):
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
-        self._services = {}
+
+        self._services = []
+        # this is just a cache of service IDs we can use to verify that
+        # each service is given a unique ID
+        self._service_ids = set()
         self.app = self._build_app()
 
     def __call__(self, *args, **kwargs):
@@ -784,10 +761,11 @@ class ModelApp:
             porter.exceptions.PorterError: If the type of
                 `service` is not recognized.
         """
-        if service.id in self._services:
-             raise exc.PorterError(
+        if service.id in self._service_ids:
+            raise exc.PorterError(
                 f'a service has already been added using id={service.id}')
-        self._services[service.id] = service
+        self._services.append(service)
+        self._service_ids.add(service.id)
         self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
@@ -799,25 +777,6 @@ class ModelApp:
             **kwargs: Keyword arguments passed on to the wrapped `flask` app.
         """
         self.app.run(*args, **kwargs)
-
-    @property
-    def state(self):
-        """Return the app state as a "jsonify-able" object."""
-        return {
-            cn.HEALTH_CHECK.RESPONSE.KEYS.PORTER_VERSION: VERSION,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.DEPLOYED_ON: cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.APP_META: self.meta,
-            cn.HEALTH_CHECK.RESPONSE.KEYS.SERVICES: {
-                service.id: {
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.NAME: service.name,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.API_VERSION: service.api_version,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.ENDPOINT: service.endpoint,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.META: service.meta,
-                    cn.HEALTH_CHECK.RESPONSE.KEYS.STATUS: service.status
-                }
-                for service in self._services.values()
-            }
-        }
 
     def check_meta(self, meta):
         """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
@@ -853,6 +812,6 @@ class ModelApp:
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
         app.route('/', methods=['GET'])(serve_root)
-        app.route(cn.LIVENESS.ENDPOINT, methods=['GET'])(ServeAlive(self))
-        app.route(cn.READINESS.ENDPOINT, methods=['GET'])(ServeReady(self))
+        app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(ServeAlive(self))
+        app.route(cn.READINESS_ENDPOINT, methods=['GET'])(ServeReady(self))
         return app

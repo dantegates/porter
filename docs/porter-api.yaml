@@ -1,0 +1,197 @@
+openapi: 3.0.1
+info:
+  title: Porter REST API.
+  description: REST API exposed by the porter framework.
+  version: 0.13.1
+servers: []
+paths:
+  /-/alive:
+    get:
+      tags:
+      - health check
+      summary: The app's 'liveness'.
+      description: |
+        This endpoint returns 200 if the app is "alive". Liveness means the
+        app is up and running but models are not guaranteed to be available.
+      responses:
+        200:
+          description: The application is alive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+  /-/ready:
+    get:
+      tags:
+      - health check
+      summary: The app's 'readiness'.
+      description: |
+        This endpoint returns 200 if the app is "ready" and 503 otherwise.
+        Readiness means the app is up and running and all models are loaded
+        and ready for prediction.
+      responses:
+        200:
+          description: The application is ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        503:
+          description: The application is alive, but models are not yet read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+  /{model_name}/{api_version}/prediction:
+    get:
+      tags:
+      - predictions
+      summary: Return 200 if the model endpoint is ready for prediction.
+      parameters:
+        - $ref: '#/components/parameters/model_name'
+        - $ref: '#/components/parameters/api_version'
+      responses:
+        200:
+          description: Prediction endpoint is available.
+          content: {}
+    post:
+      tags:
+      - predictions
+      summary: Get a prediction.
+      parameters:
+        - $ref: '#/components/parameters/model_name'
+        - $ref: '#/components/parameters/api_version'
+      requestBody:
+        description: Instance(s) to predict on.
+        content:
+          application/json:
+            schema: {}
+        required: true
+      responses:
+        200:
+          description: Successfully predicted on input.
+          content:
+            application/json:
+              schema: {}
+        400:
+          description: |
+            Bad request. Payload could not be parsed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelContextError'
+        422:
+          description: |
+            Unprocessable entity. Payload was parsed but contained invalid data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelContextError'
+        500:
+          description: |
+            Internal server error. An error occurred during prediction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelContextError'
+components:
+  schemas:
+    HealthCheck:
+      type: object
+      properties:
+        request_id:
+          type: string
+          description: Hex value of UUID assigned to the request.
+        porter_version:
+          type: string
+          description: The version of porter on the deployed application.
+        deployed_on:
+          type: string
+          description: Start up time of the application.
+          format: date-time
+        app_meta:
+          type: object
+          additionalProperties:
+            type: string
+          description: Arbitrary meta data associated with the application.
+        services:
+          type: object
+          description: Models available for predicting in the application.
+          additionalProperties:
+            type: object
+            properties:
+              endpoint:
+                type: string
+                description: Path the model is exposed on.
+              status:
+                type: string
+                description: |
+                  Status of the model. If the app is ready the value will be "READY".
+                  Otherwise the value will be a string indicating the status of the
+                  service.
+              model_context:
+                $ref: '#/components/schemas/ModelContext'
+            description: Description of the application's status.
+    GenericError:
+      type: object
+      properties:
+        request_id:
+          type: string
+          description: Hex value of UUID assigned to the request.
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    ErrorBody:
+      type: object
+      properties:
+        messages:
+          description: Error messages
+          type: array
+          items:
+            type: string
+        name:
+          type: string
+          description: Name of the error
+    ModelContextError:
+      type: object
+      properties:
+        request_id:
+          type: string
+          description: Hex value of UUID assigned to the request.
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        model_context:
+          $ref: '#/components/schemas/ModelContext'
+    ModelContext:
+      type: object
+      properties:
+        model_name:
+          type: string
+          description: The name of the model.
+        api_version:
+          type: string
+          description: The version of the models API.
+        model_meta:
+          type: object
+          additionalProperties:
+            type: string
+          description: Arbitrary meta-data associated with the model.
+  parameters:
+    model_name:
+      in: path
+      name: model_name
+      schema:
+        type: string
+      description: |
+        The name of the model you wish to receive a prediction from.
+      required: True
+    api_version:
+      in: path
+      name: api_version
+      schema:
+        type: string
+      description: |
+        The model API version. This corresponds to the schema of the
+        input/output. Note that the underlying algorithm could change
+        but this does not necessitate a model API change.
+      required: True
+ 

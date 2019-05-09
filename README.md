@@ -1,5 +1,63 @@
 # porter
-porter is a framework for exposing machine learning models via REST APIs.
+
+What is `porter`? `porter` is a framework for exposing machine learning models via REST APIs. Any object with
+a `.predict()` method will do which means `porter` plays nicely with models you have already trained
+using [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/) or [xgboost](https://xgboost.readthedocs.io/en/latest/) to name a few well known machine learning libraries. It also allows
+you to easily expose custom models.
+
+Getting started is as easy as
+
+```python
+from porter.datascience import WrappedModel
+from porter.services import ModelApp, PredictionService
+
+my_model = WrappedModel.from_file('my-model.pkl')
+prediction_service = PilotPredictionService(
+    model=my_model,
+    name='my-model',
+    api_version='v1')
+
+app = ModelApp()
+app.add_service(prediction_service)
+app.run()
+```
+
+Now just send a POST request to the endpoint `/my-model/v1/prediction` to get a prediction. Behind the
+scenes (with `porter`s default settings) your POST data will be converted to a `pandas.DataFrame` and
+the result of `my_model.predict()` will be returned to the user in a payload like the one below
+
+```javascript
+{
+    "model_context": {
+        "api_version": "v1",
+        "model_meta": {},
+        "model_name": "my-model"
+    },
+    "predictions": [
+        {
+            "id": 1,
+            "prediction": 0
+        }
+    ],
+    "request_id": "0f86644edee546ee9c495a9a71b0746c"
+}
+```
+
+`porter` also takes care of a lot of the boilerplate for you such as error handling. For example, by default,
+if the POST data sent to the prediction endpoint can't be parsed the user will receive a response with a 400
+status code a payload describing the error.
+
+```javascript
+{
+    "error": {
+        "messages": [
+            "The browser (or proxy) sent a request that this server could not understand."
+        ],
+        "name": "BadRequest"
+    },
+    "request_id": "852ca09d578b447aa3d41d70b8cc4431"
+}
+```
 
 # Installation
 `porter` can be installed with `pip` as follows
@@ -9,10 +67,9 @@ pip install -e git+https://github.com/CadentTech/porter#egg=porter
 ```
 
 Note that without the `-e` flag and `#egg=porter` on the end of the url `pip freeze` will output `porter==<version>`
-rather than `-e git+https://...` as typically
-desired.
+rather than `-e git+https://...` as typically desired.
 
-If you want to install `porter` from a specific commit or tag, e.g. tag `1.0.0` simply and 
+If you want to install `porter` from a specific commit or tag, e.g. tag `1.0.0` simply add
 `@<commit-or-tag>` immediately before `#egg=porter`.
 
 ```shell
@@ -54,9 +111,9 @@ See this [example script](./examples/example.py) for an (almost functional) exam
 
 There are two ways to run porter apps. The first is calling the `ModelApp.run` method. This
 is just a wrapper to the underlying `flask` app which is good for development but not for
-production. A better way to run porter apps in production is through a WSGI server, such as
-`gunicorn`. To do so simply define an instance of `ModelApp` in your python script and then
-point gunicorn to it.
+production. A better way to run porter apps in production is through a production-grade WSGI server
+, such as `gunicorn`. To do so simply define an instance of `ModelApp` in your python script and 
+then point gunicorn to it.
 
 For example, in your python script `app.py`
 
@@ -71,71 +128,35 @@ gunicorn app:model_app
 ```
 
 # API
-A `porter` defines the following endpoints.
 
-**/-/alive** (Methods=`[GET]`):
-  An endpoint used to determine if the app is alive (i.e. running). This endpoint returns the
-  same JSON payload returned by **/-/ready**. Returns 200.
-  
-**/-/ready** (Methods=`[GET]`):
-  Returns a JSON object representing the app's state as follows. The object has a single key
-  `"services"`. Services is itself a JSON object with a key for every service added to the app.
-  These service objects contain keys for their respective endpoint and status. Returns 200 if
-  all services are ready and 503 otherwise.
+The complete details of an API exposed by `porter` can be found in the [openapi](https://openapi.tools/) spec
+[in this repository](./docs/porter-api.yaml).
 
-  The JSON below is the response you would get from the app defined in
-  [the AB test script](./examples/ab_test.py).
-  
-  ```javascript
-    {
-      "services": {
-        "supa-dupa-model-ab-test": {
-          "endpoint": "/supa-dupa-model/prediction",
-          "status": "READY"
-        }
-      }
-    }
-  ```
-  
-**/<model name\>/prediction**: (Methods=`[POST]`):
-  Each model added to the app will have an endpoint for accessing the model's predictions.
-  The endpoint accepts `POST` requests with the input schema dependent on the model and
-  resturns a JSON object with the following schema for batch predictions.
-  
-  ```javascript
-    {
-      "model_id": A unique identifier for the model,
-      "model_version": A string identifying the model version,
-      "predictions": [
-         {"id": ..., "prediction": ...},
-         ...
-      ]
-    }
-  ```
-  
-  Single instance predictions return a JSON object with the schema
-  
-   ```javascript
-    {
-      "model_id": A unique identifier for the model,
-      "model_version": A string identifying the model version,
-      "predictions": {"id": ..., "prediction": ...}
-    }
-  ```
-  
-## Errors
-If an error occurs while processing a request the user will receive a response with a non-200 status
-code and JSON payload with the following keys
+Additionally you can open the [static documentation](./docs/html/index.html) generated from this spec
+in your web browser. On a Mac
 
-- "error": `string`. A simple name describing the error.
-- "message": `string`. A more detailed error message.
-- "traceback": `string`. The traceback of the `Exception` causing the error.
-- "user_data": `object` or `null`. If the request contained a JSON payload it is returned to
-  the user in this field. Otherwise, if no data was passed or the data was not valid JSON `null`
-  is returned.
-  
-If the error resulted in a model context (during prediction, processing, etc.) the model context
-data (model ID, version and any model meta data) described above will be present in the error object.
+```shell
+open docs/html/index.html
+```
+
+For those who just want to get a sense of the API a quick overview is below.
+
+## Quick guide
+
+Two healtch check endpoints are exposed by each `porter` app: `/-/alive` and `/-/ready`. These
+are useful for deploying a `porter` app in an environment like Kubernets or behind a load balancer.
+
+Additionally there is a prediction endpoint for each model service added to the `ModelApp` instance.
+The endpoint is computed from the name and version attributes of the model services:
+`/<model name>/<model version>/prediction`. For example
+
+```python
+service1 = PredictionService(name='foo', version='v1', ...)
+service2 = PredictionService(name='bar', version='v2', ...)
+model_app.add_services(service1, service2)
+```
+will expose two models on the endpoints `/foo/v1/prediction` and `/foo/v2/prediction`. The endpoints
+accept POST requests with JSON payloads.
 
 # Logging
 API calls (request and response payloads) can be logged by passing `log_api_calls=True` when instantiating

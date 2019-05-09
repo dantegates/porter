@@ -59,6 +59,7 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual3, expected3)
 
 
+@mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.api.request_json')
     @mock.patch('porter.services.porter_responses.api.jsonify', lambda payload: payload)
@@ -102,10 +103,15 @@ class TestPredictionService(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            'model_name': test_model_name,
-            'api_version': test_api_version,
-            '1': '2',
-            '3': 4,
+            'request_id': 123,
+            'model_context': {
+                'model_name': test_model_name,
+                'api_version': test_api_version,
+                'model_meta': {
+                    '1': '2',
+                    '3': 4
+                }
+            },
             'predictions': [
                 {'id': 1, 'prediction': 20},
                 {'id': 2, 'prediction': 26},
@@ -152,10 +158,15 @@ class TestPredictionService(unittest.TestCase):
         )
         actual = serve_prediction()
         expected = {
-            'model_name': test_model_name,
-            'api_version': test_api_version,
-            '1': '2',
-            '3': 4,
+            'request_id': 123,
+            'model_context': {
+                'model_name': test_model_name,
+                'api_version': test_api_version,
+                'model_meta': {
+                    '1': '2',
+                    '3': 4
+                }
+            },
             'predictions': {'id': 1, 'prediction': 20}
         }
         self.assertEqual(actual, expected)
@@ -419,22 +430,17 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
 
-    @mock.patch('porter.services.PredictionService.reserved_keys', [])
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor(self):
         service_config = PredictionService(
             model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4})
 
-    @mock.patch('porter.services.PredictionService.reserved_keys', ['1', '2'])
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor_fail(self):
         with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
             with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
                 service_config = PredictionService(
                     model=None, name='foo', api_version='bar', meta=object())
-        with self.assertRaisesRegex(exc.PorterError, '.*keys are reserved for prediction.*'):
-            service_config = PredictionService(
-                model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4})
         with self.assertRaisesRegex(exc.PorterError, '.*callable.*'):
             service_config = PredictionService(
                 model=None, additional_checks=1)
@@ -531,7 +537,7 @@ class TestMiddlewareService(unittest.TestCase):
         mock_get.return_value = mock.Mock(status_code=200)
         middleware_service = MiddlewareService()
         middleware_service.model_endpoint = 'localhost:5000/a-model/prediction'
-        self.assertEqual(middleware_service.status, cn.HEALTH_CHECK.RESPONSE.VALUES.STATUS_IS_READY)
+        self.assertEqual(middleware_service.status, cn.HEALTH_CHECK_VALUES.IS_READY)
 
     @mock.patch('porter.services.MiddlewareService.__init__')
     @mock.patch('porter.services.api.get')
@@ -582,133 +588,6 @@ class TestModelApp(unittest.TestCase):
         model_app.add_services(configs[0], configs[1], configs[2])
         expected_calls = [mock.call(obj) for obj in configs]
         mock_add_service.assert_has_calls(expected_calls)
-
-    @mock.patch('porter.services.ModelApp._build_app')
-    @mock.patch('porter.services.api.App')
-    def test_state1(self, mock_App, mock__build_app):
-        model_app = ModelApp(meta={'metadatakey1': 'value1', 'metadatakey2': '2'})
-        class service1:
-            id = 'service1'
-            name = 'foo'
-            api_version = 'bar'
-            endpoint = '/an/endpoint'
-            meta = {'key1': 'value1', 'key2': 2}
-            status = 'ready'
-            route_kwargs = {}
-        class service2:
-            id = 'service2'
-            name = 'foobar'
-            api_version = '1'
-            endpoint = '/foobar'
-            meta = {}
-            status = 'ready'
-            route_kwargs = {}
-        class service3:
-            id = 'service3'
-            name = 'supa-dupa-model'
-            api_version = '1.0'
-            endpoint = '/supa/dupa'
-            meta = {'key1': 1}
-            status = 'not ready'
-            route_kwargs = {}
-        model_app.add_service(service1)
-        model_app.add_service(service2)
-        model_app.add_service(service3)
-        actual = model_app.state
-        expected = {
-            'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            'app_meta': {'metadatakey1': 'value1', 'metadatakey2': '2'},
-            'services': {
-                'service1': {
-                    'name': 'foo',
-                    'api_version': 'bar',
-                    'endpoint': '/an/endpoint',
-                    'meta': {'key1': 'value1', 'key2': 2},
-                    'status': 'ready',
-                },
-                'service2': {
-                    'name': 'foobar',
-                    'api_version': '1',
-                    'endpoint': '/foobar',
-                    'meta': {},
-                    'status': 'ready',
-                },
-                'service3': {
-                    'name': 'supa-dupa-model',
-                    'api_version': '1.0',
-                    'endpoint': '/supa/dupa',
-                    'meta': {'key1': 1},
-                    'status': 'not ready',
-                },
-            }
-        }
-        self.maxDiff = None
-        self.assertDictEqual(actual, expected)
-
-    @mock.patch('porter.services.ModelApp._build_app')
-    @mock.patch('porter.services.api.App')
-    def test_state2(self, mock_App, mock__build_app):
-        # same test as above but we don't add meta data
-        model_app = ModelApp()
-        class service1:
-            id = 'service1'
-            name = 'foo'
-            api_version = 'bar'
-            endpoint = '/an/endpoint'
-            meta = {'key1': 'value1', 'key2': 2}
-            status = 'ready'
-            route_kwargs = {}
-        class service2:
-            id = 'service2'
-            name = 'foobar'
-            api_version = '1'
-            endpoint = '/foobar'
-            meta = {}
-            status = 'ready'
-            route_kwargs = {}
-        class service3:
-            id = 'service3'
-            name = 'supa-dupa-model'
-            api_version = '1.0'
-            endpoint = '/supa/dupa'
-            meta = {'key1': 1}
-            status = 'not ready'
-            route_kwargs = {}
-        model_app.add_service(service1)
-        model_app.add_service(service2)
-        model_app.add_service(service3)
-        actual = model_app.state
-        expected = {
-            'porter_version': __version__,
-            'deployed_on': cn.HEALTH_CHECK.RESPONSE.VALUES.DEPLOYED_ON,
-            'app_meta': {},
-            'services': {
-                'service1': {
-                    'name': 'foo',
-                    'api_version': 'bar',
-                    'endpoint': '/an/endpoint',
-                    'meta': {'key1': 'value1', 'key2': 2},
-                    'status': 'ready',
-                },
-                'service2': {
-                    'name': 'foobar',
-                    'api_version': '1',
-                    'endpoint': '/foobar',
-                    'meta': {},
-                    'status': 'ready',
-                },
-                'service3': {
-                    'name': 'supa-dupa-model',
-                    'api_version': '1.0',
-                    'endpoint': '/supa/dupa',
-                    'meta': {'key1': 1},
-                    'status': 'not ready',
-                },
-            }
-        }
-        self.maxDiff = None
-        self.assertDictEqual(actual, expected)
 
     @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.api.App')
