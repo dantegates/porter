@@ -2,8 +2,9 @@
 
 What is `porter`? `porter` is a framework for exposing machine learning models via REST APIs. Any object with
 a `.predict()` method will do which means `porter` plays nicely with models you have already trained
-using [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/) or [xgboost](https://xgboost.readthedocs.io/en/latest/) to name a few well known machine learning libraries. It also allows
-you to easily expose custom models.
+using [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/) or [xgboost](https://xgboost.readthedocs.io/en/latest/) to name a few well known machine learning libraries. It also
+includes the ability to load `.pkl` and `.h5` files so you don't have to write this code every time
+you deploy a new model and allows you to easily expose custom models.
 
 Getting started is as easy as
 
