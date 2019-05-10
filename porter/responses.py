@@ -63,10 +63,6 @@ def _init_model_context(model_service):
     return payload
 
 
-def make_middleware_response(objects):
-    return Response(objects)
-
-
 def make_error_response(error):
     payload = _init_base_response()
     payload[cn.GENERIC_ERROR_KEYS.ERROR] = error_dict = {}

@@ -12,7 +12,7 @@ import flask
 from porter import exceptions as exc
 from porter import __version__
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
-from porter.services import ModelApp, PredictionService, MiddlewareService
+from porter.services import ModelApp, PredictionService
 from porter import constants as cn
 
 
@@ -88,16 +88,9 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
-        with mock.patch('porter.services.api', **{'validate_url.return_value': True}):
-            middleware_service = MiddlewareService(
-                name='model-3',
-                api_version='version1',
-                model_endpoint=prediction_service3.endpoint,
-                max_workers=None)
         cls.model_app.add_service(prediction_service1)
         cls.model_app.add_service(prediction_service2)
         cls.model_app.add_service(prediction_service3)
-        cls.model_app.add_service(middleware_service)
 
     def test_prediction_success(self):
         post_data1 = [
@@ -167,39 +160,6 @@ class TestAppPredictions(unittest.TestCase):
             self.assertCountEqual(actual1[key], expected1[key])
             self.assertCountEqual(actual2[key], expected2[key])
             self.assertCountEqual(actual3[key], expected3[key])
-
-    @mock.patch('porter.services.api.post')
-    def test_middleware(self, mock_post):
-        # test middleware
-        def post(url, data, **kwargs):
-            response = self.app.post(url, data=json.dumps(data))
-            m = mock.Mock()
-            m.json.side_effect = lambda: json.loads(response.data)
-            return m
-        mock_post.side_effect = post
-
-        # only the third service supports instance predictions
-        post_data = [{'id': i, 'feature1': i*2} for i in range(10)]
-        actual = self.app.post('/model-3/version1/batchPrediction', data=json.dumps(post_data))
-        actual = json.loads(actual.data)
-        expected = [
-            {
-                'request_id': 123,
-                'model_context': {
-                    'model_name': 'model-3',
-                    'api_version': 'v0.0-alpha',
-                    'model_meta': {
-                        'algorithm': 'randomforest',
-                        'lasttrained': 1
-                    }
-                },
-                'predictions': {'id': d['id'], 'prediction': -d['feature1']}
-            }
-            for d in post_data
-        ]
-        actual_hashable = [sorted(tuple(x.items())) for x in actual]
-        expected_hashable = [sorted(tuple(x.items())) for x in expected]
-        self.assertCountEqual(actual_hashable, expected_hashable)
 
     def test_prediction_bad_requests_400(self):
         actual = self.app.post('/a-model/v0/prediction', data='cannot be parsed')
