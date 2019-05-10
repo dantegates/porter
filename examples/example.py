@@ -5,22 +5,33 @@ API via porter.
 The model predictions can be obtained by sending POST requests with a payload
 such as
 
-    [
-        {"id": 101, "feature1": "foo", "feature2": "bar", "feature3": 1.0}
+
+```javascript
+[
+    {
+        "id": 101,
+        "feature1": "foo",
+        "feature2": "bar",
+        "feature3": 1.0
+    }
+]
+```
+
+to the endpoint `/supa-dupa-model/v1/prediction/`. The corresponding output
+has the format
+
+```javascript
+[
+    "model_context": {
+        "model_name": "supa-dupa-model-v0",
+        "api_version": "v1,
+        "model_meta": {}
+    }
+    "predicitons": [
+        {"id": 101, "prediction": 1001.01}
     ]
-
-to the endpoint
-
-    <host>:<port>/supa-dupa-model/v1/prediction/
-
-The corresponding output has the format
-
-    [
-        "model_id": 'supa-dupa-model-v0',
-        "predicitons": [
-            {"id": 101, "prediction": 1001.01}
-        ]
-    ]
+]
+```
 """
 
 import os
