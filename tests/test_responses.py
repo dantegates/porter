@@ -9,8 +9,8 @@ from porter.responses import (_build_app_state, _init_base_response,
                               _init_model_context, _is_ready,
                               make_alive_response,
                               make_batch_prediction_response,
-                              make_error_response, make_middleware_response,
-                              make_prediction_response, make_ready_response)
+                              make_error_response, make_prediction_response,
+                              make_ready_response)
 
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)

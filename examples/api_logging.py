@@ -1,15 +1,13 @@
 """Test with
 
 curl localhost:5000/-/alive | python -m json.tool
-
-curl -d @examples/middleware.json -POST localhost:5000/my-model/batchPrediction
-
+curl localhost:5000/my-model/v1/prediction -d @examples/api_logging.json | python -m json.tool
 """
 
 import logging
 
 from porter.datascience import BaseModel
-from porter.services import ModelApp, PredictionService, MiddlewareService
+from porter.services import ModelApp, PredictionService
 from porter.utils import JSONFormatter
 
 
@@ -24,15 +22,10 @@ class Model(BaseModel):
 prediction_svc = PredictionService(
     model=Model(),
     name='my-model',
-    api_version='1',
-    batch_prediction=False,
+    api_version='v1',
+    batch_prediction=True,
     log_api_calls=True)
-middleware_svc = MiddlewareService(
-    name='my-model',
-    api_version='1',
-    max_workers=None,  # use default
-    model_endpoint=f'http://localhost:5000{prediction_svc.endpoint}')
-app.add_services(prediction_svc, middleware_svc)
+app.add_services(prediction_svc)
 
 
 if __name__ == '__main__':
