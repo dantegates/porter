@@ -30,9 +30,14 @@ def _init_base_response():
     return payload
 
 
-def make_prediction_response(model_service, id_value, prediction):
+def init_service_response(service_class):
     payload = _init_base_response()
-    payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
+    payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(service_class)
+    return payload
+
+
+def make_prediction_response(model_service, id_value, prediction):
+    payload = init_service_response(model_service)
     payload[cn.PREDICTION_KEYS.PREDICTIONS] = {
         cn.PREDICTION_PREDICTIONS_KEYS.ID: id_value,
         cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: prediction
@@ -42,8 +47,7 @@ def make_prediction_response(model_service, id_value, prediction):
 
 
 def make_batch_prediction_response(model_service, id_values, predictions):
-    payload = _init_base_response()
-    payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
+    payload = init_service_response(model_service)
     payload[cn.PREDICTION_KEYS.PREDICTIONS] = [
         {
             cn.PREDICTION_PREDICTIONS_KEYS.ID: id,

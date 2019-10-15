@@ -166,8 +166,6 @@ class BaseService(abc.ABC, StatefulRoute):
     _invalid_endpoint_characters = string.punctuation.translate(
         str.maketrans({'-': '', '.': ''}))
 
-    rotue_kwargs = {}
-
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False):
         self.name = name
         self.api_version = api_version
@@ -219,6 +217,11 @@ class BaseService(abc.ABC, StatefulRoute):
     @abc.abstractproperty
     def status(self):
         """Return `str` representing the status of the service."""
+
+    # @abc.abstractproperty
+    # def route_kwargs(self):
+    #     """Return keyword arguments to use when routing `self.serve()`."""
+    #     return {}
 
     def define_id(self):
         """Return a unique ID for the service. This is used to set the `id`
