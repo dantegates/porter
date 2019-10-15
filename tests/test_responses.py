@@ -5,23 +5,51 @@ from unittest import mock
 from porter import __version__ as VERSION
 from porter import constants as cn
 from porter.exceptions import PredictionError
-from porter.responses import (_build_app_state, _init_base_response,
-                              _init_model_context, _is_ready,
+from porter.responses import (_build_app_state, _is_ready,
                               make_alive_response,
                               make_batch_prediction_response,
                               make_error_response, make_prediction_response,
-                              make_ready_response)
+                              make_ready_response,
+                              Response)
 
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)
-class TestBaseResponse(unittest.TestCase):
-    def test(self):
+class TestResponse(unittest.TestCase):
+    def test__init__defaults(self):
+        r1 = Response({'foo': 1, 'bar': [1, 2]})
+        self.assertEqual(r1.data, {'foo': 1, 'bar': [1, 2], 'request_id': 123})
+
+        r2 = Response('a string')
+        self.assertEqual(r2.data, 'a string')
+
+    def test__init__model_context(self):
+        class ServiceClass:
+            name = 'foo'; api_version = 'v1'; meta = {'a': 1, 2: 'b'}
+
+        r = Response({'foo': 1, 'bar': [1, 2]}, service_class=ServiceClass)
+        actual = r.data
+        expected = {
+            'request_id': 123,
+            'model_context': {
+                'model_name': 'foo',
+                'api_version': 'v1',
+                'model_meta': {
+                    'a': 1,
+                    2: 'b'
+                }
+            },
+            'foo': 1,
+            'bar': [1, 2]
+        }
+        self.assertEqual(actual, expected)
+
+    def test__init_base_response(self):
         with mock.patch('porter.responses.cf.return_request_id', False):
-            self.assertEqual(_init_base_response(), {})
-        self.assertEqual(_init_base_response(), {'request_id': 123})
+            self.assertEqual(Response._init_base_response(), {})
+        self.assertEqual(Response._init_base_response(), {'request_id': 123})
 
 
-@mock.patch('porter.responses._init_base_response', lambda: {'request_id': 123})
+@mock.patch('porter.responses.Response._init_base_response', staticmethod(lambda: {'request_id': 123}))
 class Test(unittest.TestCase):
     def test_make_batch_prediction_response(self):
         # on setting name after instantiation see
@@ -120,7 +148,7 @@ class Test(unittest.TestCase):
         self.assertIsNone(actual.status_code)
 
 
-@mock.patch('porter.responses._init_base_response', lambda: {'request_id': 123})
+@mock.patch('porter.responses.Response._init_base_response', staticmethod(lambda: {'request_id': 123}))
 @mock.patch('porter.responses.api.request_json', lambda *args, **kwargs: {'foo': 1})
 class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
@@ -272,7 +300,7 @@ class TestErrorResponses(unittest.TestCase):
         self.assertNotIn('user_data', actual_data['error'])
 
 
-@mock.patch('porter.responses._init_base_response', lambda: {'request_id': 123})
+@mock.patch('porter.responses.Response._init_base_response', staticmethod(lambda: {'request_id': 123}))
 class TestHealthChecks(unittest.TestCase):
     def test_make_alive_ready_response_is_ready(self):
         mock_app = mock.Mock(meta={'foo': 1})

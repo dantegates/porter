@@ -183,6 +183,8 @@ class BaseService(abc.ABC, StatefulRoute):
         response = None
         try:
             response = self.serve()
+            if not isinstance(response, porter_responses.Response):
+                response = porter_responses.Response(response, service_class=self)
             response = response.jsonify()
         except exc.ModelContextError as err:
             err.update_model_context(self)

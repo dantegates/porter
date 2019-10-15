@@ -7,6 +7,7 @@ import pandas as pd
 from porter import __version__
 from porter import constants as cn
 from porter import exceptions as exc
+import porter.responses as porter_responses
 from porter.services import (BaseService, ModelApp,
                              PredictionService, StatefulRoute,
                              serve_error_message)
@@ -538,7 +539,7 @@ class TestBaseService(unittest.TestCase):
             def define_endpoint(self):
                 return '/foo'
             def serve(self):
-                m = mock.Mock()
+                m = mock.Mock(spec=porter_responses.Response)
                 m.jsonify.side_effect = lambda: {'foo': '1', 'p': {10: '10'}}
                 return m
             def status(self):
