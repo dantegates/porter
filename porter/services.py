@@ -166,8 +166,6 @@ class BaseService(abc.ABC, StatefulRoute):
     _invalid_endpoint_characters = string.punctuation.translate(
         str.maketrans({'-': '', '.': ''}))
 
-    rotue_kwargs = {}
-
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False):
         self.name = name
         self.api_version = api_version
@@ -185,6 +183,8 @@ class BaseService(abc.ABC, StatefulRoute):
         response = None
         try:
             response = self.serve()
+            if not isinstance(response, porter_responses.Response):
+                response = porter_responses.Response(response, service_class=self)
             response = response.jsonify()
         except exc.ModelContextError as err:
             err.update_model_context(self)
@@ -211,14 +211,23 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @abc.abstractmethod
     def serve(self):
-        """Return a response to be served to the user (should be the return
+        """Return a response to be served to the user (usually the return
         value of one of the functions in `porter.responses` or an instance of
         `porter.responses.Response`).
+
+        Custom subclasses may find it easier to return a native Python object
+        such as a `str` or `dict`, in such cases the object must be
+        "jsonify-able".
         """
 
     @abc.abstractproperty
     def status(self):
         """Return `str` representing the status of the service."""
+
+    # @abc.abstractproperty
+    # def route_kwargs(self):
+    #     """Return keyword arguments to use when routing `self.serve()`."""
+    #     return {}
 
     def define_id(self):
         """Return a unique ID for the service. This is used to set the `id`

@@ -12,8 +12,11 @@ from . import api
 
 
 class Response:
-    def __init__(self, data, status_code=None):
-        self.data = data
+    def __init__(self, data, *, service_class=None, status_code=None):
+        if isinstance(data, dict):
+            self.data = self._init_payload(service_class, data)
+        else:
+            self.data = data
         self.status_code = status_code
 
     def jsonify(self):
@@ -22,64 +25,63 @@ class Response:
             jsonified.status_code = self.status_code
         return jsonified
 
+    def _init_payload(self, service_class, data):
+        payload = self._init_base_response()
+        if service_class is not None:
+            payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = self._init_model_context(service_class)
+        payload.update(data)
+        return payload
 
-def _init_base_response():
-    payload = {}
-    if cf.return_request_id:
-        payload[cn.BASE_KEYS.REQUEST_ID] = api.request_id()
-    return payload
+    @staticmethod
+    def _init_base_response():
+        payload = {}
+        if cf.return_request_id:
+            payload[cn.BASE_KEYS.REQUEST_ID] = api.request_id()
+        return payload
+
+    @staticmethod
+    def _init_model_context(service_class):
+        model_context = {
+            cn.MODEL_CONTEXT_KEYS.MODEL_NAME: service_class.name,
+            cn.MODEL_CONTEXT_KEYS.API_VERSION: service_class.api_version,
+        }
+        model_context[cn.MODEL_CONTEXT_KEYS.MODEL_META] = service_class.meta
+        return model_context
+
+_init_model_context = Response._init_model_context
 
 
 def make_prediction_response(model_service, id_value, prediction):
-    payload = _init_base_response()
-    payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
-    payload[cn.PREDICTION_KEYS.PREDICTIONS] = {
-        cn.PREDICTION_PREDICTIONS_KEYS.ID: id_value,
-        cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: prediction
-
+    payload = {
+        cn.PREDICTION_KEYS.PREDICTIONS: {
+            cn.PREDICTION_PREDICTIONS_KEYS.ID: id_value,
+            cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: prediction
+        }
     }
-    return Response(payload)
+    return Response(payload, service_class=model_service)
 
 
 def make_batch_prediction_response(model_service, id_values, predictions):
-    payload = _init_base_response()
-    payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = _init_model_context(model_service)
-    payload[cn.PREDICTION_KEYS.PREDICTIONS] = [
-        {
-            cn.PREDICTION_PREDICTIONS_KEYS.ID: id,
-            cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: p
-        }
-        for id, p in zip(id_values, predictions)
-    ]
-    return Response(payload)
-
-
-def _init_model_context(model_service):
     payload = {
-        cn.MODEL_CONTEXT_KEYS.MODEL_NAME: model_service.name,
-        cn.MODEL_CONTEXT_KEYS.API_VERSION: model_service.api_version,
+        cn.PREDICTION_KEYS.PREDICTIONS: [
+            {
+                cn.PREDICTION_PREDICTIONS_KEYS.ID: id,
+                cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: p
+            }
+            for id, p in zip(id_values, predictions)
+        ]
     }
-    payload[cn.MODEL_CONTEXT_KEYS.MODEL_META] = model_service.meta
-    return payload
+    return Response(payload, service_class=model_service)
 
 
 def make_error_response(error):
-    payload = _init_base_response()
+    payload = {}
     payload[cn.GENERIC_ERROR_KEYS.ERROR] = error_dict = {}
 
     # all errors should at least return the name
     error_dict[cn.ERROR_BODY_KEYS.NAME] = type(error).__name__
 
     # include optional attributes
-
-    ## these are "top-level" attributes
-
-    # if the error was generated while predicting add model meta data to error
-    # message - note that isinstance(obj, cls) is True if obj is an instance
-    # of a subclass of cls
-    if isinstance(error, exc.ModelContextError):
-        payload[cn.MODEL_CONTEXT_ERROR_KEYS.MODEL_CONTEXT] = \
-            _init_model_context(error.model_service)
 
     ## these are "error specific" attributes
     if cf.return_message_on_error:
@@ -96,22 +98,18 @@ def make_error_response(error):
         # silent=True -> flask.request.get_json(...) returns None if user did not
         error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True, force=True)
 
-    return Response(payload, getattr(error, 'code', 500))
+    return Response(payload, service_class=getattr(error, 'model_service', None), status_code=getattr(error, 'code', 500))
 
 
 def make_alive_response(app):
-    payload = _init_base_response()
     app_state = _build_app_state(app)
-    payload.update(app_state)
-    return Response(payload, 200)
+    return Response(app_state, status_code=200)
 
 
 def make_ready_response(app):
-    payload = _init_base_response()
     app_state = _build_app_state(app)
-    payload.update(app_state)
     ready = _is_ready(app_state)
-    response = Response(payload, 200 if ready else 503)
+    response = Response(app_state, status_code=200 if ready else 503)
     return response
 
 
