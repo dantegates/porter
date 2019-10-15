@@ -211,9 +211,13 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @abc.abstractmethod
     def serve(self):
-        """Return a response to be served to the user (should be the return
+        """Return a response to be served to the user (usually the return
         value of one of the functions in `porter.responses` or an instance of
         `porter.responses.Response`).
+
+        Custom subclasses may find it easier to return a native Python object
+        such as a `str` or `dict`, in such cases the object must be
+        "jsonify-able".
         """
 
     @abc.abstractproperty
