@@ -181,8 +181,8 @@ class BaseService(abc.ABC, StatefulRoute):
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
         # and fail.
-        self.id = self.define_id()
         self.endpoint = self.define_endpoint()
+        self.id = self.define_id()
         self.meta = self.update_meta(self.meta)
         self.log_api_calls = log_api_calls
 
@@ -250,7 +250,7 @@ class BaseService(abc.ABC, StatefulRoute):
         """Return a unique ID for the service. This is used to set the `id`
         attribute.
         """
-        return f'{self.name}:{self.api_version}'
+        return self.endpoint
 
     def check_meta(self, meta):
         """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
@@ -295,6 +295,7 @@ class BaseService(abc.ABC, StatefulRoute):
         if value and not value.startswith('/'):
             value = '/' + value
         self._namespace = value
+
 
     @property
     def name(self):

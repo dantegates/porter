@@ -540,8 +540,6 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService.action', None)
     def test_api_logging_no_exception(self):
         class Service(BaseService):
-            def define_endpoint(self):
-                return '/foo'
             def serve(self):
                 m = mock.Mock(spec=porter_responses.Response)
                 m.jsonify.side_effect = lambda: {'foo': '1', 'p': {10: '10'}}
@@ -572,8 +570,6 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService.action', None)
     def test_api_logging_exception(self):
         class Service(BaseService):
-            def define_endpoint(self):
-                return '/foo'
             def serve(self):
                 raise Exception('testing')
             def status(self):
