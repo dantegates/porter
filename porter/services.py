@@ -168,8 +168,6 @@ class BaseService(abc.ABC, StatefulRoute):
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
-    _invalid_endpoint_characters = string.punctuation.translate(
-        str.maketrans({'-': '', '.': ''}))
 
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace=''):
         self.name = name
@@ -215,9 +213,10 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def define_endpoint(self):
         """Return the service endpoint derived from instance attributes."""
-        return cn.ENDPOINT_TEMPLATE.format(
+        endpoint = cn.ENDPOINT_TEMPLATE.format(
             namespace=self.namespace, service_name=self.name,
             api_version=self.api_version, action=self.action)
+        return endpoint
 
     @abc.abstractmethod
     def serve(self):
@@ -296,7 +295,6 @@ class BaseService(abc.ABC, StatefulRoute):
             value = '/' + value
         self._namespace = value
 
-
     @property
     def name(self):
         """The model name. The final routed endpoint is generally derived from
@@ -306,10 +304,6 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @name.setter
     def name(self, value):
-        if any(c in value for c in self._invalid_endpoint_characters):
-            raise exc.PorterError(
-                '`name` cannot contain any of the following characters '
-                f'{", ".join(self._invalid_endpoint_characters)}')
         self._name = value
 
     @property
@@ -321,10 +315,6 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @api_version.setter
     def api_version(self, value):
-        if any(c in value for c in self._invalid_endpoint_characters):
-            raise exc.PorterError(
-                '`api_version` cannot contain any of the following characters '
-                f'{", ".join(self._invalid_endpoint_characters)}')
         self._api_version = value
 
     def get_post_data(self):
