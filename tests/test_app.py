@@ -9,11 +9,11 @@ import unittest
 from unittest import mock
 
 import flask
-from porter import exceptions as exc
 from porter import __version__
+from porter import constants as cn
+from porter import exceptions as exc
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
 from porter.services import ModelApp, PredictionService
-from porter import constants as cn
 
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)
@@ -451,7 +451,7 @@ class TestAppErrorHandling(unittest.TestCase):
             'request_id': 123,
             'error': {
                 'name': 'NotFound',
-                'messages': ['The requested URL was not found on the server.  '
+                'messages': ['The requested URL was not found on the server. '
                              'If you entered the URL manually please check your spelling and '
                              'try again.'],
                 'user_data': None,
