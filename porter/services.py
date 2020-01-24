@@ -293,6 +293,8 @@ class BaseService(abc.ABC, StatefulRoute):
     def namespace(self, value):
         if value and not value.startswith('/'):
             value = '/' + value
+        if value and value.endswith('/'):
+            value = value[:-1]
         self._namespace = value
 
     @property

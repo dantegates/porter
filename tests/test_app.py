@@ -60,6 +60,7 @@ class TestAppPredictions(unittest.TestCase):
             model=Model1(),
             name='a-model',
             api_version='v0',
+            action='predict',
             preprocessor=Preprocessor1(),
             postprocessor=Postprocessor1(),
             input_features=input_features1,
@@ -70,6 +71,7 @@ class TestAppPredictions(unittest.TestCase):
             model=Model2(),
             name='anotherModel',
             api_version='v1',
+            namespace='n/s/',
             preprocessor=Preprocessor2(),
             postprocessor=None,
             input_features=input_features2,
@@ -108,9 +110,9 @@ class TestAppPredictions(unittest.TestCase):
             {'id': 5, 'feature1':  3},
         ]
         post_data3 = {'id': 1, 'feature1': 5}
-        actual1 = self.app.post('/a-model/v0/prediction', data=json.dumps(post_data1))
+        actual1 = self.app.post('/a-model/v0/predict', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
-        actual2 = self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data2))
+        actual2 = self.app.post('/n/s/anotherModel/v1/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
         actual3 = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
@@ -162,7 +164,7 @@ class TestAppPredictions(unittest.TestCase):
             self.assertCountEqual(actual3[key], expected3[key])
 
     def test_prediction_bad_requests_400(self):
-        actual = self.app.post('/a-model/v0/prediction', data='cannot be parsed')
+        actual = self.app.post('/a-model/v0/predict', data='cannot be parsed')
         self.assertTrue(actual.status_code, 400)
         expectd_data = {
             'request_id': 123,
@@ -193,12 +195,12 @@ class TestAppPredictions(unittest.TestCase):
         post_data6 = [{'id': 1, 'feature1': 1, 'feature2': 1},
                       {'id': 1, 'feature1': 0, 'feature2': 1}]
         actuals = [
-            self.app.post('/a-model/v0/prediction', data=json.dumps(post_data1)),
+            self.app.post('/a-model/v0/predict', data=json.dumps(post_data1)),
             self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data2)),
-            self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data3)),
+            self.app.post('/n/s/anotherModel/v1/prediction', data=json.dumps(post_data3)),
             self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data4)),
-            self.app.post('/a-model/v0/prediction', data=json.dumps(post_data5)),
-            self.app.post('/anotherModel/v1/prediction', data=json.dumps(post_data6)),
+            self.app.post('/a-model/v0/predict', data=json.dumps(post_data5)),
+            self.app.post('/n/s/anotherModel/v1/prediction', data=json.dumps(post_data6)),
         ]
         # check status codes
         self.assertTrue(all(actual.status_code == 422 for actual in actuals))
@@ -235,9 +237,9 @@ class TestAppPredictions(unittest.TestCase):
                 self.assertEqual(actual_error_obj['model_context'][key], value)
 
     def test_get_prediction_endpoints(self):
-        resp1 = self.app.get('/a-model/v0/prediction')
+        resp1 = self.app.get('/a-model/v0/predict')
         resp2 = self.app.get('/model-3/v0.0-alpha/prediction')
-        resp3 = self.app.get('/anotherModel/v1/prediction')
+        resp3 = self.app.get('/n/s/anotherModel/v1/prediction')
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
         self.assertEqual(resp3.status_code, 200)

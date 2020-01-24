@@ -638,16 +638,29 @@ class TestBaseService(unittest.TestCase):
         expected = '/my-service/v11/bar'
         self.assertEqual(service.endpoint, expected)
 
-    @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.BaseService.serve', None)
     @mock.patch('porter.services.BaseService.status', None)
     def test_define_endpoint_with_bad_namespace(self):
         class Service(BaseService):
             action = 'bar'
-        # test without namespace (since it's optional)
-        service = Service(name='my-service', api_version='v11', namespace='ns')
-        expected = '/ns/my-service/v11/bar'
-        self.assertEqual(service.endpoint, expected)
+
+        with mock.patch('porter.services.BaseService._ids', set()):
+            # no /
+            service = Service(name='my-service', api_version='v11', namespace='ns')
+            expected = '/ns/my-service/v11/bar'
+            self.assertEqual(service.endpoint, expected)
+
+        with mock.patch('porter.services.BaseService._ids', set()):
+            # trailing /
+            service = Service(name='my-service', api_version='v11', namespace='n/s/')
+            expected = '/n/s/my-service/v11/bar'
+            self.assertEqual(service.endpoint, expected)
+
+        with mock.patch('porter.services.BaseService._ids', set()):
+            # both /
+            service = Service(name='my-service', api_version='v11', namespace='/n/s/')
+            expected = '/n/s/my-service/v11/bar'
+            self.assertEqual(service.endpoint, expected)
 
 
 if __name__ == '__main__':
