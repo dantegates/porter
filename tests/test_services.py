@@ -4,13 +4,12 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+import porter.responses as porter_responses
 from porter import __version__
 from porter import constants as cn
 from porter import exceptions as exc
-import porter.responses as porter_responses
-from porter.services import (BaseService, ModelApp,
-                             PredictionService, StatefulRoute,
-                             serve_error_message)
+from porter.services import (BaseService, ModelApp, PredictionService,
+                             StatefulRoute, serve_error_message)
 
 
 class TestFunctionsUnit(unittest.TestCase):
@@ -351,6 +350,9 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaises(E):
             PredictionService.check_request(X, ['id', 'one', 'two', 'three'], False, additional_checks_fail)
 
+    # def test_define_endpoint(self):
+    #     prediction_service = PredictionService(name='my-model', api_version='v1', namespace='/my/namespace')
+
 
     @mock.patch('porter.services.api')
     @mock.patch('porter.responses.api')
@@ -504,6 +506,7 @@ class TestModelApp(unittest.TestCase):
 class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.BaseService.define_endpoint')
+    @mock.patch('porter.services.BaseService.action', None)
     def test_constructor(self, mock_define_endpoint):
         # test ABC
         with self.assertRaisesRegex(TypeError, 'abstract methods'):
@@ -534,10 +537,9 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
     @mock.patch('porter.services.api.request_id', lambda: 123)
+    @mock.patch('porter.services.BaseService.action', None)
     def test_api_logging_no_exception(self):
         class Service(BaseService):
-            def define_endpoint(self):
-                return '/foo'
             def serve(self):
                 m = mock.Mock(spec=porter_responses.Response)
                 m.jsonify.side_effect = lambda: {'foo': '1', 'p': {10: '10'}}
@@ -565,10 +567,9 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
     @mock.patch('porter.services.api.request_id', lambda: 123)
+    @mock.patch('porter.services.BaseService.action', None)
     def test_api_logging_exception(self):
         class Service(BaseService):
-            def define_endpoint(self):
-                return '/foo'
             def serve(self):
                 raise Exception('testing')
             def status(self):
@@ -596,6 +597,7 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.BaseService._logger')
     @mock.patch('porter.api.request_id', lambda: 123)
     @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.BaseService.action', None)
     def test_serve_logging_with_exception(self, mock__logger):
         e = Exception('testing')
         class Service(BaseService):
@@ -614,6 +616,52 @@ class TestBaseService(unittest.TestCase):
             extra={'request_id': 123,
                    'service_class': 'Service',
                    'event': 'exception'})
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.BaseService.serve', None)
+    @mock.patch('porter.services.BaseService.status', None)
+    def test_define_endpoint_with_namespace(self):
+        class Service(BaseService):
+            action = 'foo'
+        service = Service(name='my-service', api_version='v11', namespace='/my/namespace')
+        expected = '/my/namespace/my-service/v11/foo'
+        self.assertEqual(service.endpoint, expected)
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    @mock.patch('porter.services.BaseService.serve', None)
+    @mock.patch('porter.services.BaseService.status', None)
+    def test_define_endpoint_with_namespace(self):
+        class Service(BaseService):
+            action = 'bar'
+        # test without namespace (since it's optional)
+        service = Service(name='my-service', api_version='v11')
+        expected = '/my-service/v11/bar'
+        self.assertEqual(service.endpoint, expected)
+
+    @mock.patch('porter.services.BaseService.serve', None)
+    @mock.patch('porter.services.BaseService.status', None)
+    def test_define_endpoint_with_bad_namespace(self):
+        class Service(BaseService):
+            action = 'bar'
+
+        with mock.patch('porter.services.BaseService._ids', set()):
+            # no /
+            service = Service(name='my-service', api_version='v11', namespace='ns')
+            expected = '/ns/my-service/v11/bar'
+            self.assertEqual(service.endpoint, expected)
+
+        with mock.patch('porter.services.BaseService._ids', set()):
+            # trailing /
+            service = Service(name='my-service', api_version='v11', namespace='n/s/')
+            expected = '/n/s/my-service/v11/bar'
+            self.assertEqual(service.endpoint, expected)
+
+        with mock.patch('porter.services.BaseService._ids', set()):
+            # both /
+            service = Service(name='my-service', api_version='v11', namespace='/n/s/')
+            expected = '/n/s/my-service/v11/bar'
+            self.assertEqual(service.endpoint, expected)
+
 
 if __name__ == '__main__':
     unittest.main()

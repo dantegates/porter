@@ -4,15 +4,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-import keras
 import numpy as np
 import pandas as pd
 import sklearn.preprocessing
-
-from sklearn.externals import joblib
-
+import tensorflow as tf
 from porter.utils import NumpyEncoder
-
+from sklearn.externals import joblib
 
 HERE = os.path.dirname(__file__)
 
@@ -37,9 +34,9 @@ class TestExample(unittest.TestCase):
         cls.X['id'] = range(len(X))
         cls.y = np.random.randint(1, 10, size=10)
         cls.preprocessor = sklearn.preprocessing.StandardScaler().fit(cls.X.drop('id', axis=1))
-        cls.model = keras.models.Sequential([
-            keras.layers.Dense(20, activation='relu', input_shape=(3,)),
-            keras.layers.Dense(1, activation='relu')
+        cls.model = tf.keras.models.Sequential([
+            tf.keras.layers.Dense(20, activation='relu', input_shape=(3,)),
+            tf.keras.layers.Dense(1, activation='relu')
         ])
         cls.model.compile(loss='mean_squared_error', optimizer='sgd')
         cls.model.fit(cls.preprocessor.transform(cls.X.drop('id', axis=1)), cls.y, verbose=0)
@@ -48,7 +45,7 @@ class TestExample(unittest.TestCase):
     def test(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
             joblib.dump(self.preprocessor, os.path.join(tmpdirname, 'preprocessor.pkl'))
-            keras.models.save_model(self.model, os.path.join(tmpdirname, 'model.h5'))
+            tf.keras.models.save_model(self.model, os.path.join(tmpdirname, 'model.h5'))
             init_namespace = {'model_directory': tmpdirname}
             namespace = load_example(os.path.join(HERE, '../examples/example.py'), init_namespace)
         test_client = namespace['model_app'].app.test_client()

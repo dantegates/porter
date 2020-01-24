@@ -150,6 +150,8 @@ class BaseService(abc.ABC, StatefulRoute):
         meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
+        namespace (str): String identifying a namespace that the service belongs
+            to. Used to route services by subclasses. Default is "".
 
     Attributes:
         id (str): A unique ID for the service.
@@ -159,22 +161,26 @@ class BaseService(abc.ABC, StatefulRoute):
         meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
+        namespace (str): A namespace that the service belongs to.
+        action (str): `str` describing the action of the service, e.g.
+            "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
-    _invalid_endpoint_characters = string.punctuation.translate(
-        str.maketrans({'-': '', '.': ''}))
 
-    def __init__(self, *, name, api_version, meta=None, log_api_calls=False):
+    def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace=''):
         self.name = name
         self.api_version = api_version
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
+        self.namespace = namespace
         # Assign endpoint and ID last so they can be determined from other
-        # instance attributes.
-        self.id = self.define_id()
+        # instance attributes. If the order of assignment changes here these
+        # methods may attempt to access attributes that have not been set yet
+        # and fail.
         self.endpoint = self.define_endpoint()
+        self.id = self.define_id()
         self.meta = self.update_meta(self.meta)
         self.log_api_calls = log_api_calls
 
@@ -205,9 +211,12 @@ class BaseService(abc.ABC, StatefulRoute):
                 self._log_api_call(request_data, response_data)
         return response
 
-    @abc.abstractmethod
     def define_endpoint(self):
         """Return the service endpoint derived from instance attributes."""
+        endpoint = cn.ENDPOINT_TEMPLATE.format(
+            namespace=self.namespace, service_name=self.name,
+            api_version=self.api_version, action=self.action)
+        return endpoint
 
     @abc.abstractmethod
     def serve(self):
@@ -224,16 +233,23 @@ class BaseService(abc.ABC, StatefulRoute):
     def status(self):
         """Return `str` representing the status of the service."""
 
-    # @abc.abstractproperty
-    # def route_kwargs(self):
-    #     """Return keyword arguments to use when routing `self.serve()`."""
-    #     return {}
+    @property
+    def route_kwargs(self):
+        """Keyword arguments to use when routing `self.serve()`."""
+        return {}
+
+    @property
+    @abc.abstractproperty
+    def action(self):
+        """`str` describing the action of the service, e.g. "prediction".
+        Used to determine the final routed endpoint.
+        """
 
     def define_id(self):
         """Return a unique ID for the service. This is used to set the `id`
         attribute.
         """
-        return f'{self.name}:{self.api_version}'
+        return self.endpoint
 
     def check_meta(self, meta):
         """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
@@ -270,6 +286,18 @@ class BaseService(abc.ABC, StatefulRoute):
         self._id = value
 
     @property
+    def namespace(self):
+        return self._namespace
+
+    @namespace.setter
+    def namespace(self, value):
+        if value and not value.startswith('/'):
+            value = '/' + value
+        if value and value.endswith('/'):
+            value = value[:-1]
+        self._namespace = value
+
+    @property
     def name(self):
         """The model name. The final routed endpoint is generally derived from
         this parameter.
@@ -278,10 +306,6 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @name.setter
     def name(self, value):
-        if any(c in value for c in self._invalid_endpoint_characters):
-            raise exc.PorterError(
-                '`name` cannot contain any of the following characters '
-                f'{", ".join(self._invalid_endpoint_characters)}')
         self._name = value
 
     @property
@@ -293,10 +317,6 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @api_version.setter
     def api_version(self, value):
-        if any(c in value for c in self._invalid_endpoint_characters):
-            raise exc.PorterError(
-                '`api_version` cannot contain any of the following characters '
-                f'{", ".join(self._invalid_endpoint_characters)}')
         self._api_version = value
 
     def get_post_data(self):
@@ -324,12 +344,19 @@ class PredictionService(BaseService):
 
     Args:
         name (str): The model name. The final routed endpoint will become
-            "/<name>/<api version>/prediction/".
+            "/<namespace>/<name>/<api version>/<action>/".
         api_version (str): The model API version. The final routed endpoint
-            will become "/<name>/<api version>/prediction/".
+            will become "/<namespace>/<name>/<api version>/<action>/".
         meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
+        namespace (str): String identifying a namespace that the service belongs
+            to. The final routed endpoint will become
+            "/<namespace>/<name>/<api version>/<action>/". Default is "".
+        action (str): `str` describing the action of the service. Used to
+            determine the final routed endpoint. Defaults to "prediction". The
+            final routed endpoint will become
+            "/<namespace>/<name>/<api version>/<action>/".
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
@@ -360,7 +387,13 @@ class PredictionService(BaseService):
         meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
+        namespace (str): String identifying a namespace that the service belongs
+            to. The final routed endpoint will become
+            "/<namespace>/<name>/<api version>/prediction/". Default is "".
         api_version (str): The model API version.
+        action (str): `str` describing the action of the service. Used to
+            determine the final routed endpoint. The final routed endpoint
+            will become "/<namespace>/<name>/<api version>/<action>/".
         endpoint (str): The endpoint where the model predictions are exposed.
             This is computed as "/<name>/<api version>/prediction/".
         model (object): An object implementing the interface defined by
@@ -387,9 +420,10 @@ class PredictionService(BaseService):
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
+    action = 'prediction'
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 input_features=None, allow_nulls=False,
+                 input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
@@ -399,15 +433,12 @@ class PredictionService(BaseService):
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
             raise exc.PorterError('`additional_checks` must be callable')
+        self.action = action or self.action
         self.additional_checks = additional_checks
         self._validate_input = self.schema.input_columns is not None
         self._preprocess_model_input = self.preprocessor is not None
         self._postprocess_model_output = self.postprocessor is not None
         super().__init__(**kwargs)
-
-    def define_endpoint(self):
-        return cn.PREDICTION_ENDPOINT_TEMPLATE.format(
-            model_name=self.name, api_version=self.api_version)
 
     @property
     def status(self):

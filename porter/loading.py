@@ -50,9 +50,9 @@ def load_pkl(path):
     return model
 
 def load_h5(path):
-    """Load and return an object stored in h5 with `keras`."""
-    import keras
-    model = keras.models.load_model(path)
+    """Load and return an object stored in h5 with `tensorflow`."""
+    import tensorflow as tf
+    model = tf.keras.models.load_model(path)
     return model
 
 def load_s3(path, s3_access_key_id, s3_secret_access_key):

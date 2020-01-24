@@ -1,14 +1,12 @@
 import datetime
 
-
 _MODEL_CONTEXT = 'model_context'
 _PREDICTIONS = 'predictions'
 
 
 LIVENESS_ENDPOINT = '/-/alive'
 READINESS_ENDPOINT = '/-/ready'
-PREDICTION_ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/prediction'
-BATCH_PREDICTION_ENDPOINT_TEMPLATE = '/{model_name}/{api_version}/batchPrediction'
+ENDPOINT_TEMPLATE = '{namespace}/{service_name}/{api_version}/{action}'
 
 
 class BASE_KEYS:
