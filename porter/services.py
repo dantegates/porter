@@ -162,9 +162,9 @@ class BaseService(abc.ABC, StatefulRoute):
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         namespace (str): A namespace that the service belongs to.
-        endpoint (str): The endpoint where the service is exposed.
         action (str): `str` describing the action of the service, e.g.
             "prediction". Used to determine the final routed endpoint.
+        endpoint (str): The endpoint where the service is exposed.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
@@ -344,15 +344,19 @@ class PredictionService(BaseService):
 
     Args:
         name (str): The model name. The final routed endpoint will become
-            "/<namespace>/<name>/<api version>/prediction/".
+            "/<namespace>/<name>/<api version>/<action>/".
         api_version (str): The model API version. The final routed endpoint
-            will become "/<namespace>/<name>/<api version>/prediction/".
+            will become "/<namespace>/<name>/<api version>/<action>/".
         meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         namespace (str): String identifying a namespace that the service belongs
             to. The final routed endpoint will become
-            "/<namespace>/<name>/<api version>/prediction/". Default is "".
+            "/<namespace>/<name>/<api version>/<action>/". Default is "".
+        action (str): `str` describing the action of the service. Used to
+            determine the final routed endpoint. Defaults to "prediction". The
+            final routed endpoint will become
+            "/<namespace>/<name>/<api version>/<action>/".
         model (object): An object implementing the interface defined by
             `porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
@@ -387,6 +391,9 @@ class PredictionService(BaseService):
             to. The final routed endpoint will become
             "/<namespace>/<name>/<api version>/prediction/". Default is "".
         api_version (str): The model API version.
+        action (str): `str` describing the action of the service. Used to
+            determine the final routed endpoint. The final routed endpoint
+            will become "/<namespace>/<name>/<api version>/<action>/".
         endpoint (str): The endpoint where the model predictions are exposed.
             This is computed as "/<name>/<api version>/prediction/".
         model (object): An object implementing the interface defined by
