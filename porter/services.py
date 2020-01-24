@@ -414,7 +414,7 @@ class PredictionService(BaseService):
     action = 'prediction'
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 input_features=None, allow_nulls=False,
+                 input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
@@ -424,6 +424,7 @@ class PredictionService(BaseService):
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
             raise exc.PorterError('`additional_checks` must be callable')
+        self.action = action or self.action
         self.additional_checks = additional_checks
         self._validate_input = self.schema.input_columns is not None
         self._preprocess_model_input = self.preprocessor is not None
