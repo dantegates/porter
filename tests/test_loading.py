@@ -3,13 +3,12 @@ import tempfile
 import unittest
 
 import boto3
-import keras
 import numpy as np
 import sklearn.linear_model
-from sklearn.externals import joblib
-
+import tensorflow as tf
 from porter import loading
 from porter.exceptions import PorterError
+from sklearn.externals import joblib
 
 
 class BaseTestLoading(unittest.TestCase):
@@ -71,9 +70,9 @@ class TestLoadingKeras(BaseTestLoading):
     def setUpClass(cls):
         cls.X = np.random.rand(10, 20)
         cls.y = np.random.randint(1, 10, size=10)
-        cls.model = keras.models.Sequential([
-            keras.layers.Dense(20, input_shape=(20,)),
-            keras.layers.Dense(1)
+        cls.model = tf.keras.models.Sequential([
+            tf.keras.layers.Dense(20, input_shape=(20,)),
+            tf.keras.layers.Dense(1)
         ])
         cls.model.compile(loss='mean_squared_error', optimizer='sgd')
         cls.model.fit(cls.X, cls.y, verbose=0)
@@ -82,7 +81,7 @@ class TestLoadingKeras(BaseTestLoading):
 
     def test_load_h5(self):
         with tempfile.NamedTemporaryFile(suffix='.h5') as tmp:
-            keras.models.save_model(self.model, tmp.name)
+            tf.keras.models.save_model(self.model, tmp.name)
             loaded_model = loading.load_h5(tmp.name)
         actual_predictions = loaded_model.predict(self.X)
         expected_predictions = self.predictions
@@ -90,7 +89,7 @@ class TestLoadingKeras(BaseTestLoading):
 
     def test_load_file_h5(self):
         with tempfile.NamedTemporaryFile(suffix='.h5') as tmp:
-            keras.models.save_model(self.model, tmp.name)
+            tf.keras.models.save_model(self.model, tmp.name)
             loaded_model = loading.load_file(tmp.name)
         actual_predictions = loaded_model.predict(self.X)
         expected_predictions = self.predictions
@@ -100,7 +99,7 @@ class TestLoadingKeras(BaseTestLoading):
         key = 'data-science/porter/tests/sklearn_model.h5'
         s3_path = 's3://%s/%s' % (self.bucket, key)
         with tempfile.NamedTemporaryFile(suffix='.h5') as tmp:
-            keras.models.save_model(self.model, tmp.name)
+            tf.keras.models.save_model(self.model, tmp.name)
             self.write_to_s3(tmp.name, self.bucket, key)
         loaded_model = loading.load_file(s3_path,
                 s3_access_key_id=self.s3_access_key_id,
