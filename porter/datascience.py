@@ -1,4 +1,4 @@
-"""Definitions of interfaces for data science objects expected by `porter.services`."""
+"""Definitions of interfaces for data science objects expected by :mod:`porter.services`."""
 
 import abc
 
@@ -8,52 +8,52 @@ from porter import utils
 
 class BaseModel(abc.ABC):
     """Class defining the model interface required by
-        `porter.services.ModelApp.add_service`."""
+    :meth:`porter.services.ModelApp.add_service`."""
     @abc.abstractmethod
     def predict(self, X):
-        """Return predictions corresponding to the data in `X`."""
+        """Return predictions corresponding to the data in ``X``."""
 
 
 class BasePreProcessor(abc.ABC):
     """Class defining the preprocessor interface required by
-        `porter.services.ModelApp.add_service`."""
+    :meth:`porter.services.ModelApp.add_service`."""
     @abc.abstractmethod
     def process(self, X_input):
-        """Process and return `X_input`.
+        """Process and return ``X_input``.
 
         Args:
-            X_input (`pandas.DataFrame`): The raw input from a POST request
-                converted to a `pandas.DataFrame`.
+            X_input (``pandas.DataFrame``): The raw input from a POST request
+                converted to a ``pandas.DataFrame``.
 
         Returns:
-            `X_input` processed as desired.
+            ``X_input`` processed as desired.
         """
 
 
 class BasePostProcessor(abc.ABC):
     """Class defining the postprocessor interface required by
-        `porter.services.ModelApp.add_service`."""
+    :meth:`porter.services.ModelApp.add_service`."""
     @abc.abstractmethod
     def process(self, X_input, X_preprocessed, predictions):
-        """Process and return `predictions`.
+        """Process and return ``predictions``.
 
         Args:
-            X_input (`pandas.DataFrame`): The raw input from a POST request
-                converted to a `pandas.DataFrame`.
+            X_input (``pandas.DataFrame``): The raw input from a POST request
+                converted to a ``pandas.DataFrame``.
             X_preprocessed: The POST request data with preprocessing applied.
-            predictions: The output of an instance of `BaseModel`.
+            predictions: The output of an instance of :class:`BaseModel`.
 
         Returns:
-            `predictions` processed as desired.
+            ``predictions`` processed as desired.
 
-        Note: `X_input` and `X_preprocessed` are included to provide additional
+        Note: ``X_input`` and ``X_preprocessed`` are included to provide additional
         context for postprocessing predictions if necessary.
         """
 
 
 class WrappedModel(BaseModel):
     """A convenience class that exposes a model persisted to disk with the
-    `BaseModel` interface.
+    :class:`BaseModel` interface.
     """
     def __init__(self, model):
         self.model = model
@@ -71,7 +71,7 @@ class WrappedModel(BaseModel):
 
 class WrappedTransformer(BasePreProcessor):
     """A convenience class that exposes a transformer persisted to disk with
-    the `BasePreProcessor` interface.
+    the :class:`BasePreProcessor` interface.
     """
     def __init__(self, transformer):
         self.transformer = transformer

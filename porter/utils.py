@@ -9,7 +9,7 @@ import numpy as np
 
 
 class NumpyEncoder(json.JSONEncoder):
-    """A JSON encoder that handles `numpy` data types."""
+    """A JSON encoder that handles ``numpy`` data types."""
 
     def default(self, obj):
         # print('numpy')
@@ -24,7 +24,7 @@ class NumpyEncoder(json.JSONEncoder):
 
 class PythonEncoder(json.JSONEncoder):
     """
-    A JSON encoder that extends `json.JSONEncoder` to handle additional Python
+    A JSON encoder that extends ``json.JSONEncoder`` to handle additional Python
     types.
     """
 
@@ -43,7 +43,7 @@ class PythonEncoder(json.JSONEncoder):
 
 
 class AppEncoder(NumpyEncoder, PythonEncoder):
-    """A JSON encoder that handles `numpy` and python data types."""
+    """A JSON encoder that handles ``numpy`` and python data types."""
 
     def default(self, obj):
         try:
@@ -70,7 +70,7 @@ class JSONFormatter(logging.Formatter):
         {"message": {"something": "interesting"}, "levelname": "INFO",
          "asctime": "2018-07-05 11:48:54,248"}
 
-    Any attribute of `logging.LogRecord` can be specified to log. See
+    Any attribute of ``logging.LogRecord`` can be specified to log. See
 
         https://docs.python.org/3/library/logging.html#logging.LogRecord
 
@@ -86,16 +86,16 @@ class JSONFormatter(logging.Formatter):
 
     Args:
         fields (list of str): List of fields to include in log. This can be
-            any attribute of a `logging.LogRecord` object plus "asctime" and
-            "message". For a list of `logging.LogRecord` attributes.
+            any attribute of a ``logging.LogRecord`` object plus "asctime" and
+            "message". For a list of ``logging.LogRecord`` attributes.
         indent (int or None): The indentation level. Values are the same as
-            `json.dump`.
-        encoder (object): A `json.JSONEncoder` subclass. It is recommended to
-            use `Encoder` or a subclass thereof if you need additional
-            handling so that `Exception`s and `datetime`s are properly
+            ``json.dump``.
+        encoder (object): A ``json.JSONEncoder`` subclass. It is recommended to
+            use ``Encoder`` or a subclass thereof if you need additional
+            handling so that ``Exception``'s and ``datetime``'s are properly
             handled.
         **kwargs: Additional keyword arguments to be passed to
-            `logging.Formatter.__init__`.
+            ``logging.Formatter.__init__``.
     """
 
     # tests can override this value as a `tuple` to preserve order.

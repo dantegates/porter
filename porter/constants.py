@@ -1,3 +1,5 @@
+"""Global constants defining endpoint naming conventions, etc."""
+
 import datetime
 
 _MODEL_CONTEXT = 'model_context'

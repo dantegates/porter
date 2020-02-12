@@ -1,4 +1,4 @@
-"""Light wrappers around `flask` and `requests`."""
+"""Light wrappers around ``flask`` and ``requests``."""
 
 
 import functools
@@ -19,7 +19,7 @@ def request_json(*args, **kwargs):
 
 
 def jsonify(data, *args, **kwargs):
-    """'Jsonify' a Python object into something an instance of `App` can return
+    """'Jsonify' a Python object into something an instance of :class:`App` can return
     to the user.
     """
     jsonified = flask.jsonify(data, *args, **kwargs)
@@ -36,7 +36,7 @@ def request_id():
 
 
 App = flask.Flask
-
+"""alias of ``flask.app.Flask``."""
 
 def post(*args, data, **kwargs):
     # requests should be considered an optional dependency.
@@ -53,10 +53,10 @@ def get(*args, **kwargs):
 
 
 def validate_url(url):
-    """Return True if `url` is valid and False otherwise.
+    """Return True if ``url`` is valid and False otherwise.
 
     Roughly speaking, a valid URL is a URL containing sufficient information
-    for `post()` and `get()` to send requests - whether or not the URL actually
+    for :meth:`post` and :meth:`get()` to send requests - whether or not the URL actually
     exists.
     """
     from urllib3.util import parse_url

@@ -1,3 +1,5 @@
+"""Configuration options for debugging, not recommended for use in production apps."""
+
 from .utils import AppEncoder
 
 json_encoder = AppEncoder
