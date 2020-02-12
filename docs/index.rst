@@ -72,7 +72,7 @@ Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get 
 Reference
 =========
 
-* :ref:`Detailed reference <porter>`
+* :ref:`Detailed reference <porter_reference>`
 * :ref:`genindex`
 * :ref:`search`
 * :ref:`modindex`
