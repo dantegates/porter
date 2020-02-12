@@ -1,7 +1,7 @@
 .. _porter_reference:
 
-porter package
-==============
+Package Reference
+=================
 
 Submodules
 ----------
