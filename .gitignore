@@ -1,3 +1,5 @@
 .DS_Store
 .coverage
 htmlcov/
+porter.egg-info/
+porter/__pycache__/
