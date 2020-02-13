@@ -4,13 +4,13 @@ REST API
 ========
 
 
-The complete details of an API exposed by ``porter`` can be found in the `openapi <https://openapi.tools/>`_ spec in `this repository <./docs/porter-api.yaml>`_.
+The complete details of an API exposed by ``porter`` can be found in the `openapi <https://openapi.tools/>`_ spec in `this repository <https://github.com/cadent-mrichman/porter/tree/u/mrichman/docs/templates>`_.
 
-Additionally you can open the `static documentation <./docs/html/index.html>`_ generated from this spec in your web browser. On a Mac:
+Additionally you can open the `static documentation <https://github.com/cadent-mrichman/porter/blob/u/mrichman/docs/templates/html/index.html>`_ generated from this spec in your web browser. On a Mac:
 
 .. code-block:: shell
 
-    open docs/html/index.html
+    open openapi/html/index.html
 
 For those who just want to get a sense of the API a quick overview is below.
 
