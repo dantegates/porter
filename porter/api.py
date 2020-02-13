@@ -56,8 +56,8 @@ def validate_url(url):
     """Return True if ``url`` is valid and False otherwise.
 
     Roughly speaking, a valid URL is a URL containing sufficient information
-    for :meth:`post` and :meth:`get()` to send requests - whether or not the URL actually
-    exists.
+    for :meth:`post()` and :meth:`get()` to send requests - whether or not the URL
+    actually exists.
     """
     from urllib3.util import parse_url
     # basically following the implementation here
