@@ -1,4 +1,4 @@
-"""Configuration options for debugging, not recommended for use in production apps."""
+"""Configuration options."""
 
 from .utils import AppEncoder
 
