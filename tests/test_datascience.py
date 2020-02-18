@@ -27,6 +27,19 @@ class TestWrappedModel(unittest.TestCase):
     def test_from_file_keras(self):
         pass
 
+    def test_model_validation(self):
+        class A:
+            pass
+        class B:
+            predict = 42
+        class C:
+            def predict(x):
+                return x + 1
+        with self.assertRaises(TypeError):
+            WrappedModel(A())
+        with self.assertRaises(TypeError):
+            WrappedModel(B())
+        WrappedModel(C())
 
 class TestBasePreProcessor(unittest.TestCase):
     def test_abc(self):

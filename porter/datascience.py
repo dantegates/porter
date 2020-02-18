@@ -56,6 +56,12 @@ class WrappedModel(BaseModel):
     `BaseModel` interface.
     """
     def __init__(self, model):
+        if not hasattr(model, 'predict'):
+            raise TypeError('.predict() method missing for model:\n{}'
+                            .format(model))
+        elif not callable(model.predict):
+            raise TypeError('model.predict() is not callable for model:\n{}'
+                            .format(model))
         self.model = model
         super(WrappedModel, self).__init__()
 
