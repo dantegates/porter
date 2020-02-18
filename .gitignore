@@ -1,5 +1,6 @@
 .DS_Store
 .coverage
+_build/
 htmlcov/
 porter.egg-info/
 porter/__pycache__/
