@@ -129,7 +129,7 @@ class PredictSchema:
     """
     def __init__(self, *, input_features):
         if input_features is not None:
-            self.input_columns = [_ID] + input_features
+            self.input_columns = [_ID] + list(input_features)
         else:
             self.input_columns = input_features
         self.input_features = input_features
