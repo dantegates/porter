@@ -248,7 +248,8 @@ app is up and running but models are not guaranteed to be available.</div>
       },
       "status" : "status"
     }
-  }
+  },
+  "request_id" : "request_id"
 }</code></pre>
 
     <h3 class="field-label">Produces</h3>
@@ -307,7 +308,8 @@ and ready for prediction.</div>
       },
       "status" : "status"
     }
-  }
+  },
+  "request_id" : "request_id"
 }</code></pre>
 
     <h3 class="field-label">Produces</h3>
@@ -453,7 +455,7 @@ but this does not necessitate a model API change. default: null </div>
     <h3><a name="GenericError"><code>GenericError</code> - </a> <a class="up" href="#__Models">Up</a></h3>
     <div class='model-description'></div>
     <div class="field-items">
-      <div class="param">request_id (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> A unique ID for the request. </div>
+      <div class="param">request_id (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Hex value of UUID assigned to the request. </div>
 <div class="param">error (optional)</div><div class="param-desc"><span class="param-type"><a href="#ErrorBody">ErrorBody</a></span>  </div>
     </div>  <!-- field-items -->
   </div>
@@ -461,7 +463,8 @@ but this does not necessitate a model API change. default: null </div>
     <h3><a name="HealthCheck"><code>HealthCheck</code> - </a> <a class="up" href="#__Models">Up</a></h3>
     <div class='model-description'></div>
     <div class="field-items">
-      <div class="param">porter_version (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> The version of porter on the deployed application. </div>
+      <div class="param">request_id (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Hex value of UUID assigned to the request. </div>
+<div class="param">porter_version (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> The version of porter on the deployed application. </div>
 <div class="param">deployed_on (optional)</div><div class="param-desc"><span class="param-type"><a href="#DateTime">Date</a></span> Start up time of the application. format: date-time</div>
 <div class="param">app_meta (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">map[String, String]</a></span> Arbitrary meta data associated with the application. </div>
 <div class="param">services (optional)</div><div class="param-desc"><span class="param-type"><a href="#HealthCheck_services">map[String, HealthCheck_services]</a></span> Models available for predicting in the application. </div>
@@ -472,7 +475,9 @@ but this does not necessitate a model API change. default: null </div>
     <div class='model-description'>Description of the application's status.</div>
     <div class="field-items">
       <div class="param">endpoint (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Path the model is exposed on. </div>
-<div class="param">status (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Status of the model (ready, not ready, etc.) </div>
+<div class="param">status (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Status of the model. If the app is ready the value will be &quot;READY&quot;.
+Otherwise the value will be a string indicating the status of the
+service. </div>
 <div class="param">model_context (optional)</div><div class="param-desc"><span class="param-type"><a href="#ModelContext">ModelContext</a></span>  </div>
     </div>  <!-- field-items -->
   </div>
@@ -489,7 +494,7 @@ but this does not necessitate a model API change. default: null </div>
     <h3><a name="ModelContextError"><code>ModelContextError</code> - </a> <a class="up" href="#__Models">Up</a></h3>
     <div class='model-description'></div>
     <div class="field-items">
-      <div class="param">request_id (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> A unique ID for the request. </div>
+      <div class="param">request_id (optional)</div><div class="param-desc"><span class="param-type"><a href="#string">String</a></span> Hex value of UUID assigned to the request. </div>
 <div class="param">error (optional)</div><div class="param-desc"><span class="param-type"><a href="#ErrorBody">ErrorBody</a></span>  </div>
 <div class="param">model_context (optional)</div><div class="param-desc"><span class="param-type"><a href="#ModelContext">ModelContext</a></span>  </div>
     </div>  <!-- field-items -->
