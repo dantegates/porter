@@ -3,19 +3,20 @@
 Tests
 =====
 
-To run the test suite for porter execute the command
+To run the test suite for porter execute the command:
 
 .. code-block:: shell
 
     make test
 
-Additionally you can install a `git` pre-commit hook to run the test suite each time you make a commit with
+Additionally you can install a ``git`` pre-commit hook to run the test suite each time you make a commit with:
 
 .. code-block:: shell
 
     ./pre-commit-hook install
 
-Note that you will need to set the following environment variables in order to run the AWS-related tests:
+
+Note that `test_loading.py <https://github.com/CadentTech/porter/blob/master/tests/test_loading.py>`_ requires the following environment variables in order to test porter's loading capabilities:
 
 .. code-block:: shell
 
