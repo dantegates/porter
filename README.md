@@ -1,6 +1,8 @@
 # porter
 
+<p align="center">
 [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
+</p>
 
 What is `porter`? `porter` is a framework for exposing machine learning models
 via REST APIs. Any object with a `.predict()` method will do which means
