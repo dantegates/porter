@@ -53,7 +53,7 @@ class TestAppPredictions(unittest.TestCase):
         class Model3(BaseModel):
             def predict(self, X):
                 return X['feature1'] * -1
-        input_features3 = ['feature1']
+        input_features3 = ('feature1',)
 
         # define configs and add services to app
         prediction_service1 = PredictionService(
