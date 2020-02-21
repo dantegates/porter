@@ -54,8 +54,14 @@ class BasePostProcessor(abc.ABC):
 class WrappedModel(BaseModel):
     """A convenience class that exposes a model persisted to disk with the
     `BaseModel` interface.
+
+    Args:
+        model: An object with a scikit-learn-compatible ``.predict()`` method.
     """
     def __init__(self, model):
+        if not hasattr(model, 'predict') or not callable(model.predict):
+            raise TypeError('model must have a .predict() method:\n{}'
+                            .format(model))
         self.model = model
         super(WrappedModel, self).__init__()
 
@@ -72,8 +78,15 @@ class WrappedModel(BaseModel):
 class WrappedTransformer(BasePreProcessor):
     """A convenience class that exposes a transformer persisted to disk with
     the `BasePreProcessor` interface.
+
+    Args:
+        transformer: An object with a scikit-learn-compatible ``.transform()``
+            method.
     """
     def __init__(self, transformer):
+        if not hasattr(transformer, 'transform') or not callable(transformer.transform):
+            raise TypeError('transformer must have a .transform() method:\n{}'
+                            .format(transformer))
         self.transformer = transformer
         super(WrappedTransformer, self).__init__()
 
