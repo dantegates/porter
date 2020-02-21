@@ -53,13 +53,7 @@ class TestAppPredictions(unittest.TestCase):
         class Model3(BaseModel):
             def predict(self, X):
                 return X['feature1'] * -1
-        input_features3 = ['feature1']
-
-        # define objects for model 4
-        class Model4(BaseModel):
-            def predict(self, X):
-                return X['feature1'] * -1
-        input_features4 = ('feature1',)
+        input_features3 = ('feature1',)
 
         # define configs and add services to app
         prediction_service1 = PredictionService(
@@ -96,21 +90,9 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
-        prediction_service4 = PredictionService(
-            model=Model4(),
-            name='model-4',
-            api_version='v0.0-alpha',
-            preprocessor=None,
-            postprocessor=None,
-            input_features=input_features4,
-            allow_nulls=False,
-            batch_prediction=False,
-            meta={'algorithm': 'randomforest', 'lasttrained': 1}
-        )
         cls.model_app.add_service(prediction_service1)
         cls.model_app.add_service(prediction_service2)
         cls.model_app.add_service(prediction_service3)
-        cls.model_app.add_service(prediction_service4)
 
     def test_prediction_success(self):
         post_data1 = [
@@ -128,15 +110,12 @@ class TestAppPredictions(unittest.TestCase):
             {'id': 5, 'feature1':  3},
         ]
         post_data3 = {'id': 1, 'feature1': 5}
-        post_data4 = {'id': 1, 'feature1': 5}
         actual1 = self.app.post('/a-model/v0/predict', data=json.dumps(post_data1))
         actual1 = json.loads(actual1.data)
         actual2 = self.app.post('/n/s/anotherModel/v1/prediction', data=json.dumps(post_data2))
         actual2 = json.loads(actual2.data)
         actual3 = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data3))
         actual3 = json.loads(actual3.data)
-        actual4 = self.app.post('/model-4/v0.0-alpha/prediction', data=json.dumps(post_data4))
-        actual4 = json.loads(actual4.data)
         expected1 = {
             'request_id': 0,
             'model_context': {
@@ -179,23 +158,10 @@ class TestAppPredictions(unittest.TestCase):
             },
             'predictions': {'id': 1, 'prediction': -5}
         }
-        expected4 = {
-            'request_id': 123,
-            'model_context': {
-                'model_name': 'model-4',
-                'api_version': 'v0.0-alpha',
-                'model_meta': {
-                    'algorithm': 'randomforest',
-                    'lasttrained': 1
-                }
-            },
-            'predictions': {'id': 1, 'prediction': -5}
-        }
         for key in ['model_context', 'predictions']:
             self.assertCountEqual(actual1[key], expected1[key])
             self.assertCountEqual(actual2[key], expected2[key])
             self.assertCountEqual(actual3[key], expected3[key])
-            self.assertCountEqual(actual4[key], expected4[key])
 
     def test_prediction_bad_requests_400(self):
         actual = self.app.post('/a-model/v0/predict', data='cannot be parsed')
