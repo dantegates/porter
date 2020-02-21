@@ -1,7 +1,9 @@
 # porter
 
 <p align="center">
-[![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
+<a href='https://porter.readthedocs.io/en/latest/?badge=latest'>
+    <img src='https://readthedocs.org/projects/porter/badge/?version=latest' alt='Documentation Status' />
+</a>
 </p>
 
 What is `porter`? `porter` is a framework for exposing machine learning models
