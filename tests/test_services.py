@@ -8,7 +8,8 @@ import porter.responses as porter_responses
 from porter import __version__
 from porter import constants as cn
 from porter import exceptions as exc
-from porter.services import (BaseService, ModelApp, PredictionService,
+from porter.services import (BaseService, ModelApp,
+                             PredictSchema, PredictionService,
                              StatefulRoute, serve_error_message)
 
 
@@ -57,6 +58,22 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual1, expected1)
         self.assertEqual(actual2, expected2)
         self.assertEqual(actual3, expected3)
+
+
+class TestPredictionSchema(unittest.TestCase):
+    def test_prediction_schema_constructor(self):
+        schema = PredictSchema(input_features=None)
+        self.assertIs(schema.input_columns, None)
+        self.assertIs(schema.input_features, None)
+
+        schema = PredictSchema(input_features=['feature1', 'feature2'])
+        self.assertIsInstance(schema.input_columns, list)
+        self.assertIsInstance(schema.input_features, list)
+
+        schema = PredictSchema(input_features=('feature1', 'feature2'))
+        self.assertIsInstance(schema.input_columns, list)
+        self.assertIsInstance(schema.input_features, list)
+
 
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)

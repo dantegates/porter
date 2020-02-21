@@ -27,6 +27,21 @@ class TestWrappedModel(unittest.TestCase):
     def test_from_file_keras(self):
         pass
 
+    def test_model_validation(self):
+        class A:
+            pass
+        class B:
+            predict = 42
+        class C:
+            def predict(x):
+                return x + 1
+        msg = 'model must have a .predict\(\) method'
+        with self.assertRaisesRegex(TypeError, msg):
+            WrappedModel(A())
+        with self.assertRaisesRegex(TypeError, msg):
+            WrappedModel(B())
+        WrappedModel(C())
+
 
 class TestBasePreProcessor(unittest.TestCase):
     def test_abc(self):
@@ -52,6 +67,20 @@ class TestWrappedTransformer(unittest.TestCase):
         expected = 2
         self.assertEqual(actual, expected)
 
+    def test_transformer_validation(self):
+        class A:
+            pass
+        class B:
+            transform = 42
+        class C:
+            def transform(x):
+                return x + 1
+        msg = 'transformer must have a .transform\(\) method'
+        with self.assertRaisesRegex(TypeError, msg):
+            WrappedTransformer(A())
+        with self.assertRaisesRegex(TypeError, msg):
+            WrappedTransformer(B())
+        WrappedTransformer(C())
 
 if __name__ == '__main__':
     unittest.main()
