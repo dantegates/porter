@@ -2,11 +2,11 @@
 
 Building and running an app with the tools in this module is as simple as
 
-1. Instantiating `ModelApp`.
-2. Instantiating a "service". E.g. instantiate `PredictionService` for each
+1. Instantiating :class:`ModelApp`.
+2. Instantiating a "service". E.g. instantiate :class:`PredictionService` for each
    model you wish to add to the service.
 3. Use the service(s) created in 2. to add models to the app with either
-    `ModelApp.add_service()` or `ModelApp.add_services()`.
+   :meth:`ModelApp.add_service()` or :meth:`ModelApp.add_services()`.
 
 For example,
 
@@ -15,8 +15,8 @@ For example,
     >>> prediction_service2 = PredictionService(...)
     >>> model_app.add_services(prediction_servie1, prediction_service2)
 
-Now the model app can be run with `model_app.run()` for development, or as an
-example of running the app in production `$ gunicorn my_module:model_app`.
+Now the model app can be run with ``model_app.run()`` for development, or as an
+example of running the app in production ``$ gunicorn my_module:model_app``.
 """
 
 import abc
@@ -75,8 +75,8 @@ class ServeAlive(StatefulRoute):
     """Class for building stateful liveness routes.
 
     Args:
-        app (object): A `ModelApp` instance. Instances of this class inspect
-            `app` when called to determine if the app is alive.
+        app (object): A :class:`ModelApp` instance. Instances of this class inspect
+            ``app`` when called to determine if the app is alive.
     """
 
     logger = logging.getLogger(__name__)
@@ -95,8 +95,8 @@ class ServeReady(StatefulRoute):
     """Class for building stateful readiness routes.
 
     Args:
-        app (object): A `ModelApp` instance. Instances of this class inspect
-            `app` when called to determine if the app is alive.
+        app (object): A :class:`ModelApp` instance. Instances of this class inspect
+            ``app`` when called to determine if the app is alive.
     """
 
     logger = logging.getLogger(__name__)
@@ -163,7 +163,7 @@ class BaseService(abc.ABC, StatefulRoute):
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         namespace (str): A namespace that the service belongs to.
-        action (str): `str` describing the action of the service, e.g.
+        action (str): ``str`` describing the action of the service, e.g.
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
     """
@@ -222,38 +222,38 @@ class BaseService(abc.ABC, StatefulRoute):
     @abc.abstractmethod
     def serve(self):
         """Return a response to be served to the user (usually the return
-        value of one of the functions in `porter.responses` or an instance of
-        `porter.responses.Response`).
+        value of one of the functions in :mod:`porter.responses` or an instance of
+        :class:`porter.responses.Response`).
 
         Custom subclasses may find it easier to return a native Python object
-        such as a `str` or `dict`, in such cases the object must be
+        such as a ``str`` or ``dict``, in such cases the object must be
         "jsonify-able".
         """
 
     @abc.abstractproperty
     def status(self):
-        """Return `str` representing the status of the service."""
+        """Return ``str`` representing the status of the service."""
 
     @property
     def route_kwargs(self):
-        """Keyword arguments to use when routing `self.serve()`."""
+        """Keyword arguments to use when routing ``self.serve()``."""
         return {}
 
     @property
     @abc.abstractproperty
     def action(self):
-        """`str` describing the action of the service, e.g. "prediction".
+        """``str`` describing the action of the service, e.g. "prediction".
         Used to determine the final routed endpoint.
         """
 
     def define_id(self):
-        """Return a unique ID for the service. This is used to set the `id`
+        """Return a unique ID for the service. This is used to set the ``id``
         attribute.
         """
         return self.endpoint
 
     def check_meta(self, meta):
-        """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
+        """Raise ``ValueError`` if ``meta`` contains invalid values, e.g. ``meta``
         cannot be converted to JSON properly.
 
         Subclasses overriding this method should always use super() to call
@@ -340,7 +340,7 @@ class BaseService(abc.ABC, StatefulRoute):
 
 class PredictionService(BaseService):
     """
-    A prediction service. Instances can be added to instances of `ModelApp`
+    A prediction service. Instances can be added to instances of :class:`ModelApp`
     to serve predictions.
 
     Args:
@@ -354,36 +354,36 @@ class PredictionService(BaseService):
         namespace (str): String identifying a namespace that the service belongs
             to. The final routed endpoint will become
             "/<namespace>/<name>/<api version>/<action>/". Default is "".
-        action (str): `str` describing the action of the service. Used to
+        action (str): ``str`` describing the action of the service. Used to
             determine the final routed endpoint. Defaults to "prediction". The
             final routed endpoint will become
             "/<namespace>/<name>/<api version>/<action>/".
         model (object): An object implementing the interface defined by
-            `porter.datascience.BaseModel`.
+            :class:`porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
-            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            defined by :class:`porter.datascience.BaseProcessor`. If not ``None``, the
             `.process()` method of this object will be called on the POST
-            request data and its output will be passed to `model.predict()`.
+            request data and its output will be passed to ``model.predict()``.
             Optional.
         postprocessor (object or None): An object implementing the interface
-            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            defined by :class:`porter.datascience.BaseProcessor`. If not ``None``, the
             `.process()` method of this object will be called on the output of
-            `model.predict()` and its return value will be used to populate
+            ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
         input_features (list-like or None): A list (or list like object)
             containing the feature names required in the POST data. Will be
-            used to validate the POST request if not `None`. Optional.            
+            used to validate the POST request if not ``None``. Optional.            
         allow_nulls (bool): Are nulls allowed in the POST request data? If
-            `False` an error is raised when nulls are found. Optional.
+            ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not batch predictions are
-            supported or not. If `True` the API will accept an array of objects
-            to predict on. If `False` the API will only accept a single object
+            supported or not. If ``True`` the API will accept an array of objects
+            to predict on. If ``False`` the API will only accept a single object
             per request. Optional.
-        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
+        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput` or subclass thereof
             if POST request is invalid.
 
     Attributes:
-        id (str): A unique ID for the model. Composed of `name` and `api_version`.
+        id (str): A unique ID for the model. Composed of ``name`` and ``api_version``.
         name (str): The model's name.
         meta (dict): Additional meta data added to the response body. Optional.
         log_api_calls (bool): Log request and response and response data.
@@ -392,32 +392,32 @@ class PredictionService(BaseService):
             to. The final routed endpoint will become
             "/<namespace>/<name>/<api version>/prediction/". Default is "".
         api_version (str): The model API version.
-        action (str): `str` describing the action of the service. Used to
+        action (str): ``str`` describing the action of the service. Used to
             determine the final routed endpoint. The final routed endpoint
             will become "/<namespace>/<name>/<api version>/<action>/".
         endpoint (str): The endpoint where the model predictions are exposed.
             This is computed as "/<name>/<api version>/prediction/".
         model (object): An object implementing the interface defined by
-            `porter.datascience.BaseModel`.
+            :class:`porter.datascience.BaseModel`.
         preprocessor (object or None): An object implementing the interface
-            defined by `porter.datascience.BaseProcessor`. If not `None`, the
-            `.process()` method of this object will be called on the POST
-            request data and its output will be passed to `model.predict()`.
+            defined by :class:`porter.datascience.BaseProcessor`. If not `None`, the
+            ``.process()`` method of this object will be called on the POST
+            request data and its output will be passed to ``model.predict()``.
             Optional.
         postprocessor (object or None): An object implementing the interface
-            defined by `porter.datascience.BaseProcessor`. If not `None`, the
+            defined by :class:`porter.datascience.BaseProcessor`. If not `None`, the
             `.process()` method of this object will be called on the output of
-            `model.predict()` and its return value will be used to populate
+            ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        schema (object): An instance of `porter.services.Schema`.
+        schema (object): An instance of :class:`porter.services.Schema`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
-            `False` an error is raised when nulls are found. Optional.
+            ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not the endpoint supports batch
-            predictions or not. If `True` the API will accept an array of
-            objects to predict on. If `False` the API will only accept a
+            predictions or not. If ``True`` the API will accept an array of
+            objects to predict on. If ``False`` the API will only accept a
             single object per request. Optional.
-        additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
-            if POST request is invalid.
+        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput`
+            or subclass thereof if POST request is invalid.
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
@@ -509,25 +509,26 @@ class PredictionService(BaseService):
 
         Checks include
 
-        1. `X` contains all columns in `feature_names`.
-        2. `X` does not contain nulls (only if allow_nulls == True).
+        1. ``X`` contains all columns in ``feature_names``.
+        2. ``X`` does not contain nulls (only if allow_nulls == True).
 
         Args:
-            X (`pandas.DataFrame`): A `pandas.DataFrame` created from the POST
+            X (``pandas.DataFrame``): A ``pandas.DataFrame`` created from the POST
                 request.
-            feature_names (list): All feature names expected in `X`.
-            allow_nulls (bool): Whether nulls are allowed in `X`. False by
+            feature_names (list): All feature names expected in ``X``.
+            allow_nulls (bool): Whether nulls are allowed in ``X``. False by
                 default.
 
         Returns:
             None
 
         Raises:
-            porter.exceptions.RequestContainsNulls: If the input contains nulls
-                and `allow_nulls` is False.
-            porter.exceptions.RequestMissingFields: If the input is missing
+            :class:`porter.exceptions.RequestContainsNulls`: If the input contains nulls
+                and ``allow_nulls`` is False.
+            :class:`porter.exceptions.RequestMissingFields`: If the input is missing
                 required fields.
-            porter.InvalidModelInput: If user defined `additional_checks` fails.
+            :class:`porter.exceptions.InvalidModelInput`: If user defined ``additional_checks``
+                fails.
         """
         cls._default_checks(X_input, input_columns, allow_nulls)
         # Only perform user checks after the standard checks have been passed.
@@ -551,15 +552,15 @@ class PredictionService(BaseService):
             raise exc.RequestMissingFields(missing_fields)
 
     def get_post_data(self):
-        """Return data from the most recent POST request as a `pandas.DataFrame`.
+        """Return data from the most recent POST request as a ``pandas.DataFrame``.
 
         Returns:
-            `pandas.DataFrame`. Each `row` represents a single instance to
-            predict on. If `self.batch_prediction` is `False` the `DataFrame`
-            will only contain one `row`.
+            ``pandas.DataFrame``. Each ``row`` represents a single instance to
+            predict on. If ``self.batch_prediction`` is ``False`` the ``DataFrame``
+            will only contain one ``row``.
 
         Raises:
-            porter.exceptions.PorterError: If the request data does not
+            :class:`porter.exceptions.PorterError`: If the request data does not
                 follow the API format.
         """
         data = super().get_post_data()
@@ -586,7 +587,7 @@ class ModelApp:
     Abstraction used to simplify building REST APIs that expose predictive
     models.
 
-    Essentially this class is a wrapper around an instance of `flask.Flask`.
+    Essentially this class is a wrapper around an instance of ``flask.Flask``.
 
     Args:
         meta (dict): Additional meta data added to the response body. Optional.
@@ -610,7 +611,7 @@ class ModelApp:
         """Add services to the app from `*services`.
 
         Args:
-            *services (list): List of `porter.services.BaseService` instances
+            *services (list): List of :class:`porter.services.BaseService` instances
                 to add to the model.
 
         Returns:
@@ -620,17 +621,17 @@ class ModelApp:
             self.add_service(service)
 
     def add_service(self, service):
-        """Add a service to the app from `service`.
+        """Add a service to the app from ``service``.
 
         Args:
-            service (object): Instance of `porter.services.BaseService`.
+            service (object): Instance of :class:`porter.services.BaseService`.
 
         Returns:
             None
 
         Raises:
-            porter.exceptions.PorterError: If the type of
-                `service` is not recognized.
+            :class:`porter.exceptions.PorterError`: If the type of
+                ``service`` is not recognized.
         """
         if service.id in self._service_ids:
             raise exc.PorterError(
@@ -644,13 +645,13 @@ class ModelApp:
         Run the app.
 
         Args:
-            *args: Positional arguments passed on to the wrapped `flask` app.
-            **kwargs: Keyword arguments passed on to the wrapped `flask` app.
+            *args: Positional arguments passed on to the wrapped ``flask`` app.
+            **kwargs: Keyword arguments passed on to the wrapped ``flask`` app.
         """
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
-        """Raise `ValueError` if `meta` contains invalid values, e.g. `meta`
+        """Raise ``ValueError`` if ``meta`` contains invalid values, e.g. ``meta``
         cannot be converted to JSON properly.
 
         Subclasses overriding this method should always use super() to call
@@ -671,7 +672,7 @@ class ModelApp:
         formatting, are added here.
 
         Returns:
-            An instance of `api.App`.
+            An instance of :class:`porter.api.App`.
         """
         app = api.App(__name__, static_folder=None)
         # register a custom JSON encoder
