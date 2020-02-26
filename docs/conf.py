@@ -45,6 +45,9 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+# The master toctree document.
+master_doc = 'index'
+
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -67,7 +70,7 @@ else:
         'css_files': [
             'https://media.readthedocs.org/css/sphinx_rtd_theme.css',
             'https://media.readthedocs.org/css/readthedocs-doc-embed.css',
-            'theme_overrides.css',
+            '_static/theme_overrides.css',
         ],                                                                       
     }
 
