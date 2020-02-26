@@ -73,7 +73,8 @@ If you want to install porter from a specific commit or tag, e.g. tag `1.0.0` si
 pip install -e git+https://github.com/CadentTech/porter@1.0.0#egg=porter
 ```
 
-For more details on this topic see here the [documentation](https://porter.readthedocs.org).
+For more details on this, see [this
+page](https://porter.readthedocs.io/en/latest/installation.html).
 
 # Documentation
 For more information, see the [documentation](https://porter.readthedocs.org).
