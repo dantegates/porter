@@ -1,39 +1,38 @@
 # porter
 
 [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
-
 What is `porter`? `porter` is a framework for exposing machine learning models
-via REST APIs. Any object with a `.predict()` method will do which means
+behind a REST API. Any object with a `.predict()` method will do which means
 `porter` plays nicely with models you have already trained using
 [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/)
 or [xgboost](https://xgboost.readthedocs.io/en/latest/) to name a few well
-known machine learning libraries. It also includes the ability to load `.pkl`
-and `.h5` files so you don't have to write this code every time you deploy a
-new model and allows you to easily expose custom models.  Getting started is as
-easy as
+known machine learning libraries. In addition `porter` also seeks to reduce the amount of
+boiler plate you need to write, e.g. it includes the ability to load `.pkl`
+and `.h5` files so you don't have to write this code each time you deploy a
+new model. Getting started is as easy as
 
 ```python
+# myapp.py
 from porter.datascience import WrappedModel
 from porter.services import ModelApp, PredictionService
-
 my_model = WrappedModel.from_file('my-model.pkl')
 prediction_service = PilotPredictionService(
     model=my_model,
     name='my-model',
     api_version='v1')
-
 app = ModelApp()
 app.add_service(prediction_service)
 app.run()
 ```
 
-Now just send a POST request to the endpoint `/my-model/v1/prediction` to get a
-prediction. Behind the scenes (with `porter`s default settings) your POST data
-will be converted to a `pandas.DataFrame` and the result of
-`my_model.predict()` will be returned to the user in a payload like the one
-below
+To get predictions, simply run the script above and send a POST request to
+the endpoint `localhost:5000/my-model/v1/prediction`. Behind the scenes
+`porter` will convert your POST data to a `pandas.DataFrame`, pass the data
+off to `my_model.predict()` and return the results.
 
-```javascript
+```shell
+python myapp.py &
+curl -POST -d '[{"feature1": 1, "feature2": 2.2}]' localhost:5000/my-model/v1/prediction
 {
     "model_context": {
         "api_version": "v1",
@@ -50,24 +49,35 @@ below
 }
 ```
 
-`porter` also takes care of a lot of the boilerplate for you such as error
-handling. For example, by default, if the POST data sent to the prediction
-endpoint can't be parsed the user will receive a response with a 400 status
-code a payload describing the error.
+`porter` apps are [WSGI](https://wsgi.readthedocs.io/en/latest/learn.html) apps
+which means they can be responsibly deployed into production environments with
+software like [gunicorn](https://gunicorn.org/).
 
-```javascript
-{
-    "error": {
-        "messages": [
-            "The browser (or proxy) sent a request that this server could not understand."
-        ],
-        "name": "BadRequest"
-    },
-    "request_id": "852ca09d578b447aa3d41d70b8cc4431"
-}
+
+# Installation
+
+`porter` can be installed with pip as follows
+
+```shell
+pip install -e git+https://github.com/CadentTech/porter#egg=porter
 ```
 
+Note that without the `-e` flag and `#egg=porter` on the end of the url
+`pip freeze` will output `porter==<version>` rather than
+`-e git+https://...` as typically desired.
+
+If you want to install porter from a specific commit or tag, e.g. tag `1.0.0` simply add
+`@<commit-or-tag>` immediately before `#egg=porter`. E.g.
+
+```shell
+pip install -e git+https://github.com/CadentTech/porter@1.0.0#egg=porter
+```
+
+For more details on this topic see here the [documentation](https://porter.readthedocs.org).
+
+# Documentation
 For more information, see the [documentation](https://porter.readthedocs.org).
 
-
 Copyright (c) 2020 Cadent Data Science
+
+
