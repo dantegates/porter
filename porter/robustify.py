@@ -38,8 +38,7 @@ class ApiObject:
             # http://json-schema.org/draft-06/json-schema-release-notes.html
             self.jsonschema = self.to_openapi()[0]
             self.validate = fastjsonschema.compile({
-                # TODO: don't use http here
-                '$schema': 'http://json-schema.org/draft-04/schema',
+                '$draft': '04',
                 **self.jsonschema
             })
 
