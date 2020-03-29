@@ -7,7 +7,7 @@ JSON Schema.
 import functools
 
 import flask
-import jsonschema
+import fastjsonschema
 
 from porter.exceptions import InvalidModelInput
 
@@ -36,7 +36,12 @@ class ApiObject:
             # https://swagger.io/docs/specification/data-models/keywords/
             # and
             # http://json-schema.org/draft-06/json-schema-release-notes.html
-            self.validator = jsonschema.Draft4Validator(self.to_openapi()[0])
+            self.jsonschema = self.to_openapi()[0]
+            self.validate = fastjsonschema.compile({
+                # TODO: don't use http here
+                '$schema': 'http://json-schema.org/draft-04/schema',
+                **self.jsonschema
+            })
 
     def to_openapi(self):
         """Return the OpenAPI definition of `self`.
@@ -260,14 +265,10 @@ def attach_contract(method, *, request=None, responses=None, validate_request=Fa
                 if method_spec is not None and hasattr(method_spec[0], 'obj'):  # first item in tuple is requst
                     post_data = flask.request.get_json(force=True)
                     obj = method_spec[0].obj
-                    _validate(post_data, obj)
+                    # TODO: register this as 422 on the flask app
+                    obj.validate(post_data)
             return fn(*args, **kwargs)
 
         return wrapper
 
     return fn_decorator
-
-
-def _validate(data, obj):
-    # TODO: register this as 422 on the flask app
-    return obj.validator.validate(data)
