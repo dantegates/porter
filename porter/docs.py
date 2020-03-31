@@ -1,7 +1,7 @@
 import collections
 import json
 
-from .robustify import ResponseBody
+from .schemas import ResponseBody
 
 
 
@@ -32,20 +32,21 @@ def _app_to_openapi(app, title, description, api_version):
     }
     paths = openapi_spec['paths']
     schemas = openapi_spec['components']['schemas']
-    for endpoint, api_specs in _iter_contracts(app):
-        for method, (request_spec, response_specs) in api_specs.items():
+    for endpoint, contracts in _iter_contracts(app):
+        for method, contract in contracts.items():
             paths[endpoint][method] = path_dict = {}
             path_dict['responses'] = {}
 
-            if request_spec is not None:
-                obj_spec, obj_refs = request_spec.to_openapi()
+            if contract.request_schema is not None:
+                obj_spec, obj_refs = contract.request_schema.to_openapi()
                 path_dict.update(obj_spec)
                 schemas.update(obj_refs)
 
-            for response_spec in response_specs:
-                obj_spec, obj_refs = response_spec.to_openapi()
-                path_dict['responses'].update(obj_spec)
-                schemas.update(obj_refs)
+            if contract.response_schemas is not None:
+                for response_schema in contract.response_schemas:
+                    obj_spec, obj_refs = response_schema.to_openapi()
+                    path_dict['responses'].update(obj_spec)
+                    schemas.update(obj_refs)
                 
     return openapi_spec
 

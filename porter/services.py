@@ -22,7 +22,6 @@ example of running the app in production `$ gunicorn my_module:model_app`.
 import abc
 import json
 import logging
-import string
 import warnings
 
 import pandas as pd
@@ -31,8 +30,10 @@ import werkzeug.exceptions
 from . import api
 from . import config as cf
 from . import constants as cn
+from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
+from . import schemas
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -166,16 +167,20 @@ class BaseService(abc.ABC, StatefulRoute):
         action (str): `str` describing the action of the service, e.g.
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
+        api_contracts (subclass of `porter.schemas.ApiObject`): An `ApiObject`
+            representing the input schema for POST methods.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
 
-    def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace=''):
+    def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace='',
+                 api_contracts=None):
         self.name = name
         self.api_version = api_version
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
         self.namespace = namespace
+        self.api_contracts = api_contracts
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
@@ -592,11 +597,13 @@ class ModelApp:
         meta (dict): Additional meta data added to the response body. Optional.
     """
 
-    def __init__(self, meta=None, description=None):
+    def __init__(self, *, services=None, meta=None, description=None, expose_docs=True):
         self.meta = {} if meta is None else meta
+        self.description = description
         self.check_meta(self.meta)
+        self.expose_docs = expose_docs
 
-        self._services = []
+        self._services = [] if services is None else services
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
@@ -637,7 +644,9 @@ class ModelApp:
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
-        self.app.route(service.endpoint, **service.route_kwargs)(service)
+        if service.api_contracts is not None:
+            service_callable = schemas.attach_contracts(service.api_contracts)(service)
+        self.app.route(service.endpoint, **service.route_kwargs)(service_callable)
 
     def run(self, *args, **kwargs):
         """
@@ -647,6 +656,10 @@ class ModelApp:
             *args: Positional arguments passed on to the wrapped `flask` app.
             **kwargs: Keyword arguments passed on to the wrapped `flask` app.
         """
+        # must be called after services are added
+        if self.expose_docs:
+            # TODO: clean up this call
+            docs.route_docs(self.app, 'my app', self.description, 'v1', '/docs/', '/docs.json')
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
@@ -685,4 +698,5 @@ class ModelApp:
         app.route('/', methods=['GET'])(serve_root)
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(ServeAlive(self))
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(ServeReady(self))
+
         return app

@@ -1,15 +1,9 @@
-"""
-Use `robustify` to add documentation and schema validations to your existing
-`flask` apps with minimal changes using open source standards like OpenAPI and
-JSON Schema.
-"""
+"""Tools for integrating the OpenAPI standard in `porter`."""
 
 import functools
 
 import flask
 import fastjsonschema
-
-from porter.exceptions import InvalidModelInput
 
 # Data Types
 
@@ -229,14 +223,22 @@ class ResponseBody:
         }, openapi_refs
 
 
-def attach_contract(method, *, request=None, responses=None, validate_request=False):
+class Contract:
+    def __init__(self, method, *, request_schema=None, response_schemas=None, validate_request_data=True):
+        self.method = method.lower()
+        self.request_schema = RequestBody(request_schema)
+        if response_schemas is not None:
+            response_schemas = [ResponseBody(schema) for schema in response_schemas]
+        self.response_schemas = response_schemas
+        self.validate_request_data = validate_request_data
+
+
+def attach_contracts(contracts):
     """Decorator to attach API contract definitions to functions. Can be used to
     decorate `flask` routes.
 
     Args:
-        method (str): "GET", "POST", etc.
-        request (RequestBody): The schema for requests to the endpoint.
-        responses (list[ResponseBody]): A list of responses from the endpoint.
+        contracts (`list[Contract]`): The contract for the endpoint.
         validate_request (bool): Validate the request data against the schema
             defined by `request`?
 
@@ -246,26 +248,28 @@ def attach_contract(method, *, request=None, responses=None, validate_request=Fa
     Raises:
         jsonschema.exceptions.ValidationError
     """
-    # set defaults
-    request = None if request is None else request
-    responses = [] if responses is None else responses
 
     def fn_decorator(fn):
-        if not hasattr(fn, '_contracts'):
-            fn._contracts = {}
-        fn._contracts[method.lower()] = (request, responses)
+
+        fn._contracts = {c.method: c for c in contracts}
 
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            if validate_request:
-                method = flask.request.method.lower()
-                method_spec = fn._contracts[method]
+            method = flask.request.method.lower()
+            # TODO: raise error if validate request is True but the contract
+            #       can't be found or warning?
+            method_contract = fn._contracts.get(method)
+            if method_contract is not None and method_contract.validate_request_data \
+                    and method_contract.request_schema is not None:
+                data = flask.request.get_json(force=True)  # TODO: should use porter method here
+                try:
+                    method_contract.request_schema.obj.validate(data)
+                except fastjsonschema.exceptions.JsonSchemaException as err:
+                    # fastjsonschema raises useful error messsages so we'll reuse them.
+                    # However, we'll raise a buitin ValueError so we don't need to depend
+                    # on fastjsonschema objects in other modules.
+                    raise ValueError(f'POST data failed validation: {err.args[0]}') from err
 
-                if method_spec is not None and hasattr(method_spec[0], 'obj'):  # first item in tuple is requst
-                    post_data = flask.request.get_json(force=True)
-                    obj = method_spec[0].obj
-                    # TODO: register this as 422 on the flask app
-                    obj.validate(post_data)
             return fn(*args, **kwargs)
 
         return wrapper
