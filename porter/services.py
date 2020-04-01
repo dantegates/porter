@@ -33,7 +33,7 @@ from . import constants as cn
 from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
-from . import schemas
+from .schemas import String, RequestBody, ResponseBody, Contract, attach_contracts
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -430,7 +430,9 @@ class PredictionService(BaseService):
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False, action=None,
-                 batch_prediction=False, additional_checks=None, **kwargs):
+                 batch_prediction=False, additional_checks=None,
+                 request_schema=None, response_schema=None,
+                 validate_request_data=True, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -441,10 +443,26 @@ class PredictionService(BaseService):
             raise exc.PorterError('`additional_checks` must be callable')
         self.action = action or self.action
         self.additional_checks = additional_checks
+        self.request_schema = request_schema
+        self.response_schema = response_schema
+        if request_schema is not None:
+            api_contracts = self._make_api_contracts(request_schema, response_schema, validate_request_data)
+        else:
+            api_contracts = []
+        # TODO: _validate_input is redundant now
         self._validate_input = self.schema.input_columns is not None
         self._preprocess_model_input = self.preprocessor is not None
-        self._postprocess_model_output = self.postprocessor is not None
-        super().__init__(**kwargs)
+        self._postprocess_model_output = self.postprocessor is not None        
+        super().__init__(api_contracts=api_contracts, **kwargs)
+
+    def _make_api_contracts(self, request_schema, response_schema, validate_request_data):
+        # TODO: Need to handle status codes
+        # TODO: add errors  to response schemas
+        # TODO: convert to RequestBody and ResponseBody?
+        # TODO: add GET
+        request_schema = RequestBody(obj=request_schema)
+        response_schemas = [ResponseBody(status_code=200, obj=response_schema)]
+        return [Contract('POST', request_schema=request_schema, response_schemas=response_schema, validate_request_data=validate_request_data)]
 
     @property
     def status(self):
@@ -597,13 +615,14 @@ class ModelApp:
         meta (dict): Additional meta data added to the response body. Optional.
     """
 
-    def __init__(self, *, services=None, meta=None, description=None, expose_docs=True):
+    def __init__(self, *, name=__name__, meta=None, description=None, expose_docs=True):
+        self.name = name
         self.meta = {} if meta is None else meta
         self.description = description
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
 
-        self._services = [] if services is None else services
+        self._services = []
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
@@ -645,7 +664,7 @@ class ModelApp:
         self._services.append(service)
         self._service_ids.add(service.id)
         if service.api_contracts is not None:
-            service_callable = schemas.attach_contracts(service.api_contracts)(service)
+            service_callable = attach_contracts(service.api_contracts)(service)
         self.app.route(service.endpoint, **service.route_kwargs)(service_callable)
 
     def run(self, *args, **kwargs):
@@ -659,7 +678,7 @@ class ModelApp:
         # must be called after services are added
         if self.expose_docs:
             # TODO: clean up this call
-            docs.route_docs(self.app, 'my app', self.description, 'v1', '/docs/', '/docs.json')
+            docs.route_docs(self.app, self.name, self.description, 'v1', '/docs/', '/docs.json')
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
@@ -686,7 +705,7 @@ class ModelApp:
         Returns:
             An instance of `api.App`.
         """
-        app = api.App(__name__, static_folder=None)
+        app = api.App(self.name, static_folder=None)
         # register a custom JSON encoder
         app.json_encoder = cf.json_encoder
         # register error handler for all werkzeug default exceptions

@@ -1,5 +1,5 @@
 from porter.services import ModelApp, PredictionService
-from porter.schemas import Array, Object, String, Number, Contract
+from porter.schemas import Array, Object, String, Number
 
 
 request_schema = Array(
@@ -13,8 +13,6 @@ request_schema = Array(
         )
     )
 )
-PostContract = Contract('POST', request_schema=request_schema,
-                        response_schemas=None, validate_request_data=True)
 
 
 class IdentityModel:
@@ -27,9 +25,11 @@ prediction_service = PredictionService(
     name='my-model',
     api_version='v2',
     namespace='datascience',
-    api_contracts=[PostContract])
+    request_schema=request_schema)
 
-app = ModelApp(expose_docs=True)
+app = ModelApp(name='Example Model',
+               description='An unhelpful description of what this model does',
+               expose_docs=True)
 app.add_service(prediction_service)
 
 

@@ -226,9 +226,8 @@ class ResponseBody:
 class Contract:
     def __init__(self, method, *, request_schema=None, response_schemas=None, validate_request_data=True):
         self.method = method.lower()
-        self.request_schema = RequestBody(request_schema)
-        if response_schemas is not None:
-            response_schemas = [ResponseBody(schema) for schema in response_schemas]
+        self.request_schema = request_schema
+        response_schemas = response_schemas
         self.response_schemas = response_schemas
         self.validate_request_data = validate_request_data
 
