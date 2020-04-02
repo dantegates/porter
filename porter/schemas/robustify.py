@@ -106,6 +106,8 @@ class Object(ApiObject):
                 list means all properties are optional.
             **kwargs: Keyword arguments passed on to `ApiObject`.
         """
+        if properties is None:
+            properties = {}
         self.properties = properties
         if required == 'all':
             self.required = list(self.properties.keys())
@@ -232,7 +234,7 @@ class Contract:
         self.validate_request_data = validate_request_data
 
 
-def attach_contracts(contracts):
+def attach_contracts(contracts, ):
     """Decorator to attach API contract definitions to functions. Can be used to
     decorate `flask` routes.
 
@@ -274,3 +276,4 @@ def attach_contracts(contracts):
         return wrapper
 
     return fn_decorator
+    

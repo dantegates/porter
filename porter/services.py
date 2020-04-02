@@ -33,7 +33,7 @@ from . import constants as cn
 from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
-from .schemas import String, RequestBody, ResponseBody, Contract, attach_contracts
+from .schemas import String, RequestBody, ResponseBody, Contract, attach_contracts, generic_error
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -461,8 +461,9 @@ class PredictionService(BaseService):
         # TODO: convert to RequestBody and ResponseBody?
         # TODO: add GET
         request_schema = RequestBody(obj=request_schema)
-        response_schemas = [ResponseBody(status_code=200, obj=response_schema)]
-        return [Contract('POST', request_schema=request_schema, response_schemas=response_schema, validate_request_data=validate_request_data)]
+        response_schemas = [#ResponseBody(status_code=200, obj=response_schema)
+                            ResponseBody(status_code=500, obj=generic_error)]
+        return [Contract('POST', request_schema=request_schema, response_schemas=response_schemas, validate_request_data=validate_request_data)]
 
     @property
     def status(self):
