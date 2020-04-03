@@ -41,12 +41,12 @@ batch_prediction_service = PredictionService(
 
 class ProbabilisticModel(BaseModel):
     def predict(self, X):
-        dist = ss.norm(X, 1)
+        dist = ss.norm(X.featureB, 1)
         return pd.DataFrame({
             'lower_bound': dist.ppf(0.05),
             'point_estimate': dist.mean(),
             'upper_bound': dist.ppf(0.95),
-        })
+        }).to_dict(orient='records')
 
 
 probabilistic_model_instance_schema = Object(
