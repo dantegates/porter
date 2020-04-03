@@ -47,6 +47,8 @@ def _app_to_openapi(app, title, description, api_version):
                     obj_spec, obj_refs = response_schema.to_openapi()
                     path_dict['responses'].update(obj_spec)
                     schemas.update(obj_refs)
+
+            path_dict.update(contract.additional_params)
                 
     return openapi_spec
 

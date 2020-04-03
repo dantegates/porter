@@ -452,7 +452,9 @@ class PredictionService(BaseService):
         self.instance_schema = instance_schema
         self.prediction_schema = prediction_schema
         if instance_schema is not None:
-            api_contracts = self._make_api_contracts(instance_schema, prediction_schema, validate_request_data)
+            api_contracts = self._make_api_contracts(instance_schema, prediction_schema,
+                                                     validate_request_data,
+                                                     kwargs['name'])  # TODO: clean this up
         else:
             api_contracts = []
         # TODO: _validate_input is redundant now
@@ -461,11 +463,9 @@ class PredictionService(BaseService):
         self._postprocess_model_output = self.postprocessor is not None        
         super().__init__(api_contracts=api_contracts, **kwargs)
 
-    def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data):
+    def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data, tag):
         # TODO: Need to handle status codes
         # TODO: add errors  to response schemas
-        # TODO: convert to RequestBody and ResponseBody?
-        # TODO: add GET
         if instance_schema is not None:
             if self.batch_prediction:
                 request_obj = Array(item_type=instance_schema)
@@ -500,10 +500,13 @@ class PredictionService(BaseService):
         response_schemas = [ResponseBody(status_code=200, obj=response_obj),
                             *self._default_response_schemas]
 
-        return [Contract('GET', response_schemas=[ResponseBody(status_code=200, obj=String())]),
+        return [Contract('GET',
+                         response_schemas=[ResponseBody(status_code=200, obj=String())],
+                         additional_params={'tags': [tag]}),
                 Contract('POST', request_schema=request_schema,
                          response_schemas=response_schemas,
-                         validate_request_data=validate_request_data)]
+                         validate_request_data=validate_request_data,
+                         additional_params={'tags': [tag]})]
 
     @property
     def status(self):
@@ -762,7 +765,7 @@ class ModelApp:
             # if we're exposing the API docs wrap the health check endpoints
             # with the appropriate contract.
             health_check_response = ResponseBody(status_code=200, obj=health_check)
-            contract = Contract('GET', response_schemas=[health_check_response])
+            contract = Contract('GET', response_schemas=[health_check_response], additional_params={'tags': ['health checks']})
             serve_alive = attach_contracts([contract])(serve_alive)
             serve_ready = attach_contracts([contract])(serve_ready)
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
