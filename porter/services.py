@@ -24,6 +24,7 @@ import json
 import logging
 import warnings
 
+import flask
 import pandas as pd
 import werkzeug.exceptions
 
@@ -43,14 +44,6 @@ _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
 
 _logger = logging.getLogger(__name__)
 
-
-def serve_root():
-    """Return a helpful description of how to use the app."""
-
-    message = (
-        'Send POST requests to /&lt model-name &gt/prediction/'
-    )
-    return message, 200
 
 
 class StatefulRoute:
@@ -73,6 +66,18 @@ def serve_error_message(error):
     response = porter_responses.make_error_response(error)
     _logger.exception(response.data)
     return response.jsonify()
+
+
+class ServeRoot(StatefulRoute):
+    _message = 'Send POST requests to /&lt model-name &gt/prediction/'
+
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self):
+        if self.app.expose_docs:
+            return flask.redirect(self.app.docs_url)
+        return self._message
 
 
 class ServeAlive(StatefulRoute):
@@ -659,12 +664,15 @@ class ModelApp:
         meta (dict): Additional meta data added to the response body. Optional.
     """
 
-    def __init__(self, *, name=__name__, meta=None, description=None, expose_docs=True):
+    def __init__(self, *, name=__name__, meta=None, description=None, expose_docs=True,
+                 docs_url='/docs/', docs_json_url='/docs.json'):
         self.name = name
         self.meta = {} if meta is None else meta
         self.description = description
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
+        self.docs_url = '/docs/'
+        self.docs_json_url = '/docs.json'
 
         self._services = []
         # this is just a cache of service IDs we can use to verify that
@@ -722,7 +730,7 @@ class ModelApp:
         # must be called after services are added
         if self.expose_docs:
             # TODO: clean up this call
-            docs.route_docs(self.app, self.name, self.description, 'v1', '/docs/', '/docs.json')
+            docs.route_docs(self.app, self.name, self.description, 'v1', self.docs_url, self.docs_json_url)
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
@@ -756,9 +764,6 @@ class ModelApp:
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)
-        # This route that can be used to check if the app is running.
-        # Useful for kubernetes/helm integration
-        app.route('/', methods=['GET'])(serve_root)  # TODO: Root redirect to docs
         serve_alive = ServeAlive(self)
         serve_ready = ServeReady(self)
         if self.expose_docs:
@@ -770,5 +775,10 @@ class ModelApp:
             serve_ready = attach_contracts([contract])(serve_ready)
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
+        # This route that can be used to check if the app is running.
+
+        serve_root = ServeRoot(self)
+        app.route('/', methods=['GET'])(serve_root)  # TODO: Root redirect to docs
 
         return app
+    

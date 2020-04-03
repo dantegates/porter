@@ -81,7 +81,7 @@ probabilistic_service = PredictionService(
 )
 
 app = ModelApp(name='Example Model',
-               description='An unhelpful description of what this model does',
+               description='An unhelpful description of what this application.',
                expose_docs=True)
 app.add_services(instance_prediction_service, batch_prediction_service, probabilistic_service)
 
