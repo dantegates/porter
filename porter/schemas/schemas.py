@@ -8,7 +8,7 @@ model_context = openapi.Object(
     properties={
         'model_name': openapi.String('The name of the model.'),
         'api_version': openapi.String('The model API version.'),
-        'model_meta': openapi.Object(additional_params={'additionalProperties': openapi.String('Arbitrary meta-data associated with the model.').to_openapi()})
+        'model_meta': openapi.Object(additional_properties_type=openapi.String('Arbitrary meta-data associated with the model.'))
     },
     reference_name='ModelContext'
 )
@@ -21,19 +21,17 @@ health_check = openapi.Object(
         'request_id': request_id,
         'porter_version': openapi.String('The version of the porter on the deployed application.'),
         'deployed_on': openapi.String('Start up time of the server. Format YYYY-MM-DDTHH:MM:SS.ffffff, e.g. 2020-04-01T19:00:31.518627'),
-        'app_meta': openapi.Object(additional_params={'additionalProperties': openapi.String('Arbitrary meta-data associated with the application').to_openapi()}),
+        'app_meta': openapi.Object(additional_properties_type=openapi.String('Arbitrary meta-data associated with the application')),
         'services': openapi.Object(
             'All available services on the server',
-            additional_params={
-                'additionalProperties': openapi.Object(
-                    properties={
-                        'endpoint': openapi.String('Endpoint the service is exposed on.'),
-                        'status': openapi.String('Status of the model. If the app is ready the value will be "READY" .'
-                                            'Otherwise the value will be a string indicating the status of the service.'),
-                        'model_context': model_context
-                    }
-                ).to_openapi()
-            }
+            additional_properties_type=openapi.Object(
+                properties={
+                    'endpoint': openapi.String('Endpoint the service is exposed on.'),
+                    'status': openapi.String('Status of the model. If the app is ready the value will be "READY" .'
+                                             'Otherwise the value will be a string indicating the status of the service.'),
+                    'model_context': model_context
+                }
+            )
         )
     }
 )

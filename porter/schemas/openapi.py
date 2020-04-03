@@ -95,35 +95,45 @@ class Array(ApiObject):
 class Object(ApiObject):
     """Object type."""
 
-    def __init__(self, *args, properties=None, required='all', **kwargs):
+    def __init__(self, *args, properties=None, additional_properties_type=None, required='all', **kwargs):
         """
         Args:
             *args: Positional arguments passed on to `ApiObject`.
             properties (dict): A mapping from property names to ApiObject
                 instances.
+            additional_properties_type (ApiObject): If this is a "free form" object,
+                this defines the type of the additional properties.
             required ("all", `list`, `False): If "all" all properties are
                 required, if a `list` only a subset are required. An empty
                 list means all properties are optional.
             **kwargs: Keyword arguments passed on to `ApiObject`.
         """
-        if properties is None:
-            properties = {}
+        if properties is None and additional_properties_type is None:
+            raise ValueError('at least one of properties and additional_properties_type should be specified')
         self.properties = properties
-        if required == 'all':
-            self.required = list(self.properties.keys())
-        elif required and isinstance(required, list):
-            self.required = required
-        elif isinstance(required, list):
-            self.required = []
+        self.additional_properties_type = additional_properties_type
+        if self.additional_properties_type is None:
+            if required == 'all':
+                self.required = list(self.properties.keys())
+            elif required and isinstance(required, list):
+                self.required = required
+            elif isinstance(required, list):
+                self.required = []
+            else:
+                raise ValueError('required must be "all" or list')
         else:
-            raise ValueError('required must be "all" or list')
+            self.required = None
         super().__init__(*args, **kwargs)
 
     def _customized_openapi(self):
-        return {
-            'properties': {name: prop.to_openapi()[0] for name, prop in self.properties.items()},
-            'required': self.required
-        }
+        if self.additional_properties_type is not None:
+            spec = {'additional_properties_type': self.additional_properties_type.to_openapi()}
+        else:
+            spec = {
+                'properties': {name: prop.to_openapi()[0] for name, prop in self.properties.items()},
+                'required': self.required
+            }
+        return spec
 
 
 class _RefContext:
