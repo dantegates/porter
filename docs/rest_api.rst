@@ -3,9 +3,6 @@
 REST API
 ========
 
-
-
-
 Quick Guide
 -----------
 
@@ -20,3 +17,21 @@ Additionally there is a prediction endpoint for each model service added to the 
     model_app.add_services(service1, service2)
 
 will expose two models on the endpoints ``/foo/v1/prediction`` and ``/foo/v2/prediction``.  The endpoints accept POST requests with JSON payloads.
+
+
+Defining API Schemas
+--------------------
+
+`porter` includes the ability to define API schemas for your services with explicity support
+for the [OpenAPI](https://swagger.io/docs/specification/about/) standard.
+
+While this functionaity is completely optional it is particularly useful
+providing the ability to automatically generated documentation and validate
+request data. Additionally it can be used to generate an OpenAPI spec from
+the command line which can be used for integration with the [vast toolset](https://openapi.tools/) built around this standard.
+
+Here's an example
+
+.. literalinclude:: ../examples/contracts.py
+
+    

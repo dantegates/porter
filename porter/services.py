@@ -418,7 +418,8 @@ class PredictionService(BaseService):
             `True`.
         validate_response_data (bool): Whether to validate the response data
             or not. Does nothing if `prediction_schema is None`. Defaults to
-            `True`.
+            `True`. This is only recommended for testing and debugging during
+            development.
         **kwargs: Keyword arguments passed on to `BaseService`.
 
     Attributes:
@@ -472,6 +473,7 @@ class PredictionService(BaseService):
         validate_response_data (bool): Whether to validate the response data
             or not. Does nothing if `prediction_schema is None`. Defaults to
             `True`.
+
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
@@ -482,7 +484,8 @@ class PredictionService(BaseService):
                  input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
                  instance_schema=None, prediction_schema=None,
-                 validate_request_data=True, validate_response_data=True, **kwargs):
+                 validate_request_data=True, validate_response_data=False,
+                 **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -514,7 +517,7 @@ class PredictionService(BaseService):
         # TODO: add ID to inputs/outputs
         # TODO: add errors  to response schemas
 
-        id_ = Integer('An unique ID corresponding to an instance in the POST body.')
+        id_ = Integer('A unique ID corresponding to an instance in the POST body.')
 
         if instance_schema is not None:
             assert isinstance(instance_schema, Object), 'instance_schema must be an object'
@@ -718,7 +721,7 @@ class ModelApp:
         meta (dict): Additional meta data added to the response body. Optional.
     """
 
-    def __init__(self, *, name=__name__, meta=None, description=None, expose_docs=True,
+    def __init__(self, *, name=__name__, meta=None, description=None, expose_docs=False,
                  docs_url='/docs/', docs_json_url='/docs.json'):
         self.name = name
         self.meta = {} if meta is None else meta
