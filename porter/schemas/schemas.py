@@ -1,34 +1,34 @@
-from . import robustify as rb
+from . import openapi
 
 
-request_id = rb.String('Hex value of UUID assigned to the request.', reference_name='RequestID')
+request_id = openapi.String('Hex value of UUID assigned to the request.', reference_name='RequestID')
 
 
-model_context = rb.Object(
+model_context = openapi.Object(
     properties={
-        'model_name': rb.String('The name of the model.'),
-        'api_version': rb.String('The model API version.'),
-        'model_meta': rb.Object(additional_params={'additionalProperties': rb.String('Arbitrary meta-data associated with the model.').to_openapi()})
+        'model_name': openapi.String('The name of the model.'),
+        'api_version': openapi.String('The model API version.'),
+        'model_meta': openapi.Object(additional_params={'additionalProperties': openapi.String('Arbitrary meta-data associated with the model.').to_openapi()})
     },
     reference_name='ModelContext'
 )
 
 
 
-health_check = rb.Object(
+health_check = openapi.Object(
     'Description of the applications status. Useful for load balancing and debugging',
     properties={
         'request_id': request_id,
-        'porter_version': rb.String('The version of the porter on the deployed application.'),
-        'deployed_on': rb.String('Start up time of the server. Format YYYY-MM-DDTHH:MM:SS.ffffff, e.g. 2020-04-01T19:00:31.518627'),
-        'app_meta': rb.Object(additional_params={'additionalProperties': rb.String('Arbitrary meta-data associated with the application').to_openapi()}),
-        'services': rb.Object(
+        'porter_version': openapi.String('The version of the porter on the deployed application.'),
+        'deployed_on': openapi.String('Start up time of the server. Format YYYY-MM-DDTHH:MM:SS.ffffff, e.g. 2020-04-01T19:00:31.518627'),
+        'app_meta': openapi.Object(additional_params={'additionalProperties': openapi.String('Arbitrary meta-data associated with the application').to_openapi()}),
+        'services': openapi.Object(
             'All available services on the server',
             additional_params={
-                'additionalProperties': rb.Object(
+                'additionalProperties': openapi.Object(
                     properties={
-                        'endpoint': rb.String('Endpoint the service is exposed on.'),
-                        'status': rb.String('Status of the model. If the app is ready the value will be "READY" .'
+                        'endpoint': openapi.String('Endpoint the service is exposed on.'),
+                        'status': openapi.String('Status of the model. If the app is ready the value will be "READY" .'
                                             'Otherwise the value will be a string indicating the status of the service.'),
                         'model_context': model_context
                     }
@@ -39,16 +39,16 @@ health_check = rb.Object(
 )
 
 
-error_body = rb.Object(
+error_body = openapi.Object(
     properties={
-        'messages': rb.Array('An array of messages describing the error.', item_type=rb.String()),
-        'name': rb.String('Name of the error')
+        'messages': openapi.Array('An array of messages describing the error.', item_type=openapi.String()),
+        'name': openapi.String('Name of the error')
     },
     reference_name='ErrorBody'
 )
 
 
-generic_error = rb.Object(
+generic_error = openapi.Object(
     properties={
         'request_id': request_id,
         'error': error_body
@@ -56,7 +56,7 @@ generic_error = rb.Object(
 )
 
 
-model_context_error = rb.Object(
+model_context_error = openapi.Object(
     properties={
         'request_id': request_id,
         'error': error_body,
