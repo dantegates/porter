@@ -1,8 +1,9 @@
 import scipy.stats as ss
 import pandas as pd
 from porter.datascience import BaseModel
-from porter.services import ModelApp, PredictionService
-from porter.schemas import Array, Object, String, Number
+from porter.services import ModelApp, PredictionService, BaseService
+from porter.schemas import Array, Object, String, Number, Integer
+from porter.schemas import openapi
 
 
 class IdentityModel(BaseModel):
@@ -80,10 +81,53 @@ probabilistic_service = PredictionService(
     batch_prediction=True
 )
 
+
+class CustomService(BaseService):
+    action = 'foo'
+
+    def serve(self):
+        pass
+
+    def status(self):
+        return 'READY'
+
+custom_service_contracts = [
+    openapi.Contract(
+        'POST',
+        request_schema=openapi.RequestBody(
+            Object(
+                properties={
+                    'string_with_enum_prop': String(additional_params={'enum': ['a', 'b', 'abc']}),
+                    'an_arry': Array(item_type=Number()),
+                    'another_property': Object(properties={'a': String(), 'b': Integer()}),
+                    'yet_another_property': Array(item_type=Object(additional_properties_type=String()))
+                },
+                reference_name='CustomServiceInputs'
+            )
+        ),
+        response_schemas=[
+            openapi.ResponseBody(status_code=200, obj=Array(item_type=String())),
+            openapi.ResponseBody(status_code=422, obj=Object(properties={'message': String()}))
+        ],
+        additional_params={'tags': ['custom-service']}
+    )
+]
+
+
+custom_service = CustomService(
+    name='custom-service',
+    api_version='v1',
+    api_contracts=custom_service_contracts
+)
+
+
+
+
 app = ModelApp(name='Example Model',
                description='An unhelpful description of what this application.',
                expose_docs=True)
-app.add_services(instance_prediction_service, batch_prediction_service, probabilistic_service)
+app.add_services(instance_prediction_service, batch_prediction_service,
+                 probabilistic_service, custom_service)
 
 
 if __name__ == '__main__':

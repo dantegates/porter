@@ -729,7 +729,8 @@ class ModelApp:
         """
         # must be called after services are added
         if self.expose_docs:
-            # TODO: clean up this call
+            # TODO: what does the version even mean here in the context of porter
+            #       where we version the endpoints
             docs.route_docs(self.app, self.name, self.description, 'v1', self.docs_url, self.docs_json_url)
         self.app.run(*args, **kwargs)
 
@@ -764,19 +765,20 @@ class ModelApp:
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)
+
         serve_alive = ServeAlive(self)
         serve_ready = ServeReady(self)
         if self.expose_docs:
             # if we're exposing the API docs wrap the health check endpoints
             # with the appropriate contract.
             health_check_response = ResponseBody(status_code=200, obj=health_check)
-            contract = Contract('GET', response_schemas=[health_check_response], additional_params={'tags': ['health checks']})
+            contract = Contract('GET', response_schemas=[health_check_response],
+                                additional_params={'tags': ['health checks']})
             serve_alive = attach_contracts([contract])(serve_alive)
             serve_ready = attach_contracts([contract])(serve_ready)
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
-        # This route that can be used to check if the app is running.
-
+    
         serve_root = ServeRoot(self)
         app.route('/', methods=['GET'])(serve_root)  # TODO: Root redirect to docs
 
