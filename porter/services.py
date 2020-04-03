@@ -404,6 +404,22 @@ class PredictionService(BaseService):
             per request. Optional.
         additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput` or subclass thereof
             if POST request is invalid.
+        instance_schema (`porter.schemas.Object` or None): Description of an
+            individual instance to be predicted on. Can be used to validate
+            inputs if `validate_request_data=True` and document the API if
+            added to an instance of `ModelApp` where `expose_docs=True`.
+        prediction_schema (`porter.schemas.Object` or None): Description of an
+            individual prediction returned to the user. Can be used to
+            validate outputs if `validate_request_data=True` and document the
+            API if added to an instance of `ModelApp` where
+            `expose_docs=True`.
+        validate_request_data (bool): Whether to validate the request data or
+            not. Does nothing if `instance_schema is None`. Defaults to
+            `True`.
+        validate_response_data (bool): Whether to validate the response data
+            or not. Does nothing if `prediction_schema is None`. Defaults to
+            `True`.
+        **kwargs: Keyword arguments passed on to `BaseService`.
 
     Attributes:
         id (str): A unique ID for the model. Composed of ``name`` and ``api_version``.
@@ -456,12 +472,12 @@ class PredictionService(BaseService):
         validate_response_data (bool): Whether to validate the response data
             or not. Does nothing if `prediction_schema is None`. Defaults to
             `True`.
-        **kwargs: Keyword arguments passed on to `BaseService`.
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
     # TODO: deprecate input_features
+    # TODO: how does prediction_schema and instance schema interact with api_contracts?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
