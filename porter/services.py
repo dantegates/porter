@@ -33,10 +33,10 @@ from . import constants as cn
 from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
-from .schemas import (Array, Contract, Object, RequestBody, ResponseBody,
-                      String, attach_contracts,
-                      Integer, generic_error,
-                      model_context, model_context_error, request_id)
+from .schemas import (Array, Contract, Integer, Object, RequestBody,
+                      ResponseBody, String, attach_contracts, generic_error,
+                      health_check, model_context, model_context_error,
+                      request_id)
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -500,7 +500,9 @@ class PredictionService(BaseService):
         response_schemas = [ResponseBody(status_code=200, obj=response_obj),
                             *self._default_response_schemas]
 
-        return [Contract('POST', request_schema=request_schema, response_schemas=response_schemas,
+        return [Contract('GET', response_schemas=[ResponseBody(status_code=200, obj=String())]),
+                Contract('POST', request_schema=request_schema,
+                         response_schemas=response_schemas,
                          validate_request_data=validate_request_data)]
 
     @property
@@ -753,8 +755,17 @@ class ModelApp:
         app.register_error_handler(exc.PredictionError, serve_error_message)
         # This route that can be used to check if the app is running.
         # Useful for kubernetes/helm integration
-        app.route('/', methods=['GET'])(serve_root)
-        app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(ServeAlive(self))
-        app.route(cn.READINESS_ENDPOINT, methods=['GET'])(ServeReady(self))
+        app.route('/', methods=['GET'])(serve_root)  # TODO: Root redirect to docs
+        serve_alive = ServeAlive(self)
+        serve_ready = ServeReady(self)
+        if self.expose_docs:
+            # if we're exposing the API docs wrap the health check endpoints
+            # with the appropriate contract.
+            health_check_response = ResponseBody(status_code=200, obj=health_check)
+            contract = Contract('GET', response_schemas=[health_check_response])
+            serve_alive = attach_contracts([contract])(serve_alive)
+            serve_ready = attach_contracts([contract])(serve_ready)
+        app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
+        app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 
         return app
