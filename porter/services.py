@@ -469,7 +469,7 @@ class PredictionService(BaseService):
         super().__init__(api_contracts=api_contracts, **kwargs)
 
     def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data, tag):
-        # TODO: Need to handle status codes
+        # TODO: add ID to inputs/outputs
         # TODO: add errors  to response schemas
         if instance_schema is not None:
             if self.batch_prediction:
@@ -731,7 +731,7 @@ class ModelApp:
         if self.expose_docs:
             # TODO: what does the version even mean here in the context of porter
             #       where we version the endpoints
-            docs.route_docs(self.app, self.name, self.description, 'v1', self.docs_url, self.docs_json_url)
+            docs.route_docs(self.app, self.name, self.description, '1.0.0', self.docs_url, self.docs_json_url)
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
@@ -780,7 +780,7 @@ class ModelApp:
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
     
         serve_root = ServeRoot(self)
-        app.route('/', methods=['GET'])(serve_root)  # TODO: Root redirect to docs
+        app.route('/', methods=['GET'])(serve_root)
 
         return app
     
