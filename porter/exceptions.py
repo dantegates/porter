@@ -1,5 +1,7 @@
+"""Exceptions that can be raised by ``porter``."""
+
 class PorterError(Exception):
-    """Base Exception class for error's raised by `porter`."""
+    """Base Exception class for errors raised by ``porter``."""
 
 
 class ModelContextError(PorterError):
