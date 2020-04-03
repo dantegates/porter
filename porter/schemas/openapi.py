@@ -233,14 +233,3 @@ class ResponseBody:
                 'description': self.description
             }
         }, openapi_refs
-
-
-class Contract:
-    def __init__(self, method, *, request_schema=None, response_schemas=None, validate_request_data=True,
-                 additional_params=None):
-        self.method = method.lower()
-        self.request_schema = request_schema
-        response_schemas = response_schemas
-        self.response_schemas = response_schemas
-        self.validate_request_data = validate_request_data
-        self.additional_params = {} if additional_params is None else additional_params

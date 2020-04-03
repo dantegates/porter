@@ -191,7 +191,6 @@ class BaseService(abc.ABC, StatefulRoute):
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
         self.namespace = namespace
-        self.api_contracts = api_contracts
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
@@ -200,6 +199,14 @@ class BaseService(abc.ABC, StatefulRoute):
         self.id = self.define_id()
         self.meta = self.update_meta(self.meta)
         self.log_api_calls = log_api_calls
+
+        self.api_contracts = api_contracts
+        self.route_fn = self._make_route_fn()
+
+    def _make_route_fn(self):
+        if self.api_contracts is not None:
+            return attach_contracts(self.api_contracts)(self)
+        return self
 
     def __call__(self):
         """Serve a response to the user."""
@@ -434,16 +441,32 @@ class PredictionService(BaseService):
             single object per request. Optional.
         additional_checks (callable): Raises `InvalidModelInput` or subclass thereof
             if POST request is invalid.
+        instance_schema (`porter.schemas.Object` or None): Description of an
+            individual instance to be predicted on. Can be used to validate
+            inputs if `validate_request_data=True` and document the API if
+            added to an instance of `ModelApp` where `expose_docs=True`.
+        prediction_schema (`porter.schemas.Object` or None): Description of an
+            individual prediction returned to the user. Can be used to
+            validate outputs if `validate_request_data=True` and document the
+            API if added to an instance of `ModelApp` where
+            `expose_docs=True`.
+        validate_request_data (bool): Whether to validate the request data or
+            not. Does nothing if `instance_schema is None`. Defaults to
+            `True`.
+        validate_response_data (bool): Whether to validate the response data
+            or not. Does nothing if `prediction_schema is None`. Defaults to
+            `True`.
+        **kwargs: Keyword arguments passed on to `BaseService`.
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
-
+    # TODO: deprecate input_features
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
                  instance_schema=None, prediction_schema=None,
-                 validate_request_data=True, **kwargs):
+                 validate_request_data=True, validate_response_data=True, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -456,9 +479,11 @@ class PredictionService(BaseService):
         self.additional_checks = additional_checks
         self.instance_schema = instance_schema
         self.prediction_schema = prediction_schema
+        self.validate_request_data = validate_request_data
+        self.validate_response_data = validate_response_data
         if instance_schema is not None:
             api_contracts = self._make_api_contracts(instance_schema, prediction_schema,
-                                                     validate_request_data,
+                                                     validate_request_data, validate_response_data,
                                                      kwargs['name'])  # TODO: clean this up
         else:
             api_contracts = []
@@ -468,14 +493,22 @@ class PredictionService(BaseService):
         self._postprocess_model_output = self.postprocessor is not None        
         super().__init__(api_contracts=api_contracts, **kwargs)
 
-    def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data, tag):
+    def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data,
+                            validate_response_data, tag):
         # TODO: add ID to inputs/outputs
         # TODO: add errors  to response schemas
+
+        id_ = Integer('An unique ID corresponding to an instance in the POST body.')
+
         if instance_schema is not None:
+            assert isinstance(instance_schema, Object), 'instance_schema must be an object'
+            instance_schema = Object(properties={'id': id_, **instance_schema.properties},
+                                     reference_name=instance_schema.reference_name)
             if self.batch_prediction:
                 request_obj = Array(item_type=instance_schema)
             else:
                 request_obj = instance_schema
+
             request_schema = RequestBody(obj=request_obj)
         else:
             request_schema = None
@@ -483,11 +516,14 @@ class PredictionService(BaseService):
         if prediction_schema is None:
             prediction_schema = Object(
                 'A single prediction instance',
-                properties={
-                    'id': Integer('An unique ID corresponding to an instance in the POST body.'),
-                    'prediction': Integer('The model prediction.')
-                }
+                properties={'id': id_, 'prediction': Integer('The model prediction.')}
             )
+        else:
+            prediction_schema = Object(
+                properties={'id': id_, 'prediction': prediction_schema}
+            )
+
+        assert 'id' in prediction_schema.properties, 'instance_schema must specify an ID property'
 
         if self.batch_prediction:
             prediction_obj = Array(item_type=prediction_schema)
@@ -511,6 +547,7 @@ class PredictionService(BaseService):
                 Contract('POST', request_schema=request_schema,
                          response_schemas=response_schemas,
                          validate_request_data=validate_request_data,
+                         validate_response_data=validate_response_data,
                          additional_params={'tags': [tag]})]
 
     @property
@@ -715,9 +752,7 @@ class ModelApp:
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
-        if service.api_contracts is not None:
-            service_callable = attach_contracts(service.api_contracts)(service)
-        self.app.route(service.endpoint, **service.route_kwargs)(service_callable)
+        self.app.route(service.endpoint, **service.route_kwargs)(service.route_fn)
 
     def run(self, *args, **kwargs):
         """

@@ -14,7 +14,6 @@ model_context = openapi.Object(
 )
 
 
-
 health_check = openapi.Object(
     'Description of the applications status. Useful for load balancing and debugging',
     properties={

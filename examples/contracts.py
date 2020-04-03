@@ -1,14 +1,15 @@
-import scipy.stats as ss
+import numpy as np
 import pandas as pd
+import scipy.stats as ss
+from porter import schemas
 from porter.datascience import BaseModel
-from porter.services import ModelApp, PredictionService, BaseService
-from porter.schemas import Array, Object, String, Number, Integer
-from porter.schemas import openapi
+from porter.schemas import Array, Integer, Number, Object, String
+from porter.services import BaseService, ModelApp, PredictionService
 
 
 class IdentityModel(BaseModel):
     def predict(self, X):
-        return X
+        return np.arange(len(X))
 
 
 identity_model_instance_schema = Object(
@@ -92,9 +93,9 @@ class CustomService(BaseService):
         return 'READY'
 
 custom_service_contracts = [
-    openapi.Contract(
+    schemas.Contract(
         'POST',
-        request_schema=openapi.RequestBody(
+        request_schema=schemas.RequestBody(
             Object(
                 properties={
                     'string_with_enum_prop': String(additional_params={'enum': ['a', 'b', 'abc']}),
@@ -106,8 +107,8 @@ custom_service_contracts = [
             )
         ),
         response_schemas=[
-            openapi.ResponseBody(status_code=200, obj=Array(item_type=String())),
-            openapi.ResponseBody(status_code=422, obj=Object(properties={'message': String()}))
+            schemas.ResponseBody(status_code=200, obj=Array(item_type=String())),
+            schemas.ResponseBody(status_code=422, obj=Object(properties={'message': String()}))
         ],
         additional_params={'tags': ['custom-service']}
     )
@@ -119,8 +120,6 @@ custom_service = CustomService(
     api_version='v1',
     api_contracts=custom_service_contracts
 )
-
-
 
 
 app = ModelApp(name='Example Model',
