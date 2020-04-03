@@ -58,5 +58,6 @@ setup(
         'tests', 'examples'
     )),
     install_requires=REQUIRED,
-    extras_require=EXTRAS_REQUIRED
+    extras_require=EXTRAS_REQUIRED,
+    include_package_data=True
 )
