@@ -26,7 +26,7 @@ openapi:
 	    openapitools/openapi-generator-cli:v4.2.3 \
 	    generate -i /local/porter-api.yaml -g html -o /local/html --skip-validate-spec --generate-alias-as-model
 
-docs:
+docs: install
 	$(MAKE) -C $(shell pwd)/docs html
 
 .PHONY: openapi
