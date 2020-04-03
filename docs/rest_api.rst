@@ -4,15 +4,7 @@ REST API
 ========
 
 
-The complete details of an API exposed by ``porter`` can be found in the `openapi <https://openapi.tools/>`_ spec in `this repository <https://github.com/CadentTech/porter/tree/master/openapi>`_.
 
-Additionally you can open the `static documentation <https://github.com/CadentTech/porter/blob/master/openapi/html/index.html>`_ generated from this spec in your web browser. On a Mac:
-
-.. code-block:: shell
-
-    open openapi/html/index.html
-
-For those who just want to get a sense of the API a quick overview is below.
 
 Quick Guide
 -----------
