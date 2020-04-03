@@ -33,7 +33,10 @@ from . import constants as cn
 from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
-from .schemas import String, RequestBody, ResponseBody, Contract, attach_contracts, generic_error
+from .schemas import (Array, Contract, Object, RequestBody, ResponseBody,
+                      String, attach_contracts,
+                      Integer, generic_error,
+                      model_context, model_context_error, request_id)
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -172,6 +175,9 @@ class BaseService(abc.ABC, StatefulRoute):
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
+    _default_response_schemas = (
+        ResponseBody(status_code=500, obj=model_context_error),
+    )
 
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace='',
                  api_contracts=None):
@@ -431,7 +437,7 @@ class PredictionService(BaseService):
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
-                 request_schema=None, response_schema=None,
+                 instance_schema=None, prediction_schema=None,
                  validate_request_data=True, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
@@ -443,10 +449,10 @@ class PredictionService(BaseService):
             raise exc.PorterError('`additional_checks` must be callable')
         self.action = action or self.action
         self.additional_checks = additional_checks
-        self.request_schema = request_schema
-        self.response_schema = response_schema
-        if request_schema is not None:
-            api_contracts = self._make_api_contracts(request_schema, response_schema, validate_request_data)
+        self.instance_schema = instance_schema
+        self.prediction_schema = prediction_schema
+        if instance_schema is not None:
+            api_contracts = self._make_api_contracts(instance_schema, prediction_schema, validate_request_data)
         else:
             api_contracts = []
         # TODO: _validate_input is redundant now
@@ -455,15 +461,47 @@ class PredictionService(BaseService):
         self._postprocess_model_output = self.postprocessor is not None        
         super().__init__(api_contracts=api_contracts, **kwargs)
 
-    def _make_api_contracts(self, request_schema, response_schema, validate_request_data):
+    def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data):
         # TODO: Need to handle status codes
         # TODO: add errors  to response schemas
         # TODO: convert to RequestBody and ResponseBody?
         # TODO: add GET
-        request_schema = RequestBody(obj=request_schema)
-        response_schemas = [#ResponseBody(status_code=200, obj=response_schema)
-                            ResponseBody(status_code=500, obj=generic_error)]
-        return [Contract('POST', request_schema=request_schema, response_schemas=response_schemas, validate_request_data=validate_request_data)]
+        if instance_schema is not None:
+            if self.batch_prediction:
+                request_obj = Array(item_type=instance_schema)
+            else:
+                request_obj = instance_schema
+            request_schema = RequestBody(obj=request_obj)
+        else:
+            request_schema = None
+
+        if prediction_schema is None:
+            prediction_schema = Object(
+                'A single prediction instance',
+                properties={
+                    'id': Integer('An unique ID corresponding to an instance in the POST body.'),
+                    'prediction': Integer('The model prediction.')
+                }
+            )
+
+        if self.batch_prediction:
+            prediction_obj = Array(item_type=prediction_schema)
+        else:
+            prediction_obj = prediction_schema
+
+        response_obj = Object(
+            properties={
+                'request_id': request_id,
+                'model_context': model_context,
+                'predictions': prediction_obj
+            }
+        )
+
+        response_schemas = [ResponseBody(status_code=200, obj=response_obj),
+                            *self._default_response_schemas]
+
+        return [Contract('POST', request_schema=request_schema, response_schemas=response_schemas,
+                         validate_request_data=validate_request_data)]
 
     @property
     def status(self):
