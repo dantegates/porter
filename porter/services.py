@@ -36,7 +36,7 @@ from . import constants as cn
 from . import exceptions as exc
 from . import responses as porter_responses
 from .schemas import (Array, Contract, Integer, Object, RequestBody,
-                      ResponseBody, String, validate, generic_error,
+                      ResponseBody, String, generic_error,
                       health_check, model_context, model_context_error,
                       request_id)
 
@@ -64,7 +64,7 @@ class StatefulRoute:
 
 
 def serve_error_message(error):
-    response = porter_responses.make_error_response(error)
+    response = porter_responses.make_error_response(error, schema=None)  # TODO: pass the schema here
     _logger.exception(response.data)
     return response.jsonify()
 
@@ -96,7 +96,7 @@ class ServeAlive(StatefulRoute):
 
     def __call__(self):
         """Serve liveness response."""
-        response = porter_responses.make_alive_response(self.app)
+        response = porter_responses.make_alive_response(self.app, schema=None)  # TODO: pass the schema here
         self.logger.info(response.data)
         return response.jsonify()
 
@@ -116,34 +116,9 @@ class ServeReady(StatefulRoute):
 
     def __call__(self):
         """Serve readiness response."""
-        response = porter_responses.make_ready_response(self.app)
+        response = porter_responses.make_ready_response(self.app, schema=None)  # TODO: pass the schema here
         self.logger.info(response.data)
         return response.jsonify()
-
-
-class PredictSchema:
-    """
-    A simple container that represents a model's schema.
-
-    Args:
-        input_features (list of str): A list of the features input to the
-            model service. If the service defines a preprocessor these are the
-            features expected by the preprocessor.
-
-    Attributes:
-        input_columns (list of str): A list of all columns expected in the
-            POST request payload.
-        input_features (list of str): A list of the features input to the
-            model service. If the service defines a preprocessor these are the
-            features expected by the preprocessor.
-    """
-    def __init__(self, *, input_features):
-        if input_features is not None:
-            input_features = list(input_features)
-            self.input_columns = [_ID] + input_features
-        else:
-            self.input_columns = input_features
-        self.input_features = input_features
 
 
 class BaseService(abc.ABC, StatefulRoute):
@@ -163,6 +138,15 @@ class BaseService(abc.ABC, StatefulRoute):
             Default is False.
         namespace (str): String identifying a namespace that the service belongs
             to. Used to route services by subclasses. Default is "".
+        api_contracts (list[`porter.schemas.ApiObject`]): An `ApiObject`
+            representing the input/output schemas for `endpoint`.
+        validate_request_data (bool): Whether to validate the request data or
+            not. Does nothing if `feature_schema is None`. Defaults to
+            `True`.
+        validate_response_data (bool): Whether to validate the response data
+            or not. Does nothing if `prediction_schema is None`. Defaults to
+            `True`. This is only recommended for testing and debugging during
+            development.
 
     Attributes:
         id (str): A unique ID for the service.
@@ -178,6 +162,12 @@ class BaseService(abc.ABC, StatefulRoute):
         endpoint (str): The endpoint where the service is exposed.
         api_contracts (subclass of `porter.schemas.ApiObject`): An `ApiObject`
             representing the input/output schemas for `endpoint`.
+        validate_request_data (bool): Whether to validate the request data or
+            not. Does nothing if `feature_schema is None`. Defaults to
+            `True`.
+        validate_response_data (bool): Whether to validate the response data
+            or not. Does nothing if `prediction_schema is None`. Defaults to
+            `True`.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
@@ -186,7 +176,7 @@ class BaseService(abc.ABC, StatefulRoute):
     )
 
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace='',
-                 api_contracts=None):
+                 api_contracts=None, validate_request_data=False, validate_response_data=False):
         self.name = name
         self.api_version = api_version
         self.meta = {} if meta is None else meta
@@ -202,18 +192,15 @@ class BaseService(abc.ABC, StatefulRoute):
         self.log_api_calls = log_api_calls
 
         self.api_contracts = api_contracts
-        self.route_fn = self._make_route_fn()
-
-    def _make_route_fn(self):
-        if self.api_contracts is not None:
-            return validate(self.api_contracts)(self.serve)
-        return self.serve
+        self.validate_request_data = validate_request_data
+        self.validate_response_data = validate_response_data
+        self._method_contracts = {c.method.upper(): c for c in self.api_contracts}
 
     def __call__(self):
         """Serve a response to the user."""
         response = None
         try:
-            response = self.route_fn()
+            response = self.serve()
             if not isinstance(response, porter_responses.Response):
                 response = porter_responses.Response(response, service_class=self)
             response = response.jsonify()
@@ -345,7 +332,12 @@ class BaseService(abc.ABC, StatefulRoute):
         self._api_version = value
 
     def get_post_data(self):
-        return api.request_json(force=True)
+        data = api.request_json(force=True)
+        if self.api_contracts is not None:
+            request_schema = self._method_contracts['POST'].request_schema
+            if request_schema is not None:
+                request_schema.validate(data)
+        return data
 
     def _log_api_call(self, request_data, response_data):
         self._logger.info('api logging',
@@ -414,13 +406,6 @@ class PredictionService(BaseService):
             validate outputs if `validate_request_data=True` and document the
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
-        validate_request_data (bool): Whether to validate the request data or
-            not. Does nothing if `feature_schema is None`. Defaults to
-            `True`.
-        validate_response_data (bool): Whether to validate the response data
-            or not. Does nothing if `prediction_schema is None`. Defaults to
-            `True`. This is only recommended for testing and debugging during
-            development.
         **kwargs: Keyword arguments passed on to `BaseService`.
 
     Attributes:
@@ -450,7 +435,6 @@ class PredictionService(BaseService):
             `.process()` method of this object will be called on the output of
             ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        schema (object): An instance of :class:`porter.services.Schema`.
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not the endpoint supports batch
@@ -468,29 +452,20 @@ class PredictionService(BaseService):
             validate outputs if `validate_request_data=True` and document the
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
-        validate_request_data (bool): Whether to validate the request data or
-            not. Does nothing if `feature_schema is None`. Defaults to
-            `True`.
-        validate_response_data (bool): Whether to validate the response data
-            or not. Does nothing if `prediction_schema is None`. Defaults to
-            `True`.
 
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
     # TODO: deprecate input_features
-    # TODO: how does prediction_schema and instance schema interact with api_contracts?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
                  feature_schema=None, prediction_schema=None,
-                 validate_request_data=True, validate_response_data=False,
                  **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.schema = PredictSchema(input_features=input_features)
         self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
@@ -499,21 +474,21 @@ class PredictionService(BaseService):
         self.additional_checks = additional_checks
         self.feature_schema = feature_schema
         self.prediction_schema = prediction_schema
-        self.validate_request_data = validate_request_data
-        self.validate_response_data = validate_response_data
+
         if feature_schema is not None:
-            api_contracts = self._make_api_contracts(feature_schema, prediction_schema,
-                                                     validate_request_data, validate_response_data,
+            api_contracts = self._make_api_contract(feature_schema, prediction_schema,
+                                                     kwargs.get('validate_request_data', False),
+                                                     kwargs.get('validate_response_data', False),
                                                      kwargs['name'])  # TODO: clean this up
         else:
-            api_contracts = []
-        # TODO: _validate_input is redundant now
-        self._validate_input = self.schema.input_columns is not None
+            api_contracts = None
+
         self._preprocess_model_input = self.preprocessor is not None
-        self._postprocess_model_output = self.postprocessor is not None        
+        self._postprocess_model_output = self.postprocessor is not None
+
         super().__init__(api_contracts=api_contracts, **kwargs)
 
-    def _make_api_contracts(self, feature_schema, prediction_schema, validate_request_data,
+    def _make_api_contract(self, feature_schema, prediction_schema, validate_request_data,
                             validate_response_data, tag):
         # TODO: add ID to inputs/outputs
         # TODO: add errors  to response schemas
@@ -608,10 +583,8 @@ class PredictionService(BaseService):
     def _predict(self):
         X_input = self.get_post_data()
 
-        if self._validate_input:
-            self.check_request(X_input, self.schema.input_columns,
-                self.allow_nulls, self.additional_checks)
-            X_preprocessed = X_input.loc[:,self.schema.input_features]
+        if not self.allow_nulls or self.additional_checks is not None:
+            self.check_request(X_input, self.allow_nulls, self.additional_checks)
         else:
             X_preprocessed = X_input
 
@@ -623,28 +596,31 @@ class PredictionService(BaseService):
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
+        if self.validate_response_data:
+            schema = self._method_contracts['POST'].fetch_response_schema(200)
+        else:
+            schema = None
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(
-                self, X_input[_ID], preds)
+                self, X_input[_ID], preds, schema=schema)
         else:
             response = porter_responses.make_prediction_response(
-                self, X_input[_ID].iloc[0], preds[0])
+                self, X_input[_ID].iloc[0], preds[0], schema=schema)
 
         return response
 
     @classmethod
-    def check_request(cls, X_input, input_columns, allow_nulls=False, additional_checks=None):
+    def check_request(cls, X_input, allow_nulls=False, additional_checks=None):
         """Check the POST request data raising an error if a check fails.
 
         Checks include
 
-        1. ``X`` contains all columns in ``feature_names``.
-        2. ``X`` does not contain nulls (only if allow_nulls == True).
+        1. ``X`` does not contain nulls (only if allow_nulls == True).
+        2. Any additional checks in the user defined ``additional_checks``.
 
         Args:
             X (``pandas.DataFrame``): A ``pandas.DataFrame`` created from the POST
                 request.
-            feature_names (list): All feature names expected in ``X``.
             allow_nulls (bool): Whether nulls are allowed in ``X``. False by
                 default.
 
@@ -659,7 +635,7 @@ class PredictionService(BaseService):
             :class:`porter.exceptions.InvalidModelInput`: If user defined ``additional_checks``
                 fails.
         """
-        cls._default_checks(X_input, input_columns, allow_nulls)
+        cls._default_checks(X_input, allow_nulls)
         # Only perform user checks after the standard checks have been passed.
         # This allows the user to assume that all columns are present and there
         # are no nulls present (if allow_nulls is False).
@@ -667,18 +643,11 @@ class PredictionService(BaseService):
             additional_checks(X_input)
 
     @staticmethod
-    def _default_checks(X, input_columns, allow_nulls):
-        # checks that all columns are present and no nulls sent
-        # (or missing values)
-        try:
-            # check for allow_nulls first to avoid computation if possible
-            if not allow_nulls and X[input_columns].isnull().any().any():
-                null_counts = X[input_columns].isnull().sum()
-                null_columns = null_counts[null_counts > 0].index.tolist()
-                raise exc.RequestContainsNulls(null_columns)
-        except KeyError:
-            missing_fields = [c for c in input_columns if not c in X.columns]
-            raise exc.RequestMissingFields(missing_fields)
+    def _default_checks(X, allow_nulls):
+        if not allow_nulls and X.isnull().any().any():
+            null_counts = X.isnull().sum()
+            null_columns = null_counts[null_counts > 0].index.tolist()
+            raise exc.RequestContainsNulls(null_columns)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a ``pandas.DataFrame``.
@@ -687,21 +656,11 @@ class PredictionService(BaseService):
             ``pandas.DataFrame``. Each ``row`` represents a single instance to
             predict on. If ``self.batch_prediction`` is ``False`` the ``DataFrame``
             will only contain one ``row``.
-
-        Raises:
-            :class:`porter.exceptions.PorterError`: If the request data does not
-                follow the API format.
         """
         data = super().get_post_data()
         if not self.batch_prediction:
-            # if API is not supporting batch prediction user's must send
-            # a single JSON object.
-            if not isinstance(data, dict):
-                raise exc.InvalidModelInput(f'input must be a single JSON object')
-            # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
-        elif not isinstance(data, list):
-            raise exc.InvalidModelInput(f'input must be an array of objects')
+        # TODO: return only feature columns + ID
         return pd.DataFrame(data)
  
 
@@ -830,12 +789,11 @@ class ModelApp:
             # if we're exposing the API docs wrap the health check endpoints
             # with the appropriate contract.
             health_check_response = ResponseBody(status_code=200, obj=health_check)
-            contract = Contract('GET', response_schemas=[health_check_response],
-                                additional_params={'tags': ['health checks']})
-            serve_alive = validate([contract])(serve_alive)
-            serve_ready = validate([contract])(serve_ready)
-        self._contracts[cn.LIVENESS_ENDPOINT] = [contract]
-        self._contracts[cn.READINESS_ENDPOINT] = [contract]
+            self.health_check_contract = Contract(
+                'GET', response_schemas=[health_check_response],
+                 additional_params={'tags': ['health checks']})
+        self._contracts[cn.LIVENESS_ENDPOINT] = [self.health_check_contract]
+        self._contracts[cn.READINESS_ENDPOINT] = [self.health_check_contract]
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 

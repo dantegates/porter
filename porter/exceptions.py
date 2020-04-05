@@ -30,6 +30,8 @@ class PredictionError(ModelContextError):
     code = 500
 
 
+
+# TODO: deprecate? this used to get raised in PredictionService._default_checks
 class RequestMissingFields(InvalidModelInput):
     """Exception raised when POST request is missing required fields."""
     def __init__(self, fields):

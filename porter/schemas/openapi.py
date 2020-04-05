@@ -31,7 +31,7 @@ class ApiObject:
             # and
             # http://json-schema.org/draft-06/json-schema-release-notes.html
             self.jsonschema = self.to_openapi()[0]
-            self.validate = fastjsonschema.compile({
+            self._validate = fastjsonschema.compile({
                 '$draft': '04',
                 **self.jsonschema
             })
@@ -60,6 +60,15 @@ class ApiObject:
     @property
     def _openapi_type_name(self):
         return self.__class__.__name__.lower()
+
+    def validate(self, data):
+        try:
+            self._validate(data)
+        except fastjsonschema.exceptions.JsonSchemaException as err:
+            # fastjsonschema raises useful error messsages so we'll reuse them.
+            # However, a ValueError so that other modules don't need to depend
+            # on fastjsonschema exceptions
+            raise ValueError(*err.args) from err
 
 
 class String(ApiObject):
