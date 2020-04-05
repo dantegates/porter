@@ -33,7 +33,6 @@ import werkzeug.exceptions
 from . import api
 from . import config as cf
 from . import constants as cn
-from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
 from .schemas import (Array, Contract, Integer, Object, RequestBody,
@@ -406,7 +405,7 @@ class PredictionService(BaseService):
             per request. Optional.
         additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput` or subclass thereof
             if POST request is invalid.
-        instance_schema (`porter.schemas.Object` or None): Description of an
+        feature_schema (`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
             added to an instance of `ModelApp` where `expose_docs=True`.
@@ -416,7 +415,7 @@ class PredictionService(BaseService):
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
         validate_request_data (bool): Whether to validate the request data or
-            not. Does nothing if `instance_schema is None`. Defaults to
+            not. Does nothing if `feature_schema is None`. Defaults to
             `True`.
         validate_response_data (bool): Whether to validate the response data
             or not. Does nothing if `prediction_schema is None`. Defaults to
@@ -460,7 +459,7 @@ class PredictionService(BaseService):
             single object per request. Optional.
         additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput`
             or subclass thereof if POST request is invalid.
-        instance_schema (`porter.schemas.Object` or None): Description of an
+        feature_schema (`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
             added to an instance of `ModelApp` where `expose_docs=True`.
@@ -470,7 +469,7 @@ class PredictionService(BaseService):
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
         validate_request_data (bool): Whether to validate the request data or
-            not. Does nothing if `instance_schema is None`. Defaults to
+            not. Does nothing if `feature_schema is None`. Defaults to
             `True`.
         validate_response_data (bool): Whether to validate the response data
             or not. Does nothing if `prediction_schema is None`. Defaults to
@@ -485,7 +484,7 @@ class PredictionService(BaseService):
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  input_features=None, allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
-                 instance_schema=None, prediction_schema=None,
+                 feature_schema=None, prediction_schema=None,
                  validate_request_data=True, validate_response_data=False,
                  **kwargs):
         self.model = model
@@ -498,12 +497,12 @@ class PredictionService(BaseService):
             raise exc.PorterError('`additional_checks` must be callable')
         self.action = action or self.action
         self.additional_checks = additional_checks
-        self.instance_schema = instance_schema
+        self.feature_schema = feature_schema
         self.prediction_schema = prediction_schema
         self.validate_request_data = validate_request_data
         self.validate_response_data = validate_response_data
-        if instance_schema is not None:
-            api_contracts = self._make_api_contracts(instance_schema, prediction_schema,
+        if feature_schema is not None:
+            api_contracts = self._make_api_contracts(feature_schema, prediction_schema,
                                                      validate_request_data, validate_response_data,
                                                      kwargs['name'])  # TODO: clean this up
         else:
@@ -514,21 +513,21 @@ class PredictionService(BaseService):
         self._postprocess_model_output = self.postprocessor is not None        
         super().__init__(api_contracts=api_contracts, **kwargs)
 
-    def _make_api_contracts(self, instance_schema, prediction_schema, validate_request_data,
+    def _make_api_contracts(self, feature_schema, prediction_schema, validate_request_data,
                             validate_response_data, tag):
         # TODO: add ID to inputs/outputs
         # TODO: add errors  to response schemas
 
         id_ = Integer('A unique ID corresponding to an instance in the POST body.')
 
-        if instance_schema is not None:
-            assert isinstance(instance_schema, Object), 'instance_schema must be an object'
-            instance_schema = Object(properties={'id': id_, **instance_schema.properties},
-                                     reference_name=instance_schema.reference_name)
+        if feature_schema is not None:
+            assert isinstance(feature_schema, Object), 'feature_schema must be an object'
+            feature_schema = Object(properties={'id': id_, **feature_schema.properties},
+                                     reference_name=feature_schema.reference_name)
             if self.batch_prediction:
-                request_obj = Array(item_type=instance_schema)
+                request_obj = Array(item_type=feature_schema)
             else:
-                request_obj = instance_schema
+                request_obj = feature_schema
 
             request_schema = RequestBody(obj=request_obj)
         else:
@@ -544,7 +543,7 @@ class PredictionService(BaseService):
                 properties={'id': id_, 'prediction': prediction_schema}
             )
 
-        assert 'id' in prediction_schema.properties, 'instance_schema must specify an ID property'
+        assert 'id' in prediction_schema.properties, 'feature_schema must specify an ID property'
 
         if self.batch_prediction:
             prediction_obj = Array(item_type=prediction_schema)

@@ -44,7 +44,7 @@ something like
 and the corresponding Python object used by `porter` might look like
 """
 
-ratings_model_schema = Object(
+ratings_feataure_schema = Object(
     'Inputs to the content recommendation model',
     properties=dict(
         user_id=Integer('The user ID.'),
@@ -59,12 +59,14 @@ ratings_model_schema = Object(
 
 
 """
-`ratings_model_schema` contains a `validate()` method which can be used to
-validate Python objects against the schema.
+`ratings_feataure_schema` contains a `validate()` method which can be used to
+validate Python objects against the schema. Keep in mind that you never need
+to call this method explicitly yourself, `porter` will automatically validate
+`POST` data for you.
 """
 
 # no error raised
-ratings_model_schema.validate({
+ratings_feataure_schema.validate({
     'user_id': 1,
     'title_id': 1,
     'genre': 'drama',
@@ -78,7 +80,7 @@ below invalid.
 """
 
 try:
-    ratings_model_schema.validate({
+    ratings_feataure_schema.validate({
         'user_id': 1,
         'title_id': 1,
         'genre': 'not an acceptable value',
@@ -88,7 +90,7 @@ except Exception as err:
     print(err)
 
 try:
-    ratings_model_schema.validate({
+    ratings_feataure_schema.validate({
         'user_id': 1,
         'title_id': 1,
         'genre': 'drama',
@@ -102,7 +104,7 @@ except Exception as err:
 """
 Now we can instantiate a PredictionService for our model and simply pass it
 the schema. By default requests sent to this endpoint will be validated
-according to `ratings_model_schema`. Validations can be disabled by setting
+according to `ratings_feataure_schema`. Validations can be disabled by setting
 `validate_request_data=False`.
 """
 
@@ -112,7 +114,7 @@ instance_prediction_service = PredictionService(
     name='user-ratings',
     api_version='v2',
     namespace='datascience',
-    instance_schema=ratings_model_schema)
+    feature_schema=ratings_feataure_schema)
 
 
 """
@@ -162,7 +164,7 @@ batch_prediction_service = PredictionService(
     api_version='v2',
     action='batchPrediction',
     namespace='datascience',
-    instance_schema=ratings_model_schema,
+    feature_schema=ratings_feataure_schema,
     batch_prediction=True)
 
 
@@ -212,7 +214,7 @@ probabilistic_service = PredictionService(
     name='proba-model',
     api_version='v3',
     namespace='datascience',
-    instance_schema=ratings_model_schema,
+    feature_schema=ratings_feataure_schema,
     prediction_schema=proba_ratings_prediction_schema,
     batch_prediction=True
 )
