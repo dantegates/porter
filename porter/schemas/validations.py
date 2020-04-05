@@ -8,7 +8,10 @@ from ..api import request_json, request_method
 from ..exceptions import InvalidModelInput
 
 
-def attach_contracts(contracts):
+# TODO: rename to wrap_validations, use scope to pass contacts to 
+# the validation harness instead of attaching to fn and build docs
+# in services.py from the api_contracts attribute in the services
+def validate(contracts):
     """Decorator to attach API contract definitions to functions. Can be used to
     decorate `flask` routes.
 
@@ -21,56 +24,71 @@ def attach_contracts(contracts):
         function: The decorated function with the attribute `_contracts` assigned.
 
     Raises:
-        jsonschema.exceptions.ValidationError
+        jsonschema.exceptions.InvalidModelInput
     """
 
     def fn_decorator(fn):
-
-        fn._contracts = {c.method: c for c in contracts}
-
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            method = request_method().lower()
-            # TODO: raise error if validate request is True but the contract
-            #       can't be found or warning?
-            method_contract = fn._contracts.get(method)
-            if method_contract is not None and method_contract.validate_request_data \
-                    and method_contract.request_schema is not None:
-                data = request_json()
-                _validate_request(method_contract, data)
-
-            response = fn(*args, **kwargs)
-
-            if method_contract is not None and method_contract.validate_response_data \
-                    and method_contract.request_schema is not None:
-                _validate_response(method_contract, response)
-
-            return response
-
+            with _ValidationHarness(fn, contracts) as validator:
+                return validator.run_fn(*args, **kwargs)
         return wrapper
-
     return fn_decorator
 
 
-def _validate_request(method_contract, data):
-    try:
-        method_contract.request_schema.obj.validate(data)
-    except fastjsonschema.exceptions.JsonSchemaException as err:
-        # fastjsonschema raises useful error messsages so we'll reuse them.
-        # However, we'll raise a InvalidModelInput to signal that this is a
-        # model context error.
-        raise InvalidModelInput(f'{method_contract.method.upper()} data failed validation: {err.args[0]}') from err
+class _ValidationHarness:
+    def __init__(self, fn, contracts):
+        self._fn = fn
+        self._contracts = {c.method: c for c in contracts}
+        self._method = request_method()
+        # TODO: raise error if validate request is True but the contract
+        #       can't be found or warning?
+        self.contract = self._contracts.get(self._method.lower())
+        self._fn_response = None
 
+    def __enter__(self):
+        if  (self.contract is not None
+                and self.contract.validate_request_data
+                and self.contract.request_schema is not None):
+            data = request_json()
+            self._validate_request(self.contract.request_schema, data)
+        return self
 
-def _validate_response(method_contract, response):
-    try:
-        response_schema = method_contract.fetch_response_schema(response.status_code)
-        response_schema.obj.validate(json.loads(response.data))
-    except fastjsonschema.exceptions.JsonSchemaException as err:
-        # fastjsonschema raises useful error messsages so we'll reuse them.
-        # However, we'll raise a buitin ValueError so we don't need to depend
-        # on fastjsonschema objects in other modules.
-        raise Exception(f'{method_contract.method.upper()} return data failed validation: {err.args[0]}') from err
+    def run_fn(self, *args, **kwargs):
+        self._fn_response = response = self._fn(*args, **kwargs)
+        # we need to store the response on the instance to do validations
+        # in __exit__() but we  don't want to return the bound attribute
+        return response
+
+    def __exit__(self, *exc):
+        data = json.loads(self._fn_response.data)
+        response_schema = self.contract.fetch_response_schema(self._fn_response.status_code)
+        if (self.contract is not None
+                and self.contract.validate_response_data
+                and response_schema is not None):
+            self._validate_response(response_schema, data)
+
+        return False  # we do not want to ignore any errors that may be in *exc
+
+    def _validate_request(self, request_schema, data):
+        try:
+            request_schema.obj.validate(data)
+        except fastjsonschema.exceptions.JsonSchemaException as err:
+            # fastjsonschema raises useful error messsages so we'll reuse them.
+            # However, we'll raise a InvalidModelInput to signal that this is a
+            # model context error and so that other modules don't need to depend
+            # on fastjsonschema
+            raise InvalidModelInput(f'{self._method} data failed validation: {err.args[0]}') from err
+
+    def _validate_response(self, response_schema, data):
+        try:
+            response_schema.obj.validate(data)
+        except fastjsonschema.exceptions.JsonSchemaException as err:
+            # fastjsonschema raises useful error messsages so we'll reuse them.
+            # However, we'll raise a InvalidModelInput to signal that this is a
+            # model context error and so that other modules don't need to depend
+            # on fastjsonschema
+            raise Exception(f'{self._method} return data failed validation: {err.args[0]}') from err
 
 
 

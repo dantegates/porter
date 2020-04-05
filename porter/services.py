@@ -20,8 +20,10 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 """
 
 import abc
+import collections
 import json
 import logging
+import os
 import warnings
 
 import flask
@@ -35,7 +37,7 @@ from . import docs
 from . import exceptions as exc
 from . import responses as porter_responses
 from .schemas import (Array, Contract, Integer, Object, RequestBody,
-                      ResponseBody, String, attach_contracts, generic_error,
+                      ResponseBody, String, validate, generic_error,
                       health_check, model_context, model_context_error,
                       request_id)
 
@@ -176,7 +178,7 @@ class BaseService(abc.ABC, StatefulRoute):
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
         api_contracts (subclass of `porter.schemas.ApiObject`): An `ApiObject`
-            representing the input schema for POST methods.
+            representing the input/output schemas for `endpoint`.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
@@ -205,14 +207,14 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def _make_route_fn(self):
         if self.api_contracts is not None:
-            return attach_contracts(self.api_contracts)(self)
-        return self
+            return validate(self.api_contracts)(self.serve)
+        return self.serve
 
     def __call__(self):
         """Serve a response to the user."""
         response = None
         try:
-            response = self.serve()
+            response = self.route_fn()
             if not isinstance(response, porter_responses.Response):
                 response = porter_responses.Response(response, service_class=self)
             response = response.jsonify()
@@ -732,6 +734,7 @@ class ModelApp:
         self.docs_json_url = '/docs.json'
 
         self._services = []
+        self._contracts = {}
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
@@ -772,7 +775,8 @@ class ModelApp:
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
-        self.app.route(service.endpoint, **service.route_kwargs)(service.route_fn)
+        self._contracts[service.endpoint] = service.api_contracts
+        self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
         """
@@ -786,7 +790,7 @@ class ModelApp:
         if self.expose_docs:
             # TODO: what does the version even mean here in the context of porter
             #       where we version the endpoints
-            docs.route_docs(self.app, self.name, self.description, '1.0.0', self.docs_url, self.docs_json_url)
+            self._route_docs()
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
@@ -829,13 +833,74 @@ class ModelApp:
             health_check_response = ResponseBody(status_code=200, obj=health_check)
             contract = Contract('GET', response_schemas=[health_check_response],
                                 additional_params={'tags': ['health checks']})
-            serve_alive = attach_contracts([contract])(serve_alive)
-            serve_ready = attach_contracts([contract])(serve_ready)
+            serve_alive = validate([contract])(serve_alive)
+            serve_ready = validate([contract])(serve_ready)
+        self._contracts[cn.LIVENESS_ENDPOINT] = [contract]
+        self._contracts[cn.READINESS_ENDPOINT] = [contract]
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
+
     
         serve_root = ServeRoot(self)
         app.route('/', methods=['GET'])(serve_root)
 
         return app
-    
+
+    def _route_docs(self):
+        openapi_json = self._make_openapi_json()
+
+        @self.app.route(self.docs_json_url)
+        def docs_json():
+            return json.dumps(openapi_json)
+
+        @self.app.route(self.docs_url)
+        def docs():
+            # TODO: fill in values
+            return _swagger_html
+
+    def _make_openapi_json(self):
+        paths = collections.defaultdict(lambda: collections.defaultdict(dict))
+        schemas = {}
+        # TODO: do we want to rely on openapi here?
+        spec = {
+            'openapi': '3.0.1',
+            'info': {
+              'title': self.name,
+              'description': self.description,
+              'version': '1.0.0'  # TODO: what is the appropriate value here?
+            },
+            'paths': paths,
+            'components': {
+                'schemas': schemas
+            }
+        }
+
+        for endpoint, contracts in self._contracts.items():
+            for contract in contracts:
+                method = contract.method
+                paths[endpoint][method] = path_dict = {}
+                path_dict['responses'] = {}
+
+                if contract.request_schema is not None:
+                    obj_spec, obj_refs = contract.request_schema.to_openapi()
+                    path_dict.update(obj_spec)
+                    schemas.update(obj_refs)
+
+                if contract.response_schemas is not None:
+                    for response_schema in contract.response_schemas:
+                        obj_spec, obj_refs = response_schema.to_openapi()
+                        path_dict['responses'].update(obj_spec)
+                        schemas.update(obj_refs)
+
+                path_dict.update(contract.additional_params)
+                    
+        return spec
+
+
+# in theory we could template this, but it's the only instance of returning
+# html like this so why bother?
+# https://github.com/swagger-api/swagger-ui/blob/master/dist/index.html
+# TODO: parameterize where swagger scripts come from? include these as static?
+# TODO: do we want to rely on swagger here?
+with open(os.path.join(os.path.dirname(__file__), 'assets/swagger.html')) as f:
+    _swagger_html = f.read()
