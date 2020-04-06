@@ -1,8 +1,6 @@
 """Tools for integrating the OpenAPI standard in `porter`."""
 
-import functools
 
-import flask
 import fastjsonschema
 
 
