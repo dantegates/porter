@@ -392,16 +392,14 @@ class PredictionService(BaseService):
             `.process()` method of this object will be called on the output of
             ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        input_features (list-like or None): A list (or list like object)
-            containing the feature names required in the POST data. Will be
-            used to validate the POST request if not ``None``. Optional.            
         allow_nulls (bool): Are nulls allowed in the POST request data? If
             ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not batch predictions are
             supported or not. If ``True`` the API will accept an array of objects
             to predict on. If ``False`` the API will only accept a single object
             per request. Optional.
-        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput` or subclass thereof
+        additional_checks (callable): Raises
+            :class:`porter.exceptions.InvalidModelInput` or subclass thereof
             if POST request is invalid.
         feature_schema (`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
@@ -463,9 +461,9 @@ class PredictionService(BaseService):
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
-    # TODO: deprecate input_features
+
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 input_features=None, allow_nulls=False, action=None,
+                 allow_nulls=False, action=None,
                  batch_prediction=False, additional_checks=None,
                  feature_schema=None, prediction_schema=None,
                  **kwargs):
@@ -804,7 +802,6 @@ class ModelApp:
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 
-    
         serve_root = ServeRoot(self)
         app.route('/', methods=['GET'])(serve_root)
 
