@@ -5,8 +5,6 @@ import functools
 import flask
 import fastjsonschema
 
-# Data Types
-
 
 class ApiObject:
     """Simple abstractions providing an interface from `python` objects and
@@ -68,7 +66,7 @@ class ApiObject:
             # fastjsonschema raises useful error messsages so we'll reuse them.
             # However, a ValueError so that other modules don't need to depend
             # on fastjsonschema exceptions
-            raise ValueError(*err.args) from err
+            raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
 
 
 class String(ApiObject):

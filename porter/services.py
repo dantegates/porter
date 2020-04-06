@@ -336,7 +336,13 @@ class BaseService(abc.ABC, StatefulRoute):
         if self.api_contracts is not None:
             request_schema = self._method_contracts['POST'].request_schema
             if request_schema is not None:
-                request_schema.validate(data)
+                try:
+                    request_schema.obj.validate(data)
+                except ValueError as err:
+                    if err.args[0].startswith('Schema validation failed'):
+                        raise exc.InvalidModelInput(*err.args)
+                    else:
+                        raise err
         return data
 
     def _log_api_call(self, request_data, response_data):
@@ -488,63 +494,6 @@ class PredictionService(BaseService):
 
         super().__init__(api_contracts=api_contracts, **kwargs)
 
-    def _make_api_contract(self, feature_schema, prediction_schema, validate_request_data,
-                            validate_response_data, tag):
-        # TODO: add ID to inputs/outputs
-        # TODO: add errors  to response schemas
-
-        id_ = Integer('A unique ID corresponding to an instance in the POST body.')
-
-        if feature_schema is not None:
-            assert isinstance(feature_schema, Object), 'feature_schema must be an object'
-            feature_schema = Object(properties={'id': id_, **feature_schema.properties},
-                                     reference_name=feature_schema.reference_name)
-            if self.batch_prediction:
-                request_obj = Array(item_type=feature_schema)
-            else:
-                request_obj = feature_schema
-
-            request_schema = RequestBody(obj=request_obj)
-        else:
-            request_schema = None
-
-        if prediction_schema is None:
-            prediction_schema = Object(
-                'A single prediction instance',
-                properties={'id': id_, 'prediction': Integer('The model prediction.')}
-            )
-        else:
-            prediction_schema = Object(
-                properties={'id': id_, 'prediction': prediction_schema}
-            )
-
-        assert 'id' in prediction_schema.properties, 'feature_schema must specify an ID property'
-
-        if self.batch_prediction:
-            prediction_obj = Array(item_type=prediction_schema)
-        else:
-            prediction_obj = prediction_schema
-
-        response_obj = Object(
-            properties={
-                'request_id': request_id,
-                'model_context': model_context,
-                'predictions': prediction_obj
-            }
-        )
-
-        response_schemas = [ResponseBody(status_code=200, obj=response_obj),
-                            *self._default_response_schemas]
-
-        return [Contract('GET',
-                         response_schemas=[ResponseBody(status_code=200, obj=String())],
-                         additional_params={'tags': [tag]}),
-                Contract('POST', request_schema=request_schema,
-                         response_schemas=response_schemas,
-                         validate_request_data=validate_request_data,
-                         validate_response_data=validate_response_data,
-                         additional_params={'tags': [tag]})]
-
     @property
     def status(self):
         """Return 'READY'. Instances of this class are always ready."""
@@ -585,11 +534,11 @@ class PredictionService(BaseService):
 
         if not self.allow_nulls or self.additional_checks is not None:
             self.check_request(X_input, self.allow_nulls, self.additional_checks)
-        else:
-            X_preprocessed = X_input
 
         if self._preprocess_model_input:
             X_preprocessed = self.preprocessor.process(X_preprocessed)
+        else:
+            X_preprocessed = X_input
 
         preds = self.model.predict(X_preprocessed)
 
@@ -662,8 +611,66 @@ class PredictionService(BaseService):
             data = [data]
         # TODO: return only feature columns + ID
         return pd.DataFrame(data)
+
+    def _make_api_contract(self, feature_schema, prediction_schema, validate_request_data,
+                            validate_response_data, tag):
+        # TODO: add ID to inputs/outputs
+        # TODO: add errors  to response schemas
+        # TODO: clean this implementation up
+        id_ = Integer('A unique ID corresponding to an instance in the POST body.')
+
+        if feature_schema is not None:
+            assert isinstance(feature_schema, Object), 'feature_schema must be an object'
+            feature_schema = Object(properties={'id': id_, **feature_schema.properties},
+                                     reference_name=feature_schema.reference_name)
+            if self.batch_prediction:
+                request_obj = Array(item_type=feature_schema)
+            else:
+                request_obj = feature_schema
+
+            request_schema = RequestBody(obj=request_obj)
+        else:
+            request_schema = None
+
+        if prediction_schema is None:
+            prediction_schema = Object(
+                'A single prediction instance',
+                properties={'id': id_, 'prediction': Integer('The model prediction.')}
+            )
+        else:
+            prediction_schema = Object(
+                properties={'id': id_, 'prediction': prediction_schema}
+            )
+
+        assert 'id' in prediction_schema.properties, 'feature_schema must specify an ID property'
+
+        if self.batch_prediction:
+            prediction_obj = Array(item_type=prediction_schema)
+        else:
+            prediction_obj = prediction_schema
+
+        response_obj = Object(
+            properties={
+                'request_id': request_id,
+                'model_context': model_context,
+                'predictions': prediction_obj
+            }
+        )
+
+        response_schemas = [ResponseBody(status_code=200, obj=response_obj),
+                            *self._default_response_schemas]
+
+        return [Contract('GET',
+                         response_schemas=[ResponseBody(status_code=200, obj=String())],
+                         additional_params={'tags': [tag]}),
+                Contract('POST', request_schema=request_schema,
+                         response_schemas=response_schemas,
+                         validate_request_data=validate_request_data,
+                         validate_response_data=validate_response_data,
+                         additional_params={'tags': [tag]})]
  
 
+# TODO: deprecate
 class PredictionServiceConfig(PredictionService):
     def __init__(self, *args, **kwargs):
         warnings.warn('PredictionServiceConfig is deprecated. Use PredictionService.')
