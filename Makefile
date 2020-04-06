@@ -19,13 +19,6 @@ coverage:
 install:
 	python3.6 -m pip install .[keras-utils,sklearn-utils,s3-utils]
 
-openapi:
-	docker run \
-	    -v $(shell pwd)/openapi:/local \
-	    --entrypoint docker-entrypoint.sh \
-	    openapitools/openapi-generator-cli:v4.2.3 \
-	    generate -i /local/porter-api.yaml -g html -o /local/html --skip-validate-spec --generate-alias-as-model
-
 docs: install
 	$(MAKE) -C $(shell pwd)/docs html
 
