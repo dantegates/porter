@@ -9,7 +9,7 @@ from porter import __version__
 from porter import constants as cn
 from porter import exceptions as exc
 from porter.services import (BaseService, ModelApp,
-                             PredictSchema, PredictionService,
+                             PredictionService,
                              StatefulRoute, serve_error_message)
 
 
