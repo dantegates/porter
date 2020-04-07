@@ -132,7 +132,7 @@ class Object(ApiObject):
 
     def _customized_openapi(self):
         if self.additional_properties_type is not None:
-            spec = {'additional_properties_type': self.additional_properties_type.to_openapi()}
+            spec = {'additionalProperties': self.additional_properties_type.to_openapi()[0]}
         else:
             spec = {
                 'properties': {name: prop.to_openapi()[0] for name, prop in self.properties.items()},
