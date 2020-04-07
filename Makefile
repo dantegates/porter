@@ -17,7 +17,7 @@ coverage:
 	open htmlcov/index.html
 
 install:
-	python3.6 -m pip install .[keras-utils,sklearn-utils,s3-utils]
+	python3.6 -m pip install .[all]
 
 docs: install
 	$(MAKE) -C $(shell pwd)/docs html
