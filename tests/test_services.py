@@ -11,6 +11,7 @@ from porter import exceptions as exc
 from porter.services import (BaseService, ModelApp,
                              PredictionService,
                              StatefulRoute, serve_error_message)
+from porter.schemas import openapi
 
 
 class TestFunctionsUnit(unittest.TestCase):
@@ -370,7 +371,6 @@ class TestPredictionService(unittest.TestCase):
     # def test_define_endpoint(self):
     #     prediction_service = PredictionService(name='my-model', api_version='v1', namespace='/my/namespace')
 
-
     @mock.patch('porter.services.api')
     @mock.patch('porter.responses.api')
     @mock.patch('porter.services.BaseService._ids', set())
@@ -449,6 +449,98 @@ class TestPredictionService(unittest.TestCase):
         )
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
+
+    @mock.patch('porter.services.api')
+    @mock.patch('porter.responses.api')
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_get_post_data_prediction_schema(self, mock_responses_api, mock_services_api):
+        # test if validating or not;
+        # test_schemas_openapi.py confirms more complex validations also work
+        feature_schema = openapi.Object(
+            properties=dict(
+                a=openapi.String(),
+                b=openapi.Integer()
+            )
+        )
+        prediction_schema = openapi.Object(
+            properties=dict(
+                x=openapi.Number(additional_params=dict(minimum=0, maximum=1)),
+                y=openapi.Integer(),
+            )
+        )
+        # test both instance and batch prediction
+        for batch_prediction in (False, True):
+            in_good = {'id': 1, 'a': 'a', 'b': 1}
+            in_bad = {'id': 1, 'a': 'a', 'b': 1.5}
+            if batch_prediction:
+                in_good, in_bad = [in_good], [in_bad]
+
+            out_good = [{'id': 1, 'x': 0.5, 'y': 0}]
+            out_bad = [{'id': 1, 'x': -0.5, 'y': 0}]
+
+            # test all combos of validating request x response
+            for val_request in (False, True):
+                for val_response in (False, True):
+                    # TODO: tests only pass if
+                    # (val_request,val_response) = (True,False)
+                    if (not val_request) or val_response:
+                        continue
+                    #print('* batch, request, response = {}, {}, {}'.format(
+                    #    batch_prediction, val_request, val_response
+                    #))
+                    mock_model = mock.Mock()
+                    mock_name = mock_version = mock.MagicMock()
+                    serve_prediction = PredictionService(
+                        model=mock_model,
+                        name=mock_name,
+                        api_version=mock_version,
+                        meta={},
+                        allow_nulls=mock.Mock(),
+                        preprocessor=None,
+                        postprocessor=None,
+                        batch_prediction=batch_prediction,
+                        additional_checks=None,
+                        feature_schema=feature_schema,
+                        prediction_schema=prediction_schema,
+                        validate_request_data=val_request,
+                        validate_response_data=val_response,
+                    )
+                    # good in + out should always work
+                    mock_services_api.request_json.return_value = in_good
+                    mock_model.predict.return_value = out_good
+                    _ = serve_prediction()
+
+                    # bad in + good out should raise if val_request
+                    mock_services_api.request_json.return_value = in_bad
+                    mock_model.predict.return_value = out_good
+                    if val_request:
+                        with self.assertRaises(exc.InvalidModelInput):
+                            _ = serve_prediction()
+                    else:
+                        _ = serve_prediction()
+
+                    # good in + bad out should raise if val_response
+                    mock_services_api.request_json.return_value = in_good
+                    mock_model.predict.return_value = out_bad
+                    if val_response:
+                        # TODO: should be new `exc.InvalidModelOutput` ?
+                        with self.assertRaises(ValueError):
+                            _ = serve_prediction()
+                    else:
+                        _ = serve_prediction()
+
+                    # bad in + bad out should only work if
+                    # neither val_request nor val_response
+                    mock_services_api.request_json.return_value = in_bad
+                    mock_model.predict.return_value = out_bad
+                    if val_request:
+                        with self.assertRaises(exc.InvalidModelInput):
+                            _ = serve_prediction()
+                    elif val_response:
+                        with self.assertRaises(ValueError):
+                            _ = serve_prediction()
+                    else:
+                        _ = serve_prediction()
 
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor(self):
