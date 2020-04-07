@@ -119,19 +119,18 @@ class Object(ApiObject):
         self.additional_properties_type = additional_properties_type
         if properties is not None:
             if required == 'all':
-                self.required = list(self.properties.keys())
+                self.required = tuple(self.properties.keys())
             else:
                 self.required = tuple(required)
         super().__init__(*args, **kwargs)
 
     def _customized_openapi(self):
+        spec = {}
+        if self.properties is not None:
+            spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
+            spec['required'] = self.required
         if self.additional_properties_type is not None:
-            spec = {'additionalProperties': self.additional_properties_type.to_openapi()[0]}
-        else:
-            spec = {
-                'properties': {name: prop.to_openapi()[0] for name, prop in self.properties.items()},
-                'required': self.required
-            }
+            spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
         return spec
 
 
