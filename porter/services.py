@@ -333,6 +333,7 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def get_post_data(self):
         data = api.request_json(force=True)
+        # TODO: self.validate_request not utilized here
         if self.api_contracts is not None:
             request_schema = self._method_contracts['POST'].request_schema
             if request_schema is not None:
@@ -490,6 +491,8 @@ class PredictionService(BaseService):
         self._preprocess_model_input = self.preprocessor is not None
         self._postprocess_model_output = self.postprocessor is not None
 
+        # TODO: how exactly shopuld the api_contracts interact with feature_schema and prediction_schema
+        # technically users can pass both
         super().__init__(api_contracts=api_contracts, **kwargs)
 
     @property
