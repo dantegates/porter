@@ -243,3 +243,7 @@ class TestResponseBody(unittest.TestCase):
         rb = ResponseBody(status_code=200, obj=obj)
         schema = rb.to_openapi()[0][200]['content']['application/json']['schema']
         self.assertEqual(schema, obj.to_openapi()[0])
+
+
+if __name__ == '__main__':
+    unittest.main()
