@@ -8,7 +8,7 @@ from .schemas import (error_body, generic_error, health_check, model_context,
 
 class Contract:
     def __init__(self, method, *, request_schema=None, response_schemas=None,
-                 validate_request_data=True, validate_response_data=True,
+                 validate_request_data=False, validate_response_data=False,
                  additional_params=None):
         self.method = method.lower()
 
