@@ -135,7 +135,8 @@ class TestObject(unittest.TestCase):
                     )
                 ),
                 b=Object(additional_properties_type=Integer())
-            )
+            ),
+            additional_properties_type=Integer(),
         )
 
     def test_simple(self):
@@ -161,6 +162,11 @@ class TestObject(unittest.TestCase):
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data.d must be boolean'):
             o.validate(dict(a='a', b=1.5, c=1, d='true'))
+        # check that empty object is invalid
+        with self.assertRaisesRegex(
+                ValueError, 'at least one of properties and additional_properties_type'):
+            Object()
+
 
     def test_object_success(self):
         # check complex object that is valid
@@ -171,7 +177,8 @@ class TestObject(unittest.TestCase):
                     ccc=[1,2,3]
                 )
             ),
-            b=dict(x=1, y=2, z=3)
+            b=dict(x=1, y=2, z=3),
+            c=3 * 10**8,
         ))
 
     def test_object_missing_key(self):
@@ -215,18 +222,21 @@ class TestObject(unittest.TestCase):
                 b=dict()
             ))
 
-        # TODO: should additional properties be subject to validation?
-        # with self.assertRaisesRegex(
-        #         ValueError, 'Schema validation failed: data.b'):
-        #     self.o.validate(dict(
-        #         a=dict(
-        #             aa='123',
-        #             bb=dict(
-        #                 ccc=[1,2,3]
-        #             )
-        #         ),
-        #         b=dict(x=1.5)
-        #     ))
+    def test_object_bad_additional_property(self):
+        # check additional property of wrong type
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data.pi must be integer'):
+            self.o.validate(dict(
+                a=dict(
+                    aa='123',
+                    bb=dict(
+                        ccc=[1,2,3]
+                    )
+                ),
+                b=dict(x=1, y=2, z=3),
+                pi=3.1416,
+            ))
+
 
 class TestRequestBody(unittest.TestCase):
     def test_request_body(self):
