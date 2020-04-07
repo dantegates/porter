@@ -1,7 +1,8 @@
 import warnings
 
 from .openapi import (Array, Boolean, Integer, Number, Object,
-                      RequestBody, ResponseBody, String)
+                      RequestBody, ResponseBody, String,
+                      static_docs, make_openapi_spec)
 from .schemas import (error_body, generic_error, health_check, model_context,
                       model_context_error, request_id)
 
@@ -18,7 +19,7 @@ class Contract:
             raise ValueError('`response_schemas` cannot be None if `validate_response_data` is True.')
 
         self.request_schema = request_schema
-        self.response_schemas = response_schemas
+        self.response_schemas = response_schemas if response_schemas is not None else []
         self.validate_request_data = validate_request_data
 
         if validate_response_data:
@@ -37,6 +38,7 @@ class Contract:
 __all__ = [
     'Array', 'Boolean', 'Integer', 'Number', 'Object',
     'RequestBody', 'ResponseBody', 'String',
+    'static_docs', 'make_openapi_spec',
     'error_body', 'generic_error', 'health_check', 'model_context',
     'model_context_error', 'request_id',
 ]

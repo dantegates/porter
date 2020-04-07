@@ -1,5 +1,7 @@
 """Tools for integrating the OpenAPI standard in `porter`."""
 
+import collections
+import os
 
 import fastjsonschema
 
@@ -231,3 +233,48 @@ class ResponseBody:
                 'description': self.description
             }
         }, openapi_refs
+
+
+def make_openapi_spec(title, description, version, endpoint_contracts):
+    paths = collections.defaultdict(lambda: collections.defaultdict(dict))
+    schemas = {}
+    spec = {
+        'openapi': '3.0.1',
+        'info': {
+            'title': title,
+            'description': description,
+            'version': version
+        },
+        'paths': paths,
+        'components': {
+            'schemas': schemas
+        }
+    }
+    for endpoint, contracts in endpoint_contracts.items():
+        for c in contracts:
+            method = c.method
+            paths[endpoint][method] = path_dict = {}
+            path_dict['responses'] = {}
+
+            if c.request_schema is not None:
+                obj_spec, obj_refs = c.request_schema.to_openapi()
+                path_dict.update(obj_spec)
+                schemas.update(obj_refs)
+
+            for response_schema in c.response_schemas:
+                obj_spec, obj_refs = response_schema.to_openapi()
+                path_dict['responses'].update(obj_spec)
+                schemas.update(obj_refs)
+
+            path_dict.update(c.additional_params)
+
+    return spec
+
+
+
+# in theory we could template this, but it's the only instance of returning
+# html like this so why bother?
+# https://github.com/swagger-api/swagger-ui/blob/master/dist/index.html
+# TODO: parameterize where swagger scripts come from? include these as static?
+with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets/swagger.html')) as f:
+    static_docs = f.read()

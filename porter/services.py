@@ -38,7 +38,7 @@ from . import responses as porter_responses
 from .schemas import (Array, Contract, Integer, Object, RequestBody,
                       ResponseBody, String, generic_error,
                       health_check, model_context, model_context_error,
-                      request_id)
+                      request_id, make_openapi_spec, static_docs)
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -811,7 +811,7 @@ class ModelApp:
         return app
 
     def _route_docs(self):
-        openapi_json = self._make_openapi_json()
+        openapi_json = make_openapi_spec(self.name, self.description, '1.0.0', self._contracts)
 
         @self.app.route(self.docs_json_url)
         def docs_json():
@@ -820,51 +820,4 @@ class ModelApp:
         @self.app.route(self.docs_url)
         def docs():
             # TODO: fill in values
-            return _swagger_html
-
-    def _make_openapi_json(self):
-        paths = collections.defaultdict(lambda: collections.defaultdict(dict))
-        schemas = {}
-        # TODO: do we want to rely on openapi here?
-        spec = {
-            'openapi': '3.0.1',
-            'info': {
-              'title': self.name,
-              'description': self.description,
-              'version': '1.0.0'  # TODO: what is the appropriate value here?
-            },
-            'paths': paths,
-            'components': {
-                'schemas': schemas
-            }
-        }
-
-        for endpoint, contracts in self._contracts.items():
-            for contract in contracts:
-                method = contract.method
-                paths[endpoint][method] = path_dict = {}
-                path_dict['responses'] = {}
-
-                if contract.request_schema is not None:
-                    obj_spec, obj_refs = contract.request_schema.to_openapi()
-                    path_dict.update(obj_spec)
-                    schemas.update(obj_refs)
-
-                if contract.response_schemas is not None:
-                    for response_schema in contract.response_schemas:
-                        obj_spec, obj_refs = response_schema.to_openapi()
-                        path_dict['responses'].update(obj_spec)
-                        schemas.update(obj_refs)
-
-                path_dict.update(contract.additional_params)
-                    
-        return spec
-
-
-# in theory we could template this, but it's the only instance of returning
-# html like this so why bother?
-# https://github.com/swagger-api/swagger-ui/blob/master/dist/index.html
-# TODO: parameterize where swagger scripts come from? include these as static?
-# TODO: do we want to rely on swagger here?
-with open(os.path.join(os.path.dirname(__file__), 'assets/swagger.html')) as f:
-    _swagger_html = f.read()
+            return static_docs
