@@ -117,17 +117,11 @@ class Object(ApiObject):
             raise ValueError('at least one of properties and additional_properties_type should be specified')
         self.properties = properties
         self.additional_properties_type = additional_properties_type
-        if self.additional_properties_type is None:
+        if properties is not None:
             if required == 'all':
                 self.required = list(self.properties.keys())
-            elif required and isinstance(required, list):
-                self.required = required
-            elif isinstance(required, list):
-                self.required = []
             else:
-                raise ValueError('required must be "all" or list')
-        else:
-            self.required = None
+                self.required = tuple(required)
         super().__init__(*args, **kwargs)
 
     def _customized_openapi(self):
