@@ -324,9 +324,9 @@ def _init_paths(request_schemas, response_schemas, additional_params):
                  | set(additional_params.get(endpoint, {}).keys()))
         for endpoint in endpoints
     }
-    return {endpoint: {method.lower(): {}}
-            for endpoint, methods in endpoint_methods.items()
-            for method in methods}
+    paths = {}
+    return {endpoint: {method.lower(): {} for method in methods}
+            for endpoint, methods in endpoint_methods.items()}
 
 
 def _update_spec(schema, method_dict, components_schemas):
