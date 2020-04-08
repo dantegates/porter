@@ -178,6 +178,8 @@ class BaseService(abc.ABC, StatefulRoute):
         ('POST', 422, model_context_error, None),
         ('POST', 500, model_context_error, None),
     ]
+    # subclasses can override this to add additional defaults
+    _service_default_schemas = []
 
     # TODO: do we really need to validate responses? I could be useful for testing
     # but we could also manually call .validate()
@@ -208,6 +210,8 @@ class BaseService(abc.ABC, StatefulRoute):
         self._response_schemas = {}
         # add response schemas explicitly returned (i.e. raised) by porter.        
         for schema in self._default_response_schemas:
+            self.add_response_schema(*schema)
+        for schema in self._service_default_schemas:
             self.add_response_schema(*schema)
 
     def __call__(self):
@@ -502,6 +506,9 @@ class PredictionService(BaseService):
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
+    _service_default_schemas = [
+        ('GET', 200, String(), None)
+    ]
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  allow_nulls=False, action=None, batch_prediction=False,
@@ -711,6 +718,7 @@ class ModelApp:
         self._services = []
         self._request_schemas = {}
         self._response_schemas = {}
+        self._additional_params = {}
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
@@ -753,6 +761,8 @@ class ModelApp:
         self._service_ids.add(service.id)
         self._request_schemas[service.endpoint] = service.request_schemas
         self._response_schemas[service.endpoint] = service.response_schemas
+        self._additional_params[service.endpoint] = {'GET': {'tags': [service.name]}}
+        self._additional_params[service.endpoint]['POST'] = {'tags': [service.name]}
         self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
@@ -804,12 +814,13 @@ class ModelApp:
 
         serve_alive = ServeAlive(self)
         serve_ready = ServeReady(self)
-        if self.expose_docs:
-            # if we're exposing the API docs wrap the health check endpoints
-            # with the appropriate contract.
-            health_check_response = {'GET': [ResponseSchema(health_check, 200)]}
+
+        health_check_response = {'GET': [ResponseSchema(health_check, 200)]}
         self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
         self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
+        self._additional_params[cn.LIVENESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
+        self._additional_params[cn.READINESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
+
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 
@@ -821,7 +832,7 @@ class ModelApp:
     def _route_docs(self):
         openapi_json = make_openapi_spec(self.name, self.description, '1.0.0',   # TODO: pass a real version
                                          self._request_schemas, self._response_schemas,
-                                         {})
+                                         self._additional_params)
 
         @self.app.route(self.docs_json_url)
         def docs_json():

@@ -276,17 +276,7 @@ def make_openapi_spec(title, description, version, request_schemas, response_sch
     Returns:
         dict: The OpenAPI spec describing the provided arguments.
     """
-    endpoints = list(request_schemas.keys()) + list(response_schemas.keys())
-    endpoint_methods = {endpoint: set(request_schemas.get(endpoint, {}).keys())
-                                | set(response_schemas.get(endpoint, {}).keys())
-                        for endpoint in endpoints}
-
-    endpoint_methods = {k: [vv.lower() for vv in v] for k, v in endpoint_methods.items()}
-
-
-    paths = {endpoint: {method: {}}
-             for endpoint in endpoints
-             for method in endpoint_methods[endpoint]}
+    paths = _init_paths(request_schemas, response_schemas, additional_params)
     components_schemas = {}
     spec = {
         'openapi': '3.0.1',
@@ -314,11 +304,29 @@ def make_openapi_spec(title, description, version, request_schemas, response_sch
                 method_dict = paths[endpoint][method.lower()]['responses']
                 _update_spec(schema, method_dict, components_schemas)
 
-    for (endpoint, method), params in additional_params.items():
-        method_dict = paths[endpoint][method.lower()]
-        method_dict.update(params)
+    for endpoint, params in additional_params.items():
+        for method, params in params.items():
+            method_dict = paths[endpoint][method.lower()]
+            method_dict.update(params)
 
     return spec
+
+
+def _init_paths(request_schemas, response_schemas, additional_params):
+    endpoints = (
+        set(request_schemas.keys())
+        | set(response_schemas.keys())
+        | set(additional_params.keys())
+    )
+    endpoint_methods = {
+        endpoint: (set(request_schemas.get(endpoint, {}).keys())
+                 | set(response_schemas.get(endpoint, {}).keys())
+                 | set(additional_params.get(endpoint, {}).keys()))
+        for endpoint in endpoints
+    }
+    return {endpoint: {method.lower(): {}}
+            for endpoint, methods in endpoint_methods.items()
+            for method in methods}
 
 
 def _update_spec(schema, method_dict, components_schemas):
