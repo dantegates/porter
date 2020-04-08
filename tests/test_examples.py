@@ -79,5 +79,233 @@ class TestAPILogging(unittest.TestCase):
         namespace = load_example(os.path.join(HERE, '../examples/api_logging.py'))
 
 
+@mock.patch('porter.services.BaseService._ids', set())
+class TestContracts(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        ns = load_example(os.path.join(HERE, '../examples/contracts.py'))
+        cls.test_app = ns['model_app'].app.test_client()
+
+    def test_instance_prediction_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/user-ratings/v2/prediction
+        validate_request_data = True
+        batch_prediction = False
+
+        The description of the input schema is
+
+        {
+            "id": Integer(),
+            "user_id": Integer(),
+            "title_id": Integer(),
+            "genre": String(['comedy', 'action', 'drama']),
+            "average_rating": Number(min=0, max=10)
+        }
+
+        """
+        valid_data = {
+            "id": 0,
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": 7.9
+        }
+
+        invalid_data_missing_key = {
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": 7.9
+        }
+
+        invalid_data_invalid_genre = {
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "isnotvalid",
+            "average_rating": 7.9
+        }
+
+        invalid_data_invalid_average_rating = {
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": -1
+        }
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 200)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_missing_key))
+        self.assertEqual(r.status_code, 422)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_genre))
+        self.assertEqual(r.status_code, 422)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_average_rating))
+        self.assertEqual(r.status_code, 422)
+
+    def test_batch_prediction_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/user-ratings/v2/prediction
+        validate_request_data = True
+        batch_prediction = True
+
+        The description of the input schema is
+
+        [
+            {
+                "id": Integer(),
+                "user_id": Integer(),
+                "title_id": Integer(),
+                "genre": String(['comedy', 'action', 'drama']),
+                "average_rating": Number(min=0, max=10)
+            },
+            ...
+        ]
+
+        """
+        valid_data = [
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+        ]
+
+        invalid_data_title_id_is_str = [
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 'a',
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+        ]
+
+        invalid_data_not_an_array = {
+            "id": 0,
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": 7.9
+        }
+
+        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 200)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_title_id_is_str))
+        self.assertEqual(r.status_code, 422)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_not_an_array))
+        self.assertEqual(r.status_code, 422)        
+
+    def test_probabilistic_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/proba-model/v3/prediction
+        validate_request_data = False
+        batch_prediction = True
+
+        The description of the input schema is
+
+        [
+            {
+                "id": Integer(),
+                "user_id": Integer(),
+                "title_id": Integer(),
+                "genre": String(['comedy', 'action', 'drama']),
+                "average_rating": Number(min=0, max=10)
+            },
+            ...
+        ]
+        """
+
+        # this endpoint doesn't do data validations so we should get a 500 by sending
+        # bad data instead of a 422
+        invalid_data = {
+            'not the data': 'you were looking for'
+        }
+        r = self.test_app.post('/datascience/proba-model/v3/prediction', data=json.dumps(invalid_data))
+        self.assertEqual(r.status_code, 500)
+
+    def test_spark_interface_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/batch-ratings-model/v1/prediction
+        validate_request_data = False
+        batch_prediction = True
+
+        The description of the input schema is
+
+        [
+            {
+                "id": Integer(),
+                "user_id": Integer(),
+                "title_id": Integer(),
+                "genre": String(['comedy', 'action', 'drama']),
+                "average_rating": Number(min=0, max=10)
+            },
+            ...
+        ]
+        """
+        valid_data = [
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+        ]
+        r = self.test_app.post('/datascience/batch-ratings-model/v1/prediction', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 202)        
+
+
 if __name__ == '__main__':
     unittest.main()
