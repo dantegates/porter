@@ -163,21 +163,23 @@ class BaseService(abc.ABC, StatefulRoute):
         action (str): ``str`` describing the action of the service, e.g.
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
-        contracts (list): List of contracts by defining the API for ``endpoint``.
-            This list contains an element for all responses explicitly returned by
-            ``porter`` and any schemas registered with :meth:`add_request_schema`
-            or :meth:`add_response_schema`. Used by :class:`ModelApp` to build
-            API documentation if ``expose_docs=True``.
+        request_schemas (dict): Dictionary mapping HTTP methods to instances
+            of :class:`porter.schemas.RequestBody`. Each ``RequestBody``
+            object is added from calls to :meth:`add_request_schema`. and
+            instantiated from the corresponding arguments.
+        response_schemas(dict): Dictionary mapping HTTP methods
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = {
-        'POST', ResponseBody(status_code=500, obj=model_context_error)
+        'POST': ResponseBody(status_code=500, obj=model_context_error)
     }
 
-    def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace='',
-                 validate_request_data=False, validate_response_data=False,
-                 request_schemas=[], reponse_schemas=[]):
+    # TODO: do we really need to validate responses? I could be useful for testing
+    # but we could also manually call .validate()
+    def __init__(self, *, name, api_version, meta=None, log_api_calls=False,
+                 namespace='', validate_request_data=False,
+                 validate_response_data=False):
         self.name = name
         self.api_version = api_version
         self.meta = {} if meta is None else meta
@@ -200,7 +202,7 @@ class BaseService(abc.ABC, StatefulRoute):
         # these are used internally for lookups at runtime
         self._request_schemas = {}
         self._response_schemas = {}
-        # TODO: add default responses here
+        # TODO: add responses returned explicitly by porter here
 
     def __call__(self):
         """Serve a response to the user."""
@@ -229,7 +231,9 @@ class BaseService(abc.ABC, StatefulRoute):
                 self._log_api_call(request_data, response_data)
 
             if self.validate_response_data:
-                self._response_schemas[(api.request_method(), response.status_code)].validate(response.raw_data)
+                schema = self._response_schemas.get((api.request_method(), response.status_code))
+                if schema is not None:
+                    schema.validate(response.raw_data)
         return response
 
     def define_endpoint(self):
@@ -422,16 +426,16 @@ class PredictionService(BaseService):
             if POST request is invalid. The signature should accept a single
             positional argument for the validated POST input parsed to a
             ``pandas.DataFrame``.
-        feature_schema (`porter.schemas.Object` or None): Description of an
-            individual instance to be predicted on. Can be used to validate
-            inputs if `validate_request_data=True` and document the API if
-            added to an instance of `ModelApp` where `expose_docs=True`.
-        prediction_schema (`porter.schemas.Object` or None): Description of an
-            individual prediction returned to the user. Can be used to
-            validate outputs if `validate_request_data=True` and document the
-            API if added to an instance of `ModelApp` where
-            `expose_docs=True`.
-        **kwargs: Keyword arguments passed on to `BaseService`.
+        feature_schema (:class:`porter.schemas.Object` or `None`): Description
+            of an a single feature set. Can be used to validate inputs if
+            ``validate_request_data=True`` and document the API if added to an
+            instance of :class:`ModelApp` where ``expose_docs=True``.
+        prediction_schema (:class:`porter.schemas.Object` or `None`):
+            Description of a single model prediction. Can be used to validate
+            outputs if ``validate_request_data=True`` and document the API if
+            added to an instance of :class:`ModelApp` where
+            ``expose_docs=True``.
+        **kwargs: Keyword arguments passed on to :class:`BaseService`.
 
     Attributes:
         id (str): A unique ID for the model. Composed of ``name`` and ``api_version``.
@@ -484,10 +488,9 @@ class PredictionService(BaseService):
     action = 'prediction'
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 allow_nulls=False, action=None,
-                 batch_prediction=False, additional_checks=None,
-                 feature_schema=None, prediction_schema=None,
-                 **kwargs):
+                 allow_nulls=False, action=None, batch_prediction=False,
+                 additional_checks=None, feature_schema=None,
+                 prediction_schema=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -525,7 +528,7 @@ class PredictionService(BaseService):
                 to the user.
 
         Raises:
-            porter.exceptions.ModelContextError: Raised whenever an error
+            :classs:`porter.exceptions.ModelContextError`: Raised whenever an error
                 occurs during prediction. The error contains information
                 about the model context which a custom error handler can
                 use to add to the errors response.
@@ -800,7 +803,7 @@ class ModelApp:
         return app
 
     def _route_docs(self):
-        openapi_json = make_openapi_spec(self.name, self.description, '1.0.0',
+        openapi_json = make_openapi_spec(self.name, self.description, '1.0.0',   # TODO: pass a real version
                                          self._request_schemas, self._response_schemas,
                                          {})
 
