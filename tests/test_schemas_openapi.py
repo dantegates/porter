@@ -240,7 +240,7 @@ class TestObject(unittest.TestCase):
 
 class TestRequestSchema(unittest.TestCase):
     def test_request_body(self):
-        # check that obj's schema is propertly located within request body
+        # check that obj's schema is properly located within request body
         obj = Object(properties=dict(a=Number()))
         rb = RequestSchema(obj)
         schema = rb.to_openapi()[0]['requestBody']['content']['application/json']['schema']
@@ -248,7 +248,7 @@ class TestRequestSchema(unittest.TestCase):
 
 class TestResponseBody(unittest.TestCase):
     def test_response_body(self):
-        # check that obj's schema is propertly located within response body
+        # check that obj's schema is properly located within response body
         obj = Object(properties=dict(a=Number()))
         rb = ResponseSchema(status_code=200, api_obj=obj)
         schema = rb.to_openapi()[0][200]['content']['application/json']['schema']
