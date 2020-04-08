@@ -3,7 +3,6 @@ import traceback
 from . import __version__ as VERSION
 from . import config as cf
 from . import constants as cn
-from . import exceptions as exc
 from . import api
 
 
@@ -12,14 +11,11 @@ from . import api
 
 
 class Response:
-    def __init__(self, data, *, service_class=None, status_code=None, schema=None):
+    def __init__(self, data, *, service_class=None, status_code=None):
         if isinstance(data, dict):
             self.data = self._init_payload(service_class, data)
         else:
             self.data = data
-
-        if schema is not None:
-            schema.validate(data)
 
         self.status_code = status_code
 
@@ -55,17 +51,17 @@ class Response:
 _init_model_context = Response._init_model_context
 
 
-def make_prediction_response(model_service, id_value, prediction, schema):
+def make_prediction_response(model_service, id_value, prediction):
     payload = {
         cn.PREDICTION_KEYS.PREDICTIONS: {
             cn.PREDICTION_PREDICTIONS_KEYS.ID: id_value,
             cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: prediction
         }
     }
-    return Response(payload, service_class=model_service, schema=schema)
+    return Response(payload, service_class=model_service)
 
 
-def make_batch_prediction_response(model_service, id_values, predictions, schema):
+def make_batch_prediction_response(model_service, id_values, predictions):
     payload = {
         cn.PREDICTION_KEYS.PREDICTIONS: [
             {
@@ -75,10 +71,10 @@ def make_batch_prediction_response(model_service, id_values, predictions, schema
             for id, p in zip(id_values, predictions)
         ]
     }
-    return Response(payload, service_class=model_service, schema=schema)
+    return Response(payload, service_class=model_service)
 
 
-def make_error_response(error, schema):
+def make_error_response(error):
     payload = {}
     payload[cn.GENERIC_ERROR_KEYS.ERROR] = error_dict = {}
 
@@ -103,19 +99,18 @@ def make_error_response(error, schema):
         error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True, force=True)
 
     return Response(payload, service_class=getattr(error, 'model_service', None),
-                    status_code=getattr(error, 'code', 500),
-                    schema=schema)
+                    status_code=getattr(error, 'code', 500))
 
 
-def make_alive_response(app, schema):
+def make_alive_response(app):
     app_state = _build_app_state(app)
-    return Response(app_state, status_code=200, schema=schema)
+    return Response(app_state, status_code=200)
 
 
-def make_ready_response(app, schema):
+def make_ready_response(app):
     app_state = _build_app_state(app)
     ready = _is_ready(app_state)
-    response = Response(app_state, status_code=200 if ready else 503, schema=schema)
+    response = Response(app_state, status_code=200 if ready else 503)
     return response
 
 

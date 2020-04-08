@@ -215,7 +215,7 @@ class RequestBody:
 
 
 class ResponseBody:
-    def __init__(self, description=None, *, status_code, obj):
+    def __init__(self, obj, status_code, description=None):
         self.status_code = status_code
         self.obj = obj
         self.description = description
@@ -235,9 +235,20 @@ class ResponseBody:
         }, openapi_refs
 
 
-def make_openapi_spec(title, description, version, endpoint_contracts):
-    paths = collections.defaultdict(lambda: collections.defaultdict(dict))
-    schemas = {}
+def make_openapi_spec(title, description, version, request_schemas, response_schemas,
+                      additional_params):
+    endpoints = list(request_schemas.keys()) + list(response_schemas.keys())
+    endpoint_methods = {endpoint: set(request_schemas.get(endpoint, {}).keys())
+                                | set(response_schemas.get(endpoint, {}).keys())
+                        for endpoint in endpoints}
+    print('\n', request_schemas, '\n')
+    endpoint_methods = {k: [vv.lower() for vv in v] for k, v in endpoint_methods.items()}
+
+
+    paths = {endpoint: {method: {}}
+             for endpoint in endpoints
+             for method in endpoint_methods[endpoint]}
+    components_schemas = {}
     spec = {
         'openapi': '3.0.1',
         'info': {
@@ -247,29 +258,34 @@ def make_openapi_spec(title, description, version, endpoint_contracts):
         },
         'paths': paths,
         'components': {
-            'schemas': schemas
+            'schemas': components_schemas
         }
     }
-    for endpoint, contracts in endpoint_contracts.items():
-        for c in contracts:
-            method = c.method
-            paths[endpoint][method] = path_dict = {}
-            path_dict['responses'] = {}
 
-            if c.request_schema is not None:
-                obj_spec, obj_refs = c.request_schema.to_openapi()
-                path_dict.update(obj_spec)
-                schemas.update(obj_refs)
+    for endpoint, requests in request_schemas.items():
+        for method, schema in requests.items():
+            paths[endpoint][method.lower()] = method_dict = {}
+            _update_spec(schema, method_dict, components_schemas)
 
-            for response_schema in c.response_schemas:
-                obj_spec, obj_refs = response_schema.to_openapi()
-                path_dict['responses'].update(obj_spec)
-                schemas.update(obj_refs)
+    for endpoint, responses in response_schemas.items():
+        for method, schemas in responses.items():
+            for schema in schemas:
+                if not 'responses' in paths[endpoint][method.lower()]:
+                    paths[endpoint][method.lower()]['responses'] = {}
+                method_dict = paths[endpoint][method.lower()]['responses']
+                _update_spec(schema, method_dict, components_schemas)
 
-            path_dict.update(c.additional_params)
+    for (endpoint, method), params in additional_params.items():
+        method_dict = paths[endpoint][method.lower()]
+        method_dict.update(params)
 
     return spec
 
+
+def _update_spec(schema, method_dict, components_schemas):
+    spec, refs = schema.to_openapi()
+    method_dict.update(spec)
+    components_schemas.update(refs)
 
 
 # in theory we could template this, but it's the only instance of returning

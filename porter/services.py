@@ -35,7 +35,7 @@ from . import config as cf
 from . import constants as cn
 from . import exceptions as exc
 from . import responses as porter_responses
-from .schemas import (Array, Contract, Integer, Object, RequestBody,
+from .schemas import (Array, Integer, Number, Object, RequestBody,
                       ResponseBody, String, generic_error,
                       health_check, model_context, model_context_error,
                       request_id, make_openapi_spec, static_docs)
@@ -64,7 +64,7 @@ class StatefulRoute:
 
 
 def serve_error_message(error):
-    response = porter_responses.make_error_response(error, schema=None)  # TODO: pass the schema here
+    response = porter_responses.make_error_response(error)
     _logger.exception(response.data)
     return response.jsonify()
 
@@ -96,7 +96,7 @@ class ServeAlive(StatefulRoute):
 
     def __call__(self):
         """Serve liveness response."""
-        response = porter_responses.make_alive_response(self.app, schema=None)  # TODO: pass the schema here
+        response = porter_responses.make_alive_response(self.app)
         self.logger.info(response.data)
         return response.jsonify()
 
@@ -116,7 +116,7 @@ class ServeReady(StatefulRoute):
 
     def __call__(self):
         """Serve readiness response."""
-        response = porter_responses.make_ready_response(self.app, schema=None)  # TODO: pass the schema here
+        response = porter_responses.make_ready_response(self.app)
         self.logger.info(response.data)
         return response.jsonify()
 
@@ -138,15 +138,12 @@ class BaseService(abc.ABC, StatefulRoute):
             Default is False.
         namespace (str): String identifying a namespace that the service belongs
             to. Used to route services by subclasses. Default is "".
-        api_contracts (list[`porter.schemas.ApiObject`]): An `ApiObject`
-            representing the input/output schemas for `endpoint`.
         validate_request_data (bool): Whether to validate the request data or
-            not. Does nothing if `feature_schema is None`. Defaults to
-            `True`.
+            not. Applies to all HTTP methods and does nothing if
+            :meth:`add_request_schema()` is never called.
         validate_response_data (bool): Whether to validate the response data
-            or not. Does nothing if `prediction_schema is None`. Defaults to
-            `True`. This is only recommended for testing and debugging during
-            development.
+            or not.  Applies to all HTTP methods and does nothing if
+            :meth:`add_response_schema()` is never called.
 
     Attributes:
         id (str): A unique ID for the service.
@@ -157,31 +154,37 @@ class BaseService(abc.ABC, StatefulRoute):
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         namespace (str): A namespace that the service belongs to.
+        validate_request_data (bool): Whether to validate the request data or
+            not. Applies to all HTTP methods and does nothing if
+            :meth:`add_request_schema()` is never called.
+        validate_response_data (bool): Whether to validate the response data
+            or not.  Applies to all HTTP methods and does nothing if
+            :meth:`add_response_schema()` is never called.
         action (str): ``str`` describing the action of the service, e.g.
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
-        api_contracts (subclass of `porter.schemas.ApiObject`): An `ApiObject`
-            representing the input/output schemas for `endpoint`.
-        validate_request_data (bool): Whether to validate the request data or
-            not. Does nothing if `feature_schema is None`. Defaults to
-            `True`.
-        validate_response_data (bool): Whether to validate the response data
-            or not. Does nothing if `prediction_schema is None`. Defaults to
-            `True`.
+        contracts (list): List of contracts by defining the API for ``endpoint``.
+            This list contains an element for all responses explicitly returned by
+            ``porter`` and any schemas registered with :meth:`add_request_schema`
+            or :meth:`add_response_schema`. Used by :class:`ModelApp` to build
+            API documentation if ``expose_docs=True``.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
-    _default_response_schemas = (
-        ResponseBody(status_code=500, obj=model_context_error),
-    )
+    _default_response_schemas = {
+        'POST', ResponseBody(status_code=500, obj=model_context_error)
+    }
 
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace='',
-                 api_contracts=None, validate_request_data=False, validate_response_data=False):
+                 validate_request_data=False, validate_response_data=False,
+                 request_schemas=[], reponse_schemas=[]):
         self.name = name
         self.api_version = api_version
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
         self.namespace = namespace
+        self.validate_request_data = validate_request_data
+        self.validate_response_data = validate_response_data
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
@@ -191,10 +194,13 @@ class BaseService(abc.ABC, StatefulRoute):
         self.meta = self.update_meta(self.meta)
         self.log_api_calls = log_api_calls
 
-        self.api_contracts = api_contracts
-        self.validate_request_data = validate_request_data
-        self.validate_response_data = validate_response_data
-        self._method_contracts = {c.method.upper(): c for c in self.api_contracts}
+        # these are a public interface exposing user registered schemas
+        self.request_schemas = {}
+        self.response_schemas = {}
+        # these are used internally for lookups at runtime
+        self._request_schemas = {}
+        self._response_schemas = {}
+        # TODO: add default responses here
 
     def __call__(self):
         """Serve a response to the user."""
@@ -221,6 +227,9 @@ class BaseService(abc.ABC, StatefulRoute):
                 else:
                     response_data = response
                 self._log_api_call(request_data, response_data)
+
+            if self.validate_response_data:
+                self._response_schemas[(api.request_method(), response.status_code)].validate(response.raw_data)
         return response
 
     def define_endpoint(self):
@@ -333,12 +342,11 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def get_post_data(self):
         data = api.request_json(force=True)
-        # TODO: self.validate_request not utilized here
-        if self.api_contracts is not None:
-            request_schema = self._method_contracts['POST'].request_schema
-            if request_schema is not None:
+        if self.validate_request_data:
+            schema = self._request_schemas.get('POST')
+            if schema is not None:
                 try:
-                    request_schema.obj.validate(data)
+                    schema.validate(data)
                 except ValueError as err:
                     if err.args[0].startswith('Schema validation failed'):
                         raise exc.InvalidModelInput(*err.args)
@@ -359,6 +367,16 @@ class BaseService(abc.ABC, StatefulRoute):
             extra={'request_id': api.request_id(),
                    'service_class': self.__class__.__name__,
                    'event': 'exception'})
+
+    def add_request_schema(self, method, schema, description=None):
+        self.request_schemas[method] = RequestBody(schema, description)
+        self._request_schemas[method] = schema
+
+    def add_response_schema(self, method, status_code, schema, description=None):
+        self._response_schemas[(method, status_code)] = schema
+        if not method in self.response_schemas:
+            self.response_schemas[method] = []
+        self.response_schemas[method].append(ResponseBody(schema, status_code, description))
 
 
 class PredictionService(BaseService):
@@ -401,7 +419,9 @@ class PredictionService(BaseService):
             per request. Optional.
         additional_checks (callable): Raises
             :class:`porter.exceptions.InvalidModelInput` or subclass thereof
-            if POST request is invalid.
+            if POST request is invalid. The signature should accept a single
+            positional argument for the validated POST input parsed to a
+            ``pandas.DataFrame``.
         feature_schema (`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
@@ -477,23 +497,19 @@ class PredictionService(BaseService):
             raise exc.PorterError('`additional_checks` must be callable')
         self.action = action or self.action
         self.additional_checks = additional_checks
-        self.feature_schema = feature_schema
-        self.prediction_schema = prediction_schema
-
-        if feature_schema is not None:
-            api_contracts = self._make_api_contract(feature_schema, prediction_schema,
-                                                     kwargs.get('validate_request_data', False),
-                                                     kwargs.get('validate_response_data', False),
-                                                     kwargs['name'])  # TODO: clean this up
-        else:
-            api_contracts = None
 
         self._preprocess_model_input = self.preprocessor is not None
         self._postprocess_model_output = self.postprocessor is not None
 
-        # TODO: how exactly shopuld the api_contracts interact with feature_schema and prediction_schema
-        # technically users can pass both
-        super().__init__(api_contracts=api_contracts, **kwargs)
+        # need to do this before handling schemas
+        super().__init__(**kwargs)
+
+        self.feature_schema = feature_schema
+        self.prediction_schema = prediction_schema
+        if self.feature_schema is not None:
+            self._add_feature_schema(self.feature_schema)
+        # if None, we'll add the default schema anyway
+        self._add_prediction_schema(self.prediction_schema)
 
     @property
     def status(self):
@@ -546,16 +562,12 @@ class PredictionService(BaseService):
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
-        if self.validate_response_data:
-            schema = self._method_contracts['POST'].fetch_response_schema(200)
-        else:
-            schema = None
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(
-                self, X_input[_ID], preds, schema=schema)
+                self, X_input[_ID], preds)
         else:
             response = porter_responses.make_prediction_response(
-                self, X_input[_ID].iloc[0], preds[0], schema=schema)
+                self, X_input[_ID].iloc[0], preds[0])
 
         return response
 
@@ -613,63 +625,41 @@ class PredictionService(BaseService):
         # TODO: return only feature columns + ID
         return pd.DataFrame(data)
 
-    def _make_api_contract(self, feature_schema, prediction_schema, validate_request_data,
-                            validate_response_data, tag):
-        # TODO: add ID to inputs/outputs
-        # TODO: add errors  to response schemas
-        # TODO: clean this implementation up
-        id_ = Integer('A unique ID corresponding to an instance in the POST body.')
+    def _add_feature_schema(self, user_schema):
+        assert isinstance(user_schema, Object), '``feature_schema`` must be an Object'
+        # add ID to schema
+        request_schema = Object(
+            properties={
+                'id': Integer('An ID uniquely identifying each instance in the POST body.'),
+                **user_schema.properties},
+            reference_name=user_schema.reference_name)
+        if self.batch_prediction:
+            request_schema = Array(item_type=request_schema)
+        self.add_request_schema('POST', request_schema)
 
-        if feature_schema is not None:
-            assert isinstance(feature_schema, Object), 'feature_schema must be an object'
-            feature_schema = Object(properties={'id': id_, **feature_schema.properties},
-                                     reference_name=feature_schema.reference_name)
-            if self.batch_prediction:
-                request_obj = Array(item_type=feature_schema)
-            else:
-                request_obj = feature_schema
-
-            request_schema = RequestBody(obj=request_obj)
-        else:
-            request_schema = None
-
-        if prediction_schema is None:
-            prediction_schema = Object(
-                'A single prediction instance',
-                properties={'id': id_, 'prediction': Integer('The model prediction.')}
-            )
-        else:
-            prediction_schema = Object(
-                properties={'id': id_, 'prediction': prediction_schema}
-            )
-
-        assert 'id' in prediction_schema.properties, 'feature_schema must specify an ID property'
+    def _add_prediction_schema(self, user_schema):
+        prediction_schema = Object(
+            'Model output',
+            properties={
+                'id': Integer('An ID uniquely identifying each instance in the POST body'),
+                'prediction': user_schema or Number('Model Prediction')
+            },
+            reference_name=getattr(user_schema, 'reference_name', None)
+        )
 
         if self.batch_prediction:
-            prediction_obj = Array(item_type=prediction_schema)
-        else:
-            prediction_obj = prediction_schema
+            prediction_schema = Array(item_type=prediction_schema)
 
-        response_obj = Object(
+        response_schema = Object(
             properties={
                 'request_id': request_id,
                 'model_context': model_context,
-                'predictions': prediction_obj
+                'predictions': prediction_schema
             }
         )
 
-        response_schemas = [ResponseBody(status_code=200, obj=response_obj),
-                            *self._default_response_schemas]
+        self.add_response_schema('POST', 200, response_schema)
 
-        return [Contract('GET',
-                         response_schemas=[ResponseBody(status_code=200, obj=String())],
-                         additional_params={'tags': [tag]}),
-                Contract('POST', request_schema=request_schema,
-                         response_schemas=response_schemas,
-                         validate_request_data=validate_request_data,
-                         validate_response_data=validate_response_data,
-                         additional_params={'tags': [tag]})]
- 
 
 # TODO: deprecate
 class PredictionServiceConfig(PredictionService):
@@ -700,7 +690,8 @@ class ModelApp:
         self.docs_json_url = '/docs.json'
 
         self._services = []
-        self._contracts = {}
+        self._request_schemas = {}
+        self._response_schemas = {}
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
@@ -741,7 +732,8 @@ class ModelApp:
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
-        self._contracts[service.endpoint] = service.api_contracts
+        self._request_schemas[service.endpoint] = service.request_schemas
+        self._response_schemas[service.endpoint] = service.response_schemas
         self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
@@ -796,12 +788,9 @@ class ModelApp:
         if self.expose_docs:
             # if we're exposing the API docs wrap the health check endpoints
             # with the appropriate contract.
-            health_check_response = ResponseBody(status_code=200, obj=health_check)
-            self.health_check_contract = Contract(
-                'GET', response_schemas=[health_check_response],
-                 additional_params={'tags': ['health checks']})
-        self._contracts[cn.LIVENESS_ENDPOINT] = [self.health_check_contract]
-        self._contracts[cn.READINESS_ENDPOINT] = [self.health_check_contract]
+            health_check_response = {'GET': [ResponseBody(health_check, 200)]}
+        self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
+        self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 
@@ -811,7 +800,9 @@ class ModelApp:
         return app
 
     def _route_docs(self):
-        openapi_json = make_openapi_spec(self.name, self.description, '1.0.0', self._contracts)
+        openapi_json = make_openapi_spec(self.name, self.description, '1.0.0',
+                                         self._request_schemas, self._response_schemas,
+                                         {})
 
         @self.app.route(self.docs_json_url)
         def docs_json():

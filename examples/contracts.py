@@ -114,7 +114,8 @@ instance_prediction_service = PredictionService(
     name='user-ratings',
     api_version='v2',
     namespace='datascience',
-    feature_schema=ratings_feataure_schema)
+    feature_schema=ratings_feataure_schema,
+    validate_request_data=True)
 
 
 """
@@ -165,7 +166,8 @@ batch_prediction_service = PredictionService(
     action='batchPrediction',
     namespace='datascience',
     feature_schema=ratings_feataure_schema,
-    batch_prediction=True)
+    batch_prediction=True,
+    validate_request_data=True)
 
 
 """
@@ -205,8 +207,7 @@ proba_ratings_prediction_schema = Object(
         'upper_bound': Number('Upper bound on the prediction. '
                               'Actual values should fall above this range just 95% of the time'),
     },
-    reference_name='ProbaModelPrediction'
-)
+    reference_name='ProbaModelPrediction')
 
 
 probabilistic_service = PredictionService(
@@ -216,14 +217,75 @@ probabilistic_service = PredictionService(
     namespace='datascience',
     feature_schema=ratings_feataure_schema,
     prediction_schema=proba_ratings_prediction_schema,
-    batch_prediction=True
-)
+    batch_prediction=True)
 
 
 """
-What if we need to define a completely custom schema?
+While ``feature_schema`` and ``prediction_schema`` parameters allow users to
+specify the input and output schemas for a successful POST request that
+returns predictions, some use cases may require the ability to specify
+response schemas for non-200 status codes.
 
-`porter` supports documentation and validation of arbitrary schemas, however
+For example, perhaps now your recommendations are generated from a big matrix
+factorization job executed in some other environment, e.g. Spark. Because the
+predictions are now happening in another, perhaps long-running, compute
+environment a suitable contract is to return a response with a 202 status code
+and an ID that can be used to retrieve the predictions later after the job
+finishes.
+
+Fortunately, we can still use ``porter`` as an interface to the Spark job, but
+it will take a bit more work. We can extend the :class:`porter.services.PredictionService`
+class to validate and the request schemas as before, while customizing the
+documentation to include a 202 response for POST requests as follows.
+"""
+
+
+from porter.responses import Response
+
+
+class SparkInterfaceModel(BaseModel):
+    def predict(self, X):
+        job_id = self._generate_job_id()
+        self._submit_job(X, job_id)
+        return job_id
+
+    def _generate_job_id(self):
+        return 1
+
+    def _submit_job(self, X, job_id):
+        pass
+
+
+class SparkInterfaceService(PredictionService):
+    def serve(self):
+        X = self.get_post_data()  # validations are done here if validate_request_data=True
+        job_id = self.model.predict(X)
+        return Response({'job_id': job_id}, status_code=202)
+
+
+spark_interface_response_schema = Object(
+    properties={'job_id': Integer('ID used to retrieve results from batch job.')},
+    reference_name='BatchRatingsOutput'
+)
+
+spark_interface_service = SparkInterfaceService(
+    model=SparkInterfaceModel(),
+    name='batch-ratings-model',
+    api_version='v1',
+    namespace='datascience',
+    feature_schema=ratings_feataure_schema,
+    batch_prediction=True)
+
+# note that when we specify schemas directly, ``porter`` leaves them untouched,
+# unlike when they are specified via the "convenience" properties ``feature_schema``
+# and ``prediction_schema``.
+spark_interface_service.add_response_schema('POST', 202, spark_interface_response_schema)
+
+
+"""
+What if we need even more control to define a completely customized API?
+
+``porter`` supports documentation and validation of arbitrary schemas, however
 you will have to define a custom service class and using quite a few more
 objects from `porter.schemas` if the inputs and outputs can't be represented
 in a "tabular" way.
@@ -247,34 +309,23 @@ Defining a very nested, customized data structure.
 """
 
 
-custom_service_contracts = [
-    schemas.Contract(
-        'POST',
-        request_schema=schemas.RequestBody(
-            Object(
-                properties={
-                    'string_with_enum_prop': String(additional_params={'enum': ['a', 'b', 'abc']}),
-                    'an_arry': Array(item_type=Number()),
-                    'another_property': Object(properties={'a': String(), 'b': Integer()}),
-                    'yet_another_property': Array(item_type=Object(additional_properties_type=String()))
-                },
-                reference_name='CustomServiceInputs'
-            )
-        ),
-        response_schemas=[
-            schemas.ResponseBody(status_code=200, obj=Array(item_type=String())),
-            schemas.ResponseBody(status_code=422, obj=Object(properties={'message': String()}))
-        ],
-        additional_params={'tags': ['custom-service']}
-    )
-]
-
-
-custom_service = CustomService(
-    name='custom-service',
-    api_version='v1',
-    api_contracts=custom_service_contracts
+custom_service_input = Object(
+    properties={
+        'string_with_enum_prop': String(additional_params={'enum': ['a', 'b', 'abc']}),
+        'an_arry': Array(item_type=Number()),
+        'another_property': Object(properties={'a': String(), 'b': Integer()}),
+        'yet_another_property': Array(item_type=Object(additional_properties_type=String()))
+    },
+    reference_name='CustomServiceInputs'
 )
+
+custom_service_output_success = Array(item_type=String())
+custom_service_output_failure = Object(properties={'error': String(), 'timestamp': String()})
+
+custom_service = CustomService(name='custom-service', api_version='v1')
+custom_service.add_request_schema('GET', custom_service_input)
+custom_service.add_response_schema('POST', 200, custom_service_output_success)
+custom_service.add_response_schema('POST', 500, custom_service_output_failure)
 
 
 """
@@ -292,7 +343,8 @@ model_app = ModelApp(name='Example Model',
                      description='An unhelpful description of what this application.',
                      expose_docs=True)
 model_app.add_services(instance_prediction_service, batch_prediction_service,
-                       probabilistic_service, custom_service)
+                       probabilistic_service, spark_interface_service,
+                       custom_service)
 
 
 class Shhh:
@@ -314,6 +366,6 @@ class Shhh:
 
 if __name__ == '__main__':
     print('http://localhost:5000/')
-    with Shhh():
-        model_app.run()
+    # with Shhh():
+    model_app.run()
 
