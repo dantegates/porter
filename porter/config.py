@@ -2,6 +2,9 @@
 
 from .utils import AppEncoder
 
+# JSON encoder used to serialize/deserialize request/response data.
+# If used with porter's automatic validations this should return native-like
+# types, such as dict, list, number, str, etc.
 json_encoder = AppEncoder
 
 # Configurations for error responses.
