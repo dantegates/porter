@@ -241,7 +241,7 @@ def make_openapi_spec(title, description, version, request_schemas, response_sch
     endpoint_methods = {endpoint: set(request_schemas.get(endpoint, {}).keys())
                                 | set(response_schemas.get(endpoint, {}).keys())
                         for endpoint in endpoints}
-    print('\n', request_schemas, '\n')
+
     endpoint_methods = {k: [vv.lower() for vv in v] for k, v in endpoint_methods.items()}
 
 
