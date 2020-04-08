@@ -170,13 +170,14 @@ class BaseService(abc.ABC, StatefulRoute):
         response_schemas(dict): Dictionary mapping HTTP methods to a list of
             :class:`porter.schemas.ResponseSchema`. Each ``ResponseSchema`` object
             is added from calls to :meth:`add_request_schema` and
-            instantiated from the correspondinig arguments.
+            instantiated from the corresponding arguments.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
-    _default_response_schemas = {
-        'POST': ResponseSchema(status_code=500, api_obj=model_context_error)
-    }
+    _default_response_schemas = [
+        ('POST', 422, model_context_error, None),
+        ('POST', 500, model_context_error, None),
+    ]
 
     # TODO: do we really need to validate responses? I could be useful for testing
     # but we could also manually call .validate()
@@ -205,7 +206,9 @@ class BaseService(abc.ABC, StatefulRoute):
         # these are used internally for lookups at runtime
         self._request_schemas = {}
         self._response_schemas = {}
-        # TODO: add responses returned explicitly by porter here
+        # add response schemas explicitly returned (i.e. raised) by porter.        
+        for schema in self._default_response_schemas:
+            self.add_response_schema(*schema)
 
     def __call__(self):
         """Serve a response to the user."""
@@ -222,6 +225,7 @@ class BaseService(abc.ABC, StatefulRoute):
         # technically we should never get here. self.serve() should always
         # return a ModelContextError but I'm a little paranoid about this.
         except Exception as err:
+            # TODO: re-raise as model context error
             self._log_error(err)
             raise err
         finally:

@@ -60,5 +60,6 @@ model_context_error = openapi.Object(
         'request_id': request_id,
         'error': error_body,
         'model_context': model_context
-    }
+    },
+    reference_name='ModelContextError'
 )
