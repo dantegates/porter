@@ -45,6 +45,8 @@ error_body = openapi.Object(
 )
 
 
+# TODO: just use one error object for all errors with model_context possibly empty?
+
 generic_error = openapi.Object(
     properties={
         'request_id': request_id,
