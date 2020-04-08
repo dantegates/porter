@@ -77,7 +77,7 @@ class Postprocessor(BasePostProcessor):
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
-service_config = PredictionService(
+prediction_service = PredictionService(
     model=model,                    # The value of model.predict() is
                                     # returned to the client.
                                     # Required.
@@ -114,7 +114,7 @@ service_config = PredictionService(
 )
 
 # The model can now be added as a service in the app.
-model_app.add_service(service_config)
+model_app.add_service(prediction_service)
 
 
 if __name__ == '__main__':
