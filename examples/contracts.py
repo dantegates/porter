@@ -44,7 +44,7 @@ something like
 and the corresponding Python object used by `porter` might look like
 """
 
-ratings_feataure_schema = Object(
+ratings_feature_schema = Object(
     'Inputs to the content recommendation model',
     properties=dict(
         user_id=Integer('The user ID.'),
@@ -59,14 +59,14 @@ ratings_feataure_schema = Object(
 
 
 """
-`ratings_feataure_schema` contains a `validate()` method which can be used to
+`ratings_feature_schema` contains a `validate()` method which can be used to
 validate Python objects against the schema. Keep in mind that you never need
 to call this method explicitly yourself, `porter` will automatically validate
 `POST` data for you.
 """
 
 # no error raised
-ratings_feataure_schema.validate({
+ratings_feature_schema.validate({
     'user_id': 1,
     'title_id': 1,
     'genre': 'drama',
@@ -80,7 +80,7 @@ below invalid.
 """
 
 try:
-    ratings_feataure_schema.validate({
+    ratings_feature_schema.validate({
         'user_id': 1,
         'title_id': 1,
         'genre': 'not an acceptable value',
@@ -90,7 +90,7 @@ except Exception as err:
     print(err)
 
 try:
-    ratings_feataure_schema.validate({
+    ratings_feature_schema.validate({
         'user_id': 1,
         'title_id': 1,
         'genre': 'drama',
@@ -104,7 +104,7 @@ except Exception as err:
 """
 Now we can instantiate a PredictionService for our model and simply pass it
 the schema. By default requests sent to this endpoint will be validated
-according to `ratings_feataure_schema`. Validations can be disabled by setting
+according to `ratings_feature_schema`. Validations can be disabled by setting
 `validate_request_data=False`.
 """
 
@@ -114,7 +114,7 @@ instance_prediction_service = PredictionService(
     name='user-ratings',
     api_version='v2',
     namespace='datascience',
-    feature_schema=ratings_feataure_schema,
+    feature_schema=ratings_feature_schema,
     validate_request_data=True)
 
 
@@ -165,7 +165,7 @@ batch_prediction_service = PredictionService(
     api_version='v2',
     action='batchPrediction',
     namespace='datascience',
-    feature_schema=ratings_feataure_schema,
+    feature_schema=ratings_feature_schema,
     batch_prediction=True,
     validate_request_data=True)
 
@@ -215,7 +215,7 @@ probabilistic_service = PredictionService(
     name='proba-model',
     api_version='v3',
     namespace='datascience',
-    feature_schema=ratings_feataure_schema,
+    feature_schema=ratings_feature_schema,
     prediction_schema=proba_ratings_prediction_schema,
     batch_prediction=True)
 
@@ -273,7 +273,7 @@ spark_interface_service = SparkInterfaceService(
     name='batch-ratings-model',
     api_version='v1',
     namespace='datascience',
-    feature_schema=ratings_feataure_schema,
+    feature_schema=ratings_feature_schema,
     batch_prediction=True)
 
 # note that when we specify schemas directly, ``porter`` leaves them untouched,
@@ -347,6 +347,12 @@ model_app.add_services(instance_prediction_service, batch_prediction_service,
                        custom_service)
 
 
+
+"""
+These are just some convenience functions to test the example.
+"""
+
+
 class Shhh:
     """Silence flask logging."""
 
@@ -364,8 +370,9 @@ class Shhh:
         sys.stderr = self.stderr
 
 
+
 if __name__ == '__main__':
     print('http://localhost:5000/')
-    # with Shhh():
-    model_app.run()
+    with Shhh():
+        model_app.run()
 
