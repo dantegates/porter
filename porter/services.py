@@ -35,8 +35,8 @@ from . import config as cf
 from . import constants as cn
 from . import exceptions as exc
 from . import responses as porter_responses
-from .schemas import (Array, Integer, Number, Object, RequestBody,
-                      ResponseBody, String, generic_error,
+from .schemas import (Array, Integer, Number, Object, RequestSchema,
+                      ResponseSchema, String, generic_error,
                       health_check, model_context, model_context_error,
                       request_id, make_openapi_spec, static_docs)
 
@@ -164,15 +164,18 @@ class BaseService(abc.ABC, StatefulRoute):
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
         request_schemas (dict): Dictionary mapping HTTP methods to instances
-            of :class:`porter.schemas.RequestBody`. Each ``RequestBody``
-            object is added from calls to :meth:`add_request_schema`. and
+            of :class:`porter.schemas.RequestSchema`. Each ``RequestSchema``
+            object is added from calls to :meth:`add_request_schema` and
             instantiated from the corresponding arguments.
-        response_schemas(dict): Dictionary mapping HTTP methods
+        response_schemas(dict): Dictionary mapping HTTP methods to a list of
+            :class:`porter.schemas.ResponseSchema`. Each ``ResponseSchema`` object
+            is added from calls to :meth:`add_request_schema` and
+            instantiated from the correspondinig arguments.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = {
-        'POST': ResponseBody(status_code=500, obj=model_context_error)
+        'POST': ResponseSchema(status_code=500, api_obj=model_context_error)
     }
 
     # TODO: do we really need to validate responses? I could be useful for testing
@@ -345,6 +348,13 @@ class BaseService(abc.ABC, StatefulRoute):
         self._api_version = value
 
     def get_post_data(self):
+        """Return POST data.
+
+        The data will be the return value of ``porter.config.json_encoder``.
+
+        If ``self.validate_request_data is True`` and a request schema has
+        been defined the data will be validated against the schema.
+        """
         data = api.request_json(force=True)
         if self.validate_request_data:
             schema = self._request_schemas.get('POST')
@@ -372,15 +382,17 @@ class BaseService(abc.ABC, StatefulRoute):
                    'service_class': self.__class__.__name__,
                    'event': 'exception'})
 
-    def add_request_schema(self, method, schema, description=None):
-        self.request_schemas[method] = RequestBody(schema, description)
-        self._request_schemas[method] = schema
+    def add_request_schema(self, method, api_obj, description=None):
+        method = method.upper()
+        self.request_schemas[method] = RequestSchema(api_obj, description)
+        self._request_schemas[method] = api_obj
 
-    def add_response_schema(self, method, status_code, schema, description=None):
-        self._response_schemas[(method, status_code)] = schema
+    def add_response_schema(self, method, status_code, api_obj, description=None):
+        method = method.upper()
+        self._response_schemas[(method, status_code)] = api_obj
         if not method in self.response_schemas:
             self.response_schemas[method] = []
-        self.response_schemas[method].append(ResponseBody(schema, status_code, description))
+        self.response_schemas[method].append(ResponseSchema(api_obj, status_code, description))
 
 
 class PredictionService(BaseService):
@@ -791,7 +803,7 @@ class ModelApp:
         if self.expose_docs:
             # if we're exposing the API docs wrap the health check endpoints
             # with the appropriate contract.
-            health_check_response = {'GET': [ResponseBody(health_check, 200)]}
+            health_check_response = {'GET': [ResponseSchema(health_check, 200)]}
         self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
         self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)

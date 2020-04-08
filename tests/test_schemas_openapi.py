@@ -12,7 +12,7 @@ import unittest
 
 from porter.schemas import (String, Number, Integer, Boolean,
                             Array, Object,
-                            RequestBody, ResponseBody)
+                            RequestSchema, ResponseSchema)
 
 
 class TestString(unittest.TestCase):
@@ -238,11 +238,11 @@ class TestObject(unittest.TestCase):
             ))
 
 
-class TestRequestBody(unittest.TestCase):
+class TestRequestSchema(unittest.TestCase):
     def test_request_body(self):
         # check that obj's schema is propertly located within request body
         obj = Object(properties=dict(a=Number()))
-        rb = RequestBody(obj)
+        rb = RequestSchema(obj)
         schema = rb.to_openapi()[0]['requestBody']['content']['application/json']['schema']
         self.assertEqual(schema, obj.to_openapi()[0])
 
@@ -250,7 +250,7 @@ class TestResponseBody(unittest.TestCase):
     def test_response_body(self):
         # check that obj's schema is propertly located within response body
         obj = Object(properties=dict(a=Number()))
-        rb = ResponseBody(status_code=200, obj=obj)
+        rb = ResponseSchema(status_code=200, api_obj=obj)
         schema = rb.to_openapi()[0][200]['content']['application/json']['schema']
         self.assertEqual(schema, obj.to_openapi()[0])
 

@@ -18,7 +18,7 @@ class ApiObject:
                 objects OpenAPI definition.
             reference_name (None or str): If a `str` is given the object will
                 be represented as a `$ref` in OpenAPI endpoint definitions and
-                fully described by `reference_name` under `components/schemas`.
+                fully described by `reference_name` under "components/schemas".
         """
         self.description = description
         self.additional_params = additional_params or {}
@@ -28,10 +28,10 @@ class ApiObject:
             # https://swagger.io/docs/specification/data-models/keywords/
             # and
             # http://json-schema.org/draft-06/json-schema-release-notes.html
-            self.jsonschema = self.to_openapi()[0]
+            self._jsonschema = self.to_openapi()[0]
             self._validate = fastjsonschema.compile({
                 '$draft': '04',
-                **self.jsonschema
+                **self._jsonschema
             })
 
     def to_openapi(self):
@@ -60,6 +60,24 @@ class ApiObject:
         return self.__class__.__name__.lower()
 
     def validate(self, data):
+        """
+        Args:
+            data (JSON-like data structure): `data` will be evaulated against
+                the OpenAPI spec that describes `self`. It should be a
+                "JSON-like" data structure consisting of types compatible with
+                `dict`, `list`, `int`, `str`, etc.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If `data` does not conform to the OpenAPI spec that
+                describes `self`. All errors messages will be prefixed with
+                "Schema validation failed:" so that users can programatically
+                differentiate between `ValueError`s explicitly raised by this
+                method and others.
+
+        """
         try:
             self._validate(data)
         except fastjsonschema.exceptions.JsonSchemaException as err:
@@ -108,12 +126,12 @@ class Object(ApiObject):
             *args: Positional arguments passed on to `ApiObject`.
             properties (dict): A mapping from property names to ApiObject
                 instances.
-            additional_properties_type (ApiObject): If this is a "free form" object,
+            additional_properties_type (:class:`ApiObject`): If this is a "free form" object,
                 this defines the type of the additional properties.
             required ("all", `list`, `False): If "all" all properties are
                 required, if a `list` only a subset are required. An empty
                 list means all properties are optional.
-            **kwargs: Keyword arguments passed on to `ApiObject`.
+            **kwargs: Keyword arguments passed on to :class:`ApiObject`.
         """
         if properties is None and additional_properties_type is None:
             raise ValueError('at least one of properties and additional_properties_type should be specified')
@@ -194,13 +212,13 @@ class _RefContext:
         return current_context.ignore_refs
 
 
-class RequestBody:
-    def __init__(self, obj, description=None):
-        self.obj = obj
+class RequestSchema:
+    def __init__(self, api_obj, description=None):
+        self.api_obj = api_obj
         self.description = description
 
     def to_openapi(self):
-        openapi_spec, openapi_refs = self.obj.to_openapi()
+        openapi_spec, openapi_refs = self.api_obj.to_openapi()
         content = {
             'application/json': {
                 'schema': openapi_spec
@@ -214,14 +232,14 @@ class RequestBody:
         }, openapi_refs
 
 
-class ResponseBody:
-    def __init__(self, obj, status_code, description=None):
+class ResponseSchema:
+    def __init__(self, api_obj, status_code, description=None):
         self.status_code = status_code
-        self.obj = obj
+        self.api_obj = api_obj
         self.description = description
 
     def to_openapi(self):
-        openapi_spec, openapi_refs = self.obj.to_openapi()
+        openapi_spec, openapi_refs = self.api_obj.to_openapi()
         content = {
             'application/json': {
                 'schema': openapi_spec
@@ -237,6 +255,27 @@ class ResponseBody:
 
 def make_openapi_spec(title, description, version, request_schemas, response_schemas,
                       additional_params):
+    """
+    Args:
+        title (str): The title of the application.
+        description (str): A description of the application.
+        version (str): The version of the application.
+        request_schemas (dict): Nested dictionary mapping endpoints to a
+            dictionary of HTTP methods to instances of :class:`RequestSchema`.
+            E.g. `{"/foo/bar": {"GET": RequestSchema(...)}}`.
+        response_schemas (dict): Nested dictionary mapping endpoints to
+            a dictionary of HTTP methods to lists of instances of
+            :class:`ResponseSchema`.
+            E.g. `{"/foo/bar/": {"GET": [ResponseSchema(...), ResponseSchema(...)]}}`
+        additional_params (dict): A nested dictionary mapping tuples of
+            endpoints and HTTP methods to a dictionary containing arbitrary
+            OpenAPI values that will be applied to the OpenAPI spec for that
+            endpoint/method.
+            E.g. `{("/foo/bar/", 'GET): {"tags": ["tag1", "tag2"]}}`
+
+    Returns:
+        dict: The OpenAPI spec describing the provided arguments.
+    """
     endpoints = list(request_schemas.keys()) + list(response_schemas.keys())
     endpoint_methods = {endpoint: set(request_schemas.get(endpoint, {}).keys())
                                 | set(response_schemas.get(endpoint, {}).keys())
