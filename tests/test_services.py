@@ -61,22 +61,6 @@ class TestStatefulRoute(unittest.TestCase):
         self.assertEqual(actual3, expected3)
 
 
-class TestPredictionSchema(unittest.TestCase):
-    def test_prediction_schema_constructor(self):
-        schema = PredictSchema(input_features=None)
-        self.assertIs(schema.input_columns, None)
-        self.assertIs(schema.input_features, None)
-
-        schema = PredictSchema(input_features=['feature1', 'feature2'])
-        self.assertIsInstance(schema.input_columns, list)
-        self.assertIsInstance(schema.input_features, list)
-
-        schema = PredictSchema(input_features=('feature1', 'feature2'))
-        self.assertIsInstance(schema.input_columns, list)
-        self.assertIsInstance(schema.input_features, list)
-
-
-
 @mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestPredictionService(unittest.TestCase):
     @mock.patch('porter.services.api.request_json')
@@ -575,15 +559,29 @@ class TestModelApp(unittest.TestCase):
             id = 'service1'
             endpoint = '/an/endpoint'
             route_kwargs = {'foo': 1, 'bar': 'baz'}
+            request_schemas = object()
+            response_schemas = object()
+            name = 'service1'
         class service2:
             id = 'service2'
             endpoint = '/foobar'
             route_kwargs = {'methods': ['GET', 'POST']}
+            request_schemas = object()
+            response_schemas = object()
+            name = 'service2'
         class service3:
             id = 'service3'
             endpoint = '/supa/dupa'
             route_kwargs = {'methods': ['GET'], 'strict_slashes': True}
+            request_schemas = object()
+            response_schemas = object()
+            name = 'service3'
         model_app = ModelApp()
+        model_app._request_schemas = {}
+        model_app._response_scheams = {}
+
+        # add the services and validate they were routed with the correct
+        # parameters.
         model_app.add_services(service1, service2, service3)
         expected_calls = [
             mock.call('/an/endpoint', foo=1, bar='baz'),
@@ -595,6 +593,21 @@ class TestModelApp(unittest.TestCase):
         ]
         model_app.app.route.assert_has_calls(expected_calls)
 
+        # verify that the schemas were correctly registered
+        expected_request_schemas = {
+            service1.endpoint: service1.request_schemas,
+            service2.endpoint: service2.request_schemas,
+            service3.endpoint: service3.request_schemas
+        }
+        self.assertEqual(model_app._request_schemas, expected_request_schemas)
+
+        expected_response_schemas = {
+            service1.endpoint: service1.response_schemas,
+            service2.endpoint: service2.response_schemas,
+            service3.endpoint: service3.response_schemas
+        }
+        self.assertEqual(model_app._response_schemas, expected_response_schemas)
+
     @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.api.App')
     def test_add_service_fail(self, mock_app, mock__build_app):
@@ -602,10 +615,16 @@ class TestModelApp(unittest.TestCase):
             id = 'service1'
             endpoint = '/an/endpoint'
             route_kwargs = {}
+            request_schemas = {}
+            response_schemas = {}
+            name = 'service1'
         class service2:
             id = 'service1'
             endpoint = '/foobar'
             route_kwargs = {}
+            request_schemas = {}
+            response_schemas = {}
+            name = 'service2'
         model_app = ModelApp()
         model_app.add_service(service1)
         with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):

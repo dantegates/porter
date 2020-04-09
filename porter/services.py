@@ -793,15 +793,19 @@ class ModelApp:
             :class:`porter.exceptions.PorterError`: If the type of
                 ``service`` is not recognized.
         """
+        # register the service with the add
         if service.id in self._service_ids:
             raise exc.PorterError(
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
+        # register the service schemas
         self._request_schemas[service.endpoint] = service.request_schemas
         self._response_schemas[service.endpoint] = service.response_schemas
+        # tag the services
         self._additional_params[service.endpoint] = {'GET': {'tags': [service.name]}}
         self._additional_params[service.endpoint]['POST'] = {'tags': [service.name]}
+        # finally route
         self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
