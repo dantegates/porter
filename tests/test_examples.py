@@ -138,12 +138,15 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_missing_key))
         self.assertEqual(r.status_code, 422)
+        self.assertIn("data must contain ('id', 'user_id', 'title_id', 'genre', 'average_rating')", r.json['error']['messages'][0])
 
         r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_genre))
         self.assertEqual(r.status_code, 422)
+        self.assertIn('genre', r.json['error']['messages'][0])
 
         r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_average_rating))
         self.assertEqual(r.status_code, 422)
+        self.assertIn('average_rating', r.json['error']['messages'][0])
 
     def test_batch_prediction_service(self):
         """Configurations for this service are:
@@ -227,9 +230,11 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_title_id_is_str))
         self.assertEqual(r.status_code, 422)
+        self.assertIn('data[1].title_id', r.json['error']['messages'][0])
 
         r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_not_an_array))
         self.assertEqual(r.status_code, 422)        
+        self.assertIn('data must be array', r.json['error']['messages'][0])
 
     def test_probabilistic_service(self):
         """Configurations for this service are:
@@ -308,6 +313,12 @@ class TestContracts(unittest.TestCase):
         self.ns['spark_interface_response_schema'].validate(json.loads(r.data))
 
     def test_custom_service_validations_fail(self):
+        """Configurations for this service are:
+
+        endpoint = /custom-service/v1/foo
+        validate_request_data = True
+        batch_prediction = N/A
+        """
         invalid_data1 = 'this string is definitely not an object'
         invalid_data2 = {'this object': 'is an object', 'but not a': 'correct schema'}
         invalid_data_checking_nested_validations1 = {
@@ -331,18 +342,28 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data1))
         self.assertEqual(r.status_code, 422)
+        self.assertIn('data must be object', r.json['error']['messages'][0])
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data2))
         self.assertEqual(r.status_code, 422)
+        self.assertIn("data must contain ('string_with_enum_prop', 'an_array', 'another_property', 'yet_another_property')", r.json['error']['messages'][0])
 
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations1))
         self.assertEqual(r.status_code, 422)
+        self.assertIn("yet_another_property[1].bar", r.json['error']['messages'][0])
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations2))
         self.assertEqual(r.status_code, 422)
+        self.assertIn("another_property.b", r.json['error']['messages'][0])
 
     def test_custom_service_validations_succeed(self):
+        """Configurations for this service are:
+
+        endpoint = /custom-service/v1/foo
+        validate_request_data = True
+        batch_prediction = N/A
+        """
         valid_data = {
             'string_with_enum_prop': 'a',
             'an_array': [1, 2],
