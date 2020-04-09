@@ -293,7 +293,6 @@ class BaseService(abc.ABC, StatefulRoute):
         """
         return self.endpoint
 
-    # TODO: use schemas to validate
     def check_meta(self, meta):
         """Raise ``ValueError`` if ``meta`` contains invalid values, e.g. ``meta``
         cannot be converted to JSON properly.
