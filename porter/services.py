@@ -442,8 +442,6 @@ class PredictionService(BaseService):
             `.process()` method of this object will be called on the output of
             ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        allow_nulls (bool): Are nulls allowed in the POST request data? If
-            ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not batch predictions are
             supported or not. If ``True`` the API will accept an array of objects
             to predict on. If ``False`` the API will only accept a single object
@@ -491,8 +489,6 @@ class PredictionService(BaseService):
             `.process()` method of this object will be called on the output of
             ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        allow_nulls (bool): Are nulls allowed in the POST request data? If
-            ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not the endpoint supports batch
             predictions or not. If ``True`` the API will accept an array of
             objects to predict on. If ``False`` the API will only accept a
@@ -518,13 +514,12 @@ class PredictionService(BaseService):
     ]
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 allow_nulls=False, action=None, batch_prediction=False,
+                 action=None, batch_prediction=False,
                  additional_checks=None, feature_schema=None,
                  prediction_schema=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
             raise exc.PorterError('`additional_checks` must be callable')
@@ -587,8 +582,12 @@ class PredictionService(BaseService):
         # self.validate_request_data is True and a feature schema was
         # provided, the schema is vetted in get_post_data()
         X_input = self.get_post_data()
-        if not self.allow_nulls or self.additional_checks is not None:
-            self.check_request(X_input, self.allow_nulls, self.additional_checks)
+
+        # Only perform user checks after the standard checks have been passed.
+        # This allows the user to assume that all columns are present and there
+        # are no nulls present.
+        if self.additional_checks is not None:
+            self.additional_checks(X_input)
 
         # Once the input data has been fully validated, extract the feature
         # columns (all features provided in ``feature_schema``) if provided.
@@ -619,47 +618,6 @@ class PredictionService(BaseService):
                 self, X_input[_ID].iloc[0], preds[0])
 
         return response
-
-    @classmethod
-    def check_request(cls, X_input, allow_nulls=False, additional_checks=None):
-        """Check the POST request data raising an error if a check fails.
-
-        Checks include
-
-        1. ``X`` does not contain nulls (only if allow_nulls == True).
-        2. Any additional checks in the user defined ``additional_checks``.
-
-        Args:
-            X (``pandas.DataFrame``): A ``pandas.DataFrame`` created from the POST
-                request.
-            allow_nulls (bool): Whether nulls are allowed in ``X``. False by
-                default.
-
-        Returns:
-            None
-
-        Raises:
-            :class:`porter.exceptions.RequestContainsNulls`: If the input contains nulls
-                and ``allow_nulls`` is False.
-            :class:`porter.exceptions.RequestMissingFields`: If the input is missing
-                required fields.
-            :class:`porter.exceptions.InvalidModelInput`: If user defined ``additional_checks``
-                fails.
-        """
-        cls._default_checks(X_input, allow_nulls)
-        # Only perform user checks after the standard checks have been passed.
-        # This allows the user to assume that all columns are present and there
-        # are no nulls present (if allow_nulls is False).
-        if additional_checks is not None:
-            additional_checks(X_input)
-
-    @staticmethod
-    def _default_checks(X, allow_nulls):
-        # TODO: deprecate this as well?
-        if not allow_nulls and X.isnull().any().any():
-            null_counts = X.isnull().sum()
-            null_columns = null_counts[null_counts > 0].index.tolist()
-            raise exc.RequestContainsNulls(null_columns)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a ``pandas.DataFrame``.

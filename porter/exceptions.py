@@ -32,21 +32,3 @@ class InvalidModelInput(ModelContextError):
 class PredictionError(ModelContextError):
     """Exception raised when an error occurs during prediction."""
     code = 500
-
-
-
-# TODO: deprecate? this used to get raised in PredictionService._default_checks
-class RequestMissingFields(InvalidModelInput):
-    """Exception raised when POST request is missing required fields."""
-    def __init__(self, fields):
-        super().__init__(
-            'request payload is missing the following field(s): {}'
-            .format(fields))
-
-# TODO: deprecate? this used to get raised in PredictionService._default_checks
-class RequestContainsNulls(InvalidModelInput):
-    """Exception raised when POST request contains null values."""
-    def __init__(self, fields):
-        super().__init__(
-            'request payload had null values in the following field(s): {}'
-            .format(fields))

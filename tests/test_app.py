@@ -71,7 +71,6 @@ class TestAppPredictions(unittest.TestCase):
             postprocessor=Postprocessor1(),
             feature_schema=feature_schema1,
             validate_request_data=True,
-            allow_nulls=False,
             batch_prediction=True
         )
         prediction_service2 = PredictionService(
@@ -83,7 +82,6 @@ class TestAppPredictions(unittest.TestCase):
             postprocessor=None,
             feature_schema=feature_schema2,
             validate_request_data=True,
-            allow_nulls=False,
             batch_prediction=True,
             additional_checks=user_check
         )
@@ -95,7 +93,6 @@ class TestAppPredictions(unittest.TestCase):
             postprocessor=None,
             feature_schema=feature_schema3,
             validate_request_data=True,
-            allow_nulls=False,
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )

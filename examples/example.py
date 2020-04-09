@@ -108,10 +108,6 @@ prediction_service = PredictionService(
                                     # Optional.
     validate_request_data=True,     # Whether to validate the request data.
                                     #
-    allow_nulls=False,              # Whether nulls are allowed in the POST
-                                    # request data. Optional and meaningless
-                                    # when validate_input=False.
-                                    #
     batch_prediction=True           # Whether the API will accept an array of
                                     # JSON objects to predict on or a single
                                     # JSON object only. 
