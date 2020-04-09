@@ -244,7 +244,7 @@ class BaseService(abc.ABC, StatefulRoute):
             if self.validate_response_data:
                 schema = self._response_schemas.get((api.request_method(), response.status_code))
                 if schema is not None:
-                    # TODO: use json.loads
+                    # TODO: use json.loads?
                     schema.validate(response.raw_data)
         return response
 
@@ -553,7 +553,7 @@ class PredictionService(BaseService):
                 to the user.
 
         Raises:
-            :classs:`porter.exceptions.ModelContextError`: Raised whenever an error
+            :class:`porter.exceptions.ModelContextError`: Raised whenever an error
                 occurs during prediction. The error contains information
                 about the model context which a custom error handler can
                 use to add to the errors response.
@@ -731,15 +731,15 @@ class ModelApp:
     """
 
     def __init__(self, *, name=__name__, description=None, version=None, meta=None,
-                 expose_docs=False, docs_url='/docs/', docs_json_url='/docs.json'):
+                 expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
         self.name = name
         self.meta = {} if meta is None else meta
         self.description = description
         self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
-        self.docs_url = '/docs/'
-        self.docs_json_url = '/docs.json'
+        self.docs_url = docs_url
+        self.docs_json_url = docs_json_url
 
         self._services = []
         self._request_schemas = {}
@@ -799,10 +799,10 @@ class ModelApp:
             *args: Positional arguments passed on to the wrapped ``flask`` app.
             **kwargs: Keyword arguments passed on to the wrapped ``flask`` app.
         """
-        # must be called after services are added
+        # Because the ``ModelApp`` API allows services to be added to the app
+        # after it's been instantiated we build the docs immediately before
+        # starting the app to be sure that all services are included in the docs.
         if self.expose_docs:
-            # TODO: what does the version even mean here in the context of porter
-            #       where we version the endpoints
             self._route_docs()
         self.app.run(*args, **kwargs)
 
@@ -831,25 +831,30 @@ class ModelApp:
             An instance of :class:`porter.api.App`.
         """
         app = api.App(self.name, static_folder='porter/assets')
+
         # register a custom JSON encoder
         app.json_encoder = cf.json_encoder
+
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
         app.register_error_handler(exc.PredictionError, serve_error_message)
 
+        # route the health checks
         serve_alive = ServeAlive(self)
         serve_ready = ServeReady(self)
-
-        health_check_response = {'GET': [ResponseSchema(health_check, 200)]}
-        self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
-        self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
-        self._additional_params[cn.LIVENESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
-        self._additional_params[cn.READINESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
-
         app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
         app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 
+        # register the schemas for the health checks
+        if self.expose_docs:
+            health_check_response = {'GET': [ResponseSchema(health_check, 200)]}
+            self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
+            self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
+            self._additional_params[cn.LIVENESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
+            self._additional_params[cn.READINESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
+
+        # route root
         serve_root = ServeRoot(self)
         app.route('/', methods=['GET'])(serve_root)
 
@@ -870,6 +875,5 @@ class ModelApp:
 
         @self.app.route(self.docs_url)
         def docs():
-            # TODO: fill in values
             html = make_docs_html(self.docs_json_url)
             return html
