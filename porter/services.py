@@ -38,7 +38,7 @@ from . import responses as porter_responses
 from .schemas import (Array, Integer, Number, Object, RequestSchema,
                       ResponseSchema, String, generic_error,
                       health_check, model_context, model_context_error,
-                      request_id, make_openapi_spec, static_docs)
+                      request_id, make_openapi_spec, make_docs_html)
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -244,6 +244,7 @@ class BaseService(abc.ABC, StatefulRoute):
             if self.validate_response_data:
                 schema = self._response_schemas.get((api.request_method(), response.status_code))
                 if schema is not None:
+                    # TODO: use json.loads
                     schema.validate(response.raw_data)
         return response
 
@@ -534,6 +535,7 @@ class PredictionService(BaseService):
         self.prediction_schema = prediction_schema
         if self.feature_schema is not None:
             self._add_feature_schema(self.feature_schema)
+            self.feature_columns = list(self.feature_schema.properties.keys())
         # if None, we'll add the default schema anyway
         self._add_prediction_schema(self.prediction_schema)
 
@@ -649,7 +651,7 @@ class PredictionService(BaseService):
         if not self.batch_prediction:
             data = [data]
         # TODO: return only feature columns + ID
-        return pd.DataFrame(data)
+        return pd.DataFrame(data)[[_ID] + self.feature_columns]
 
     def _add_feature_schema(self, user_schema):
         assert isinstance(user_schema, Object), '``feature_schema`` must be an Object'
@@ -702,14 +704,38 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of ``flask.Flask``.
 
     Args:
-        meta (dict): Additional meta data added to the response body. Optional.
+        name (str): Name for the application. This will appear in the documentation
+            if ``expose_docs=True``. Optional.
+        description (str): Description of the application. This will appear in
+            the documentation if ``expose_docs=True``. Optional.
+        version (str): Version of the application. This will appear in the
+            documentation if ``expose_docs=True``. Optional.
+        meta (dict): Additional meta data added to the response body in health
+            checks. Optional.
+        expose_docs (bool): If ``True`` API documentation will be served at
+            ``docs_url``. The documentation is built from the
+            ``request_schemas`` and ``response_schemas`` attributes of
+            services added to the instance. Default is ``False``.
+        docs_url (str): Endpoint for the API documentation. Ignored if
+            ``expose_docs=False``. Defaults to '/docs/'
+
+    Attributes:
+        name (str): Name for the application.
+        description (str): Description of the application.
+        version (str): Version of the application.
+        meta (dict): Additional meta data added to the response body in health
+            checks.
+        expose_docs (bool): Whether the instance is configured to expose API
+            documentation.
+        docs_url (str): Endpoint the API documentation is exposed at.
     """
 
-    def __init__(self, *, name=__name__, meta=None, description=None, expose_docs=False,
-                 docs_url='/docs/', docs_json_url='/docs.json'):
+    def __init__(self, *, name=__name__, description=None, version=None, meta=None,
+                 expose_docs=False, docs_url='/docs/', docs_json_url='/docs.json'):
         self.name = name
         self.meta = {} if meta is None else meta
         self.description = description
+        self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
         self.docs_url = '/docs/'
@@ -804,7 +830,7 @@ class ModelApp:
         Returns:
             An instance of :class:`porter.api.App`.
         """
-        app = api.App(self.name, static_folder=None)
+        app = api.App(self.name, static_folder='porter/assets')
         # register a custom JSON encoder
         app.json_encoder = cf.json_encoder
         # register error handler for all werkzeug default exceptions
@@ -830,9 +856,13 @@ class ModelApp:
         return app
 
     def _route_docs(self):
-        openapi_json = make_openapi_spec(self.name, self.description, '1.0.0',   # TODO: pass a real version
-                                         self._request_schemas, self._response_schemas,
-                                         self._additional_params)
+        openapi_json =  make_openapi_spec(self.name, self.description, self.version,
+                                          self._request_schemas, self._response_schemas,
+                                          self._additional_params)
+
+        @self.app.route('/assets/swagger-ui/{filename}')
+        def swagger_ui(filename):
+            return self.app.send_static_file(filename)
 
         @self.app.route(self.docs_json_url)
         def docs_json():
@@ -841,4 +871,5 @@ class ModelApp:
         @self.app.route(self.docs_url)
         def docs():
             # TODO: fill in values
-            return static_docs
+            html = make_docs_html(self.docs_json_url)
+            return html
