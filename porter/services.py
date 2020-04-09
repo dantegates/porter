@@ -173,6 +173,7 @@ class BaseService(abc.ABC, StatefulRoute):
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = [
+        ('POST', 400, schemas.model_context_error, None),
         ('POST', 422, schemas.model_context_error, None),
         ('POST', 500, schemas.model_context_error, None),
     ]
