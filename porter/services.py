@@ -249,7 +249,7 @@ class BaseService(abc.ABC, StatefulRoute):
             if self.validate_response_data:
                 schema = self._response_schemas.get((api.request_method(), response.status_code))
                 if schema is not None:
-                    # TODO: use json.loads?
+                    # TODO: use json.loads?, numpy types can break this
                     schema.validate(response.raw_data)
         return response
 
