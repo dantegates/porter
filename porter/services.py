@@ -668,13 +668,6 @@ class PredictionService(BaseService):
         self.add_response_schema('POST', 200, response_schema)
 
 
-# TODO: deprecate
-class PredictionServiceConfig(PredictionService):
-    def __init__(self, *args, **kwargs):
-        warnings.warn('PredictionServiceConfig is deprecated. Use PredictionService.')
-        super().__init__(*args, **kwargs)
-
-
 class ModelApp:
     """
     Abstraction used to simplify building REST APIs that expose predictive
