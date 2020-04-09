@@ -286,6 +286,7 @@ class BaseService(abc.ABC, StatefulRoute):
         """
         return self.endpoint
 
+    # TODO: use schemas to validate
     def check_meta(self, meta):
         """Raise ``ValueError`` if ``meta`` contains invalid values, e.g. ``meta``
         cannot be converted to JSON properly.
@@ -823,6 +824,7 @@ class ModelApp:
             self._route_docs()
         self.app.run(*args, **kwargs)
 
+    # TODO: use schemas to validate
     def check_meta(self, meta):
         """Raise ``ValueError`` if ``meta`` contains invalid values, e.g. ``meta``
         cannot be converted to JSON properly.
@@ -838,6 +840,7 @@ class ModelApp:
                 'Could not jsonify meta data. Make sure that meta data is '
                 'valid JSON and that all keys are of the same type.')
 
+    # TODO: we need tests for this
     def _build_app(self):
         """Build and return the app.
 
