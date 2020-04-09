@@ -151,7 +151,10 @@ class Object(ApiObject):
             spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
             spec['required'] = self.required
         if self.additional_properties_type is not None:
-            spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
+            if hasattr(self.additional_properties_type, 'to_openapi'):
+                spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
+            else:
+                spec['additionalProperties'] = self.additional_properties_type
         return spec
 
 

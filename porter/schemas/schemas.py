@@ -10,12 +10,15 @@ request_id = openapi.String(
     'Hex value of UUID assigned to the request.',
     reference_name='RequestID')
 
+app_meta = openapi.Object(additional_properties_type='true')
+
+model_meta = openapi.Object(additional_properties_type='true')
 
 model_context = openapi.Object(
     properties={
         'model_name': openapi.String('The name of the model.'),
         'api_version': openapi.String('The model API version.'),
-        'model_meta': openapi.Object(additional_properties_type=openapi.String('Arbitrary meta-data associated with the model.'))
+        'model_meta': model_meta
     },
     reference_name='ModelContext'
 )
@@ -24,7 +27,6 @@ model_context = openapi.Object(
 error_messages = openapi.Array('An array of messages describing the error.', item_type=openapi.String())
 error_name = openapi.String('Name of the error')
 error_traceback = openapi.String('The error traceback')
-
 
 
 # define response objects determined by app configurations
@@ -55,7 +57,7 @@ health_check = openapi.Object(
         **_base_response,
         'porter_version': openapi.String('The version of the porter on the deployed application.'),
         'deployed_on': openapi.String('Start up time of the server. Format YYYY-MM-DDTHH:MM:SS.ffffff, e.g. 2020-04-01T19:00:31.518627'),
-        'app_meta': openapi.Object(additional_properties_type=openapi.String('Arbitrary meta-data associated with the application')),
+        'app_meta': app_meta,
         'services': openapi.Object(
             'All available services on the server',
             additional_properties_type=openapi.Object(

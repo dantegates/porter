@@ -233,7 +233,6 @@ class BaseService(abc.ABC, StatefulRoute):
             raise model_context_error
         # re-raise any unhandled exceptions as model context errors
         except Exception as err:
-            # TODO: re-raise as model context error
             model_context_error = exc.PredictionError('Could not serve model results successfully.')
             model_context_error.update_model_context(self)
             self._log_error(err)
@@ -303,12 +302,13 @@ class BaseService(abc.ABC, StatefulRoute):
         this method on the superclass unless they have a good reason not to.
         """
         try:
-            # sort_keys=True tests the flask.jsonify implementation
-            _ = json.dumps(meta, cls=cf.json_encoder, sort_keys=True)
-        except TypeError:
-            raise exc.PorterError(
-                'Could not jsonify meta data. Make sure that meta data is '
-                'valid JSON and that all keys are of the same type.')
+            schemas.model_meta.validate(meta)
+        except ValueError as err:
+            if err.args[0].startswith('Schema validation failed'):
+                raise exc.PorterError(
+                    'Could not jsonify meta data. Make sure that meta data is '
+                    'valid JSON and that all keys are of the same type.')
+            raise err
 
     def update_meta(self, meta):
         """Update meta data with instance state if desired and return."""
@@ -832,7 +832,6 @@ class ModelApp:
             self._route_docs()
         self.app.run(*args, **kwargs)
 
-    # TODO: use schemas to validate
     def check_meta(self, meta):
         """Raise ``ValueError`` if ``meta`` contains invalid values, e.g. ``meta``
         cannot be converted to JSON properly.
@@ -842,11 +841,13 @@ class ModelApp:
         """
         try:
             # sort_keys=True tests the flask.jsonify implementation
-            _ = json.dumps(meta, cls=cf.json_encoder, sort_keys=True)
-        except TypeError:
-            raise exc.PorterError(
-                'Could not jsonify meta data. Make sure that meta data is '
-                'valid JSON and that all keys are of the same type.')
+            schemas.app_meta.validate(meta)
+        except TypeError as err:
+            if err.args[0].startswith('Schema validation failed'):
+                raise exc.PorterError(
+                    'Could not jsonify meta data. Make sure that meta data is '
+                    'valid JSON and that all keys are of the same type.')
+            raise err
 
     # TODO: we need tests for this
     def _build_app(self):
