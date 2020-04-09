@@ -665,8 +665,7 @@ class PredictionService(BaseService):
         data = super().get_post_data()
         if not self.batch_prediction:
             data = [data]
-        # TODO: return only feature columns + ID
-        return pd.DataFrame(data)[[_ID] + self.feature_columns]
+        return pd.DataFrame(data)
 
     def _add_feature_schema(self, user_schema):
         assert isinstance(user_schema, schemas.Object), '``feature_schema`` must be an Object'
