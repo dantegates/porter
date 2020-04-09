@@ -83,8 +83,8 @@ class TestAPILogging(unittest.TestCase):
 class TestContracts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        ns = load_example(os.path.join(HERE, '../examples/contracts.py'))
-        cls.test_app = ns['model_app'].app.test_client()
+        cls.ns = load_example(os.path.join(HERE, '../examples/contracts.py'))
+        cls.test_app = cls.ns['model_app'].app.test_client()
 
     def test_instance_prediction_service(self):
         """Configurations for this service are:
@@ -304,7 +304,57 @@ class TestContracts(unittest.TestCase):
             },
         ]
         r = self.test_app.post('/datascience/batch-ratings-model/v1/prediction', data=json.dumps(valid_data))
-        self.assertEqual(r.status_code, 202)        
+        self.assertEqual(r.status_code, 202)
+        self.ns['spark_interface_response_schema'].validate(json.loads(r.data))
+
+    def test_custom_service_validations_fail(self):
+        invalid_data1 = 'this string is definitely not an object'
+        invalid_data2 = {'this object': 'is an object', 'but not a': 'correct schema'}
+        invalid_data_checking_nested_validations1 = {
+            'string_with_enum_prop': 'a',
+            'an_array': [1, 2],
+            'another_property': {'a': 'a', 'b': 1},
+            'yet_another_property': [
+                {'foo': 'a'},
+                {'foo': 'a', 'bar': 1}  # all props should be str
+            ]
+        }
+        invalid_data_checking_nested_validations2 = {
+            'string_with_enum_prop': 'a',
+            'an_array': [1, 2],
+            'another_property': {'a': 'a', 'b': 'not an int'},
+            'yet_another_property': [
+                {'foo': 'a'},
+                {'foo': 'a', 'bar': '1'}
+            ]
+        }
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data1))
+        self.assertEqual(r.status_code, 422)
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data2))
+        self.assertEqual(r.status_code, 422)
+
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations1))
+        self.assertEqual(r.status_code, 422)
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations2))
+        self.assertEqual(r.status_code, 422)
+
+    def test_custom_service_validations_succeed(self):
+        valid_data = {
+            'string_with_enum_prop': 'a',
+            'an_array': [1, 2],
+            'another_property': {'a': 'a', 'b': 1},
+            'yet_another_property': [
+                {'foo': 'a'},
+                {'foo': 'a', 'bar': 'b'}
+            ]
+        }
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 200)
+
 
 
 if __name__ == '__main__':
