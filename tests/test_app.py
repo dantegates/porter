@@ -251,7 +251,7 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(resp3.status_code, 200)
 
 
-@mock.patch('porter.responses.api.request_id', lambda: 123)
+@mock.patch('porter.responses.api.request_id', lambda: '123')
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
@@ -268,7 +268,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
@@ -276,8 +276,13 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
     @mock.patch('porter.services.api.App')
@@ -298,7 +303,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {
@@ -316,8 +321,13 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
     @mock.patch('porter.services.api.App')
@@ -335,7 +345,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
@@ -353,8 +363,13 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
     @mock.patch('porter.services.api.App')
@@ -380,7 +395,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
@@ -407,8 +422,13 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     def test_root(self):
         resp = self.app.get('/')
