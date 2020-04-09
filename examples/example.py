@@ -38,6 +38,7 @@ import os
 
 from porter.datascience import WrappedModel, WrappedTransformer, BasePostProcessor
 from porter.services import ModelApp, PredictionService
+from porter.schemas import Object, Number
 
 # Uncomment this and enter a directory with "preprocessor.pkl" and "model.h5"
 # file to make this example working.
@@ -55,11 +56,13 @@ model_app = ModelApp()
 
 # define the expected input schema so the model can validate the POST
 # request input
-input_features = [
-    'feature1',
-    'feature2',
-    'column3',
-]
+feature_schema = Object(
+    properties={
+        'feature1': Number(),
+        'feature2': Number(),
+        'column3': Number(),
+    }
+)
 
 # Define a preprocessor, model and postprocessor for transforming the
 # POST request data, predicting and transforming the model's predictions.
@@ -100,11 +103,12 @@ prediction_service = PredictionService(
                                     # called on the model's predictions before
                                     # returning to user. Optional.
                                     #
-    input_features=input_features,  # The input schema is used to validate
+    feature_schema=feature_schema,  # The input schema is used to validate
                                     # the payload of the POST request.
                                     # Optional.
+    validate_request_data=True,     # Whether to validate the request data.
                                     #
-    allow_nulls=False,              # Wether nulls are allowed in the POST
+    allow_nulls=False,              # Whether nulls are allowed in the POST
                                     # request data. Optional and meaningless
                                     # when validate_input=False.
                                     #
