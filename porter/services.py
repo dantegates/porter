@@ -839,6 +839,7 @@ class ModelApp:
 
         return app
 
+    # TODO: move this back to openapi.py
     def _route_docs(self):
         openapi_json =  schemas.make_openapi_spec(self.name, self.description, self.version,
                                           self._request_schemas, self._response_schemas,
