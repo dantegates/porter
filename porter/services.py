@@ -35,10 +35,8 @@ from . import config as cf
 from . import constants as cn
 from . import exceptions as exc
 from . import responses as porter_responses
-from .schemas import (Array, Integer, Number, Object, RequestSchema,
-                      ResponseSchema, String, generic_error,
-                      health_check, model_context, model_context_error,
-                      request_id, make_openapi_spec, make_docs_html)
+from . import schemas
+
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -175,8 +173,8 @@ class BaseService(abc.ABC, StatefulRoute):
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = [
-        ('POST', 422, model_context_error, None),
-        ('POST', 500, model_context_error, None),
+        ('POST', 422, schemas.model_context_error, None),
+        ('POST', 500, schemas.model_context_error, None),
     ]
     # subclasses can override this to add additional defaults
     _service_default_schemas = []
@@ -393,7 +391,7 @@ class BaseService(abc.ABC, StatefulRoute):
 
     def add_request_schema(self, method, api_obj, description=None):
         method = method.upper()
-        self.request_schemas[method] = RequestSchema(api_obj, description)
+        self.request_schemas[method] = schemas.RequestSchema(api_obj, description)
         self._request_schemas[method] = api_obj
 
     def add_response_schema(self, method, status_code, api_obj, description=None):
@@ -401,7 +399,7 @@ class BaseService(abc.ABC, StatefulRoute):
         self._response_schemas[(method, status_code)] = api_obj
         if not method in self.response_schemas:
             self.response_schemas[method] = []
-        self.response_schemas[method].append(ResponseSchema(api_obj, status_code, description))
+        self.response_schemas[method].append(schemas.ResponseSchema(api_obj, status_code, description))
 
 
 class PredictionService(BaseService):
@@ -508,7 +506,7 @@ class PredictionService(BaseService):
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
     _service_default_schemas = [
-        ('GET', 200, String(), None)
+        ('GET', 200, schemas.String(), None)
     ]
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
@@ -536,6 +534,8 @@ class PredictionService(BaseService):
         if self.feature_schema is not None:
             self._add_feature_schema(self.feature_schema)
             self.feature_columns = list(self.feature_schema.properties.keys())
+        else:
+            self.feature_columns = None
         # if None, we'll add the default schema anyway
         self._add_prediction_schema(self.prediction_schema)
 
@@ -575,21 +575,34 @@ class PredictionService(BaseService):
         return response
 
     def _predict(self):
+        # retrieve the data and validate the inputs. If
+        # self.validate_request_data is True and a feature schema was
+        # provided, the schema is vetted in get_post_data()
         X_input = self.get_post_data()
-
         if not self.allow_nulls or self.additional_checks is not None:
             self.check_request(X_input, self.allow_nulls, self.additional_checks)
 
-        if self._preprocess_model_input:
-            X_preprocessed = self.preprocessor.process(X_preprocessed)
+        # Once the input data has been fully validated, extract the feature
+        # columns (all features provided in ``feature_schema``) if provided.
+        # This allows the user to fully anticipate what features are passed
+        # to the preprocessor.
+        if self.feature_columns:
+            X_preprocessed = X_input[self.feature_columns]
         else:
             X_preprocessed = X_input
 
+        # preprocess if user specified a preprocessor
+        if self._preprocess_model_input:
+            X_preprocessed = self.preprocessor.process(X_preprocessed)
+
+        # get the predictions
         preds = self.model.predict(X_preprocessed)
 
+        # postprocess
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
+        # finally format the predictions and return
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(
                 self, X_input[_ID], preds)
@@ -654,34 +667,34 @@ class PredictionService(BaseService):
         return pd.DataFrame(data)[[_ID] + self.feature_columns]
 
     def _add_feature_schema(self, user_schema):
-        assert isinstance(user_schema, Object), '``feature_schema`` must be an Object'
+        assert isinstance(user_schema, schemas.Object), '``feature_schema`` must be an Object'
         # add ID to schema
-        request_schema = Object(
+        request_schema = schemas.Object(
             properties={
-                'id': Integer('An ID uniquely identifying each instance in the POST body.'),
+                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
                 **user_schema.properties},
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
-            request_schema = Array(item_type=request_schema)
+            request_schema = schemas.Array(item_type=request_schema)
         self.add_request_schema('POST', request_schema)
 
     def _add_prediction_schema(self, user_schema):
-        prediction_schema = Object(
+        prediction_schema = schemas.Object(
             'Model output',
             properties={
-                'id': Integer('An ID uniquely identifying each instance in the POST body'),
-                'prediction': user_schema or Number('Model Prediction')
+                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body'),
+                'prediction': user_schema or schemas.Number('Model Prediction')
             },
             reference_name=getattr(user_schema, 'reference_name', None)
         )
 
         if self.batch_prediction:
-            prediction_schema = Array(item_type=prediction_schema)
+            prediction_schema = schemas.Array(item_type=prediction_schema)
 
-        response_schema = Object(
+        response_schema = schemas.Object(
             properties={
-                'request_id': request_id,
-                'model_context': model_context,
+                'request_id': schemas.request_id,
+                'schemas.model_context': schemas.model_context,
                 'predictions': prediction_schema
             }
         )
@@ -848,7 +861,7 @@ class ModelApp:
 
         # register the schemas for the health checks
         if self.expose_docs:
-            health_check_response = {'GET': [ResponseSchema(health_check, 200)]}
+            health_check_response = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
             self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
             self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
             self._additional_params[cn.LIVENESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
@@ -861,7 +874,7 @@ class ModelApp:
         return app
 
     def _route_docs(self):
-        openapi_json =  make_openapi_spec(self.name, self.description, self.version,
+        openapi_json =  schemas.make_openapi_spec(self.name, self.description, self.version,
                                           self._request_schemas, self._response_schemas,
                                           self._additional_params)
 
@@ -875,5 +888,5 @@ class ModelApp:
 
         @self.app.route(self.docs_url)
         def docs():
-            html = make_docs_html(self.docs_json_url)
+            html = schemas.make_docs_html(self.docs_json_url)
             return html
