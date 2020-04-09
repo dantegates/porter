@@ -648,6 +648,7 @@ class PredictionService(BaseService):
 
     @staticmethod
     def _default_checks(X, allow_nulls):
+        # TODO: deprecate this as well?
         if not allow_nulls and X.isnull().any().any():
             null_counts = X.isnull().sum()
             null_columns = null_counts[null_counts > 0].index.tolist()
