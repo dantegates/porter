@@ -339,16 +339,11 @@ def _update_spec(schema, method_dict, components_schemas):
     components_schemas.update(refs)
 
 
-# in theory we could template this, but it's the only instance of returning
-# html like this so why bother?
 # https://github.com/swagger-api/swagger-ui/blob/master/dist/index.html
-# TODO: parameterize where swagger scripts come from? include these as static?
 with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets/swagger-ui/swagger_template.html')) as f:
     _doc_template = Template(f.read())
 
 
-# def make_docs_html(title, description, version, request_schemas, response_schemas,
-#                    additional_params):
 def make_docs_html(docs_json_url):
     """
     Args:
