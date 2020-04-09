@@ -29,6 +29,7 @@ class Response:
         payload = self._init_base_response()
         if service_class is not None:
             payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = self._init_model_context(service_class)
+        # TODO: set model context to null?
         payload.update(data)
         return payload
 
