@@ -18,6 +18,10 @@ class ModelContextError(PorterError):
         self.model_service = model_service
 
 
+class BadRequest(ModelContextError):
+    code = 400
+
+
 class InvalidModelInput(ModelContextError):
     """Exception class to raise when the POST JSON is not valid for
     predicting.
@@ -39,7 +43,7 @@ class RequestMissingFields(InvalidModelInput):
             'request payload is missing the following field(s): {}'
             .format(fields))
 
-
+# TODO: deprecate? this used to get raised in PredictionService._default_checks
 class RequestContainsNulls(InvalidModelInput):
     """Exception raised when POST request contains null values."""
     def __init__(self, fields):

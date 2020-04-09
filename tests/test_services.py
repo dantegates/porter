@@ -705,7 +705,8 @@ class TestBaseService(unittest.TestCase):
 
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
             service1 = Service(name='name1', api_version='version1', log_api_calls=True)
-            with self.assertRaisesRegex(Exception, 'testing'):
+            # unhandled exceptions should always get wrapped as a prediction error
+            with self.assertRaisesRegex(exc.PredictionError, 'Could not serve model results successfully.'):
                 service1()
             mock__logger.info.assert_called_with(
                 'api logging',
@@ -718,7 +719,8 @@ class TestBaseService(unittest.TestCase):
 
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
             service2 = Service(name='name2', api_version='version2', log_api_calls=False)
-            with self.assertRaisesRegex(Exception, 'testing'):
+            # unhandled exceptions should always get wrapped as a prediction error
+            with self.assertRaisesRegex(exc.PredictionError, 'Could not serve model results successfully.'):
                 service2()
             mock__logger.assert_not_called()
 
@@ -737,7 +739,7 @@ class TestBaseService(unittest.TestCase):
                 return 'ready'
 
         service = Service(name='name', api_version='version')
-        with self.assertRaisesRegex(Exception, 'testing'):
+        with self.assertRaisesRegex(exc.PredictionError, 'Could not serve model results successfully.'):
             service()
         mock__logger.exception.assert_called_with(
             e,

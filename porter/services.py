@@ -173,8 +173,11 @@ class BaseService(abc.ABC, StatefulRoute):
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = [
+        # bad request, raised by flask if json can't be parsed
         ('POST', 400, schemas.model_context_error, None),
+        # Unprocessable entity, valid json with semantic errors raised by porter
         ('POST', 422, schemas.model_context_error, None),
+        # internal server error, any unhandled exception in .serve() will cause this
         ('POST', 500, schemas.model_context_error, None),
     ]
     # subclasses can override this to add additional defaults
@@ -225,12 +228,16 @@ class BaseService(abc.ABC, StatefulRoute):
             err.update_model_context(self)
             self._log_error(err)
             raise err
-        # technically we should never get here. self.serve() should always
-        # return a ModelContextError but I'm a little paranoid about this.
+        except werkzeug.exceptions.BadRequest as err:
+            model_context_error = exc.BadRequest(err.description)
+            raise model_context_error
+        # re-raise any unhandled exceptions as model context errors
         except Exception as err:
             # TODO: re-raise as model context error
+            model_context_error = exc.PredictionError('Could not serve model results successfully.')
+            model_context_error.update_model_context(self)
             self._log_error(err)
-            raise err
+            raise model_context_error from err
         finally:
             if self.log_api_calls:
                 request_data = api.request_json()
