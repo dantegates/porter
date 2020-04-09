@@ -301,7 +301,7 @@ class CustomService(BaseService):
 
     def serve(self):
         data = self.get_post_data()
-        return 200
+        return {'results': ['foo', 'bar']}
 
     def status(self):
         return 'READY'
@@ -310,6 +310,8 @@ class CustomService(BaseService):
 """
 Defining a very nested, customized data structure.
 """
+
+from porter.schemas import request_id, model_context
 
 
 custom_service_input = Object(
@@ -322,16 +324,26 @@ custom_service_input = Object(
     reference_name='CustomServiceInputs'
 )
 
-custom_service_output_success = Array(item_type=String())
-custom_service_output_failure = Object(properties={'error': String(), 'timestamp': String()})
+custom_service_output_success = Object(
+    properties={
+        'request_id': request_id,
+        'model_context': model_context,
+        'results': Array(item_type=String())
+    }
+)
 
 custom_service = CustomService(name='custom-service', api_version='v1', validate_request_data=True)
 custom_service.add_request_schema('POST', custom_service_input)
 custom_service.add_response_schema('POST', 200, custom_service_output_success)
-custom_service.add_response_schema('POST', 500, custom_service_output_failure)
 
 
 """
+Notice how the response objects define "request_id" and "model_context'
+properties to agree with ``porter``s default response objects.
+
+If you find that you need to create highly custom schemas like this, be sure
+to first understand these defaults.
+
 The last thing we need to do here is instantiate the model app and let it run.
 Be sure to specify `expose_docs=True` or the documentation won't be included.
 Note that errors explicitly raised by `porter` will be added to the documentation
