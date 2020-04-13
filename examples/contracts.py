@@ -274,6 +274,7 @@ spark_interface_service = SparkInterfaceService(
     api_version='v1',
     namespace='datascience',
     feature_schema=ratings_feature_schema,
+    validate_request_data=True,
     batch_prediction=True)
 
 # note that when we specify schemas directly, ``porter`` leaves them untouched,
@@ -296,9 +297,11 @@ Here's an example.
 
 class CustomService(BaseService):
     action = 'foo'
+    route_kwargs = {'methods': ['GET', 'POST']}
 
     def serve(self):
-        pass
+        data = self.get_post_data()
+        return {'results': ['foo', 'bar']}
 
     def status(self):
         return 'READY'
@@ -308,27 +311,39 @@ class CustomService(BaseService):
 Defining a very nested, customized data structure.
 """
 
+from porter.schemas import request_id, model_context
+
 
 custom_service_input = Object(
     properties={
         'string_with_enum_prop': String(additional_params={'enum': ['a', 'b', 'abc']}),
-        'an_arry': Array(item_type=Number()),
+        'an_array': Array(item_type=Number()),
         'another_property': Object(properties={'a': String(), 'b': Integer()}),
         'yet_another_property': Array(item_type=Object(additional_properties_type=String()))
     },
     reference_name='CustomServiceInputs'
 )
 
-custom_service_output_success = Array(item_type=String())
-custom_service_output_failure = Object(properties={'error': String(), 'timestamp': String()})
+custom_service_output_success = Object(
+    properties={
+        'request_id': request_id,
+        'model_context': model_context,
+        'results': Array(item_type=String())
+    }
+)
 
-custom_service = CustomService(name='custom-service', api_version='v1')
-custom_service.add_request_schema('GET', custom_service_input)
+custom_service = CustomService(name='custom-service', api_version='v1', validate_request_data=True)
+custom_service.add_request_schema('POST', custom_service_input)
 custom_service.add_response_schema('POST', 200, custom_service_output_success)
-custom_service.add_response_schema('POST', 500, custom_service_output_failure)
 
 
 """
+Notice how the response objects define "request_id" and "model_context'
+properties to agree with ``porter``s default response objects.
+
+If you find that you need to create highly custom schemas like this, be sure
+to first understand these defaults.
+
 The last thing we need to do here is instantiate the model app and let it run.
 Be sure to specify `expose_docs=True` or the documentation won't be included.
 Note that errors explicitly raised by `porter` will be added to the documentation

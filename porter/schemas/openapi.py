@@ -4,6 +4,7 @@ import collections
 import os
 
 import fastjsonschema
+from jinja2 import Template
 
 
 class ApiObject:
@@ -150,7 +151,10 @@ class Object(ApiObject):
             spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
             spec['required'] = self.required
         if self.additional_properties_type is not None:
-            spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
+            if hasattr(self.additional_properties_type, 'to_openapi'):
+                spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
+            else:
+                spec['additionalProperties'] = self.additional_properties_type
         return spec
 
 
@@ -335,9 +339,31 @@ def _update_spec(schema, method_dict, components_schemas):
     components_schemas.update(refs)
 
 
-# in theory we could template this, but it's the only instance of returning
-# html like this so why bother?
 # https://github.com/swagger-api/swagger-ui/blob/master/dist/index.html
-# TODO: parameterize where swagger scripts come from? include these as static?
-with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets/swagger.html')) as f:
-    static_docs = f.read()
+with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets/swagger-ui/swagger_template.html')) as f:
+    _doc_template = Template(f.read())
+
+
+def make_docs_html(docs_json_url):
+    """
+    Args:
+        title (str): The title of the application.
+        description (str): A description of the application.
+        version (str): The version of the application.
+        request_schemas (dict): Nested dictionary mapping endpoints to a
+            dictionary of HTTP methods to instances of :class:`RequestSchema`.
+            E.g. `{"/foo/bar": {"GET": RequestSchema(...)}}`.
+        response_schemas (dict): Nested dictionary mapping endpoints to
+            a dictionary of HTTP methods to lists of instances of
+            :class:`ResponseSchema`.
+            E.g. `{"/foo/bar/": {"GET": [ResponseSchema(...), ResponseSchema(...)]}}`
+        additional_params (dict): A nested dictionary mapping tuples of
+            endpoints and HTTP methods to a dictionary containing arbitrary
+            OpenAPI values that will be applied to the OpenAPI spec for that
+            endpoint/method.
+            E.g. `{("/foo/bar/", 'GET): {"tags": ["tag1", "tag2"]}}`
+
+    Returns:
+        str: Static html docs to serve.
+    """
+    return _doc_template.render(docs_json_url=docs_json_url)

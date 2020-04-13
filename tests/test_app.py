@@ -9,11 +9,12 @@ import unittest
 from unittest import mock
 
 import flask
+from werkzeug import exceptions as exc
 from porter import __version__
 from porter import constants as cn
-from porter import exceptions as exc
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
 from porter.services import ModelApp, PredictionService
+import porter.schemas as sc
 
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)
@@ -34,7 +35,12 @@ class TestAppPredictions(unittest.TestCase):
         class Postprocessor1(BasePostProcessor):
             def process(self, X_input, X_preprocessed, predictions):
                 return predictions * -1
-        input_features1 = ['feature1', 'feature2']
+        feature_schema1 = sc.Object(
+            properties={
+                'feature1': sc.Number(), 
+                'feature2': sc.Number(),
+            }
+        )
 
         # define objects for model 2
         class Preprocessor2(BasePreProcessor):
@@ -44,16 +50,16 @@ class TestAppPredictions(unittest.TestCase):
         class Model2(BaseModel):
             def predict(self, X):
                 return X['feature1'] + X['feature3']
-        input_features2 = ['feature1']
+        feature_schema2 = sc.Object(properties={'feature1': sc.Number()})
         def user_check(X):
             if (X.feature1 == 0).any():
-                raise exc.InvalidModelInput
+                raise exc.UnprocessableEntity
 
         # define objects for model 3
         class Model3(BaseModel):
             def predict(self, X):
                 return X['feature1'] * -1
-        input_features3 = ('feature1',)
+        feature_schema3 = sc.Object(properties={'feature1': sc.Number()})
 
         # define configs and add services to app
         prediction_service1 = PredictionService(
@@ -63,8 +69,8 @@ class TestAppPredictions(unittest.TestCase):
             action='predict',
             preprocessor=Preprocessor1(),
             postprocessor=Postprocessor1(),
-            input_features=input_features1,
-            allow_nulls=False,
+            feature_schema=feature_schema1,
+            validate_request_data=True,
             batch_prediction=True
         )
         prediction_service2 = PredictionService(
@@ -74,8 +80,8 @@ class TestAppPredictions(unittest.TestCase):
             namespace='n/s/',
             preprocessor=Preprocessor2(),
             postprocessor=None,
-            input_features=input_features2,
-            allow_nulls=False,
+            feature_schema=feature_schema2,
+            validate_request_data=True,
             batch_prediction=True,
             additional_checks=user_check
         )
@@ -85,8 +91,8 @@ class TestAppPredictions(unittest.TestCase):
             api_version='v0.0-alpha',
             preprocessor=None,
             postprocessor=None,
-            input_features=input_features3,
-            allow_nulls=False,
+            feature_schema=feature_schema3,
+            validate_request_data=True,
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
@@ -190,7 +196,7 @@ class TestAppPredictions(unittest.TestCase):
         post_data4 = {'id': 1, 'feature1': None}
         # contains nulls 
         post_data5 = [{'id': 1, 'feature1': 1, 'feature2': 1},
-                      {'id': 1, 'feature1': 1, 'feature2': None}]
+                      {'id': 1, 'feature1': 1}]
         # contains 0 values that don't pass user check
         post_data6 = [{'id': 1, 'feature1': 1, 'feature2': 1},
                       {'id': 1, 'feature1': 0, 'feature2': 1}]
@@ -208,12 +214,12 @@ class TestAppPredictions(unittest.TestCase):
         self.assertTrue(all('error' in json.loads(actual.data) for actual in actuals))
         # check response values
         expected_error_values = [
-            {'name': 'InvalidModelInput'},
-            {'name': 'InvalidModelInput'},
-            {'name': 'RequestMissingFields'},
-            {'name': 'RequestContainsNulls'},
-            {'name': 'RequestContainsNulls'},
-            {'name': 'InvalidModelInput'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
             {'name': 'BadRequest'},
         ]
         for actual, expectations in zip(actuals, expected_error_values):
@@ -245,7 +251,7 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(resp3.status_code, 200)
 
 
-@mock.patch('porter.responses.api.request_id', lambda: 123)
+@mock.patch('porter.responses.api.request_id', lambda: '123')
 class TestAppHealthChecks(unittest.TestCase):
     def setUp(self):
         self.model_app = ModelApp()
@@ -262,7 +268,7 @@ class TestAppHealthChecks(unittest.TestCase):
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
@@ -270,8 +276,13 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
     @mock.patch('porter.services.api.App')
@@ -279,18 +290,20 @@ class TestAppHealthChecks(unittest.TestCase):
         mock_init.return_value = None
         class C(PredictionService):
             status = 'NOTREADY'
-        cf = C()
-        cf.name  = 'foo'
-        cf.api_version = 'bar'
-        cf.meta = {'k': 1}
-        cf.id = 'foo:bar'
-        cf.endpoint = '/foo/bar/'
-        cf.route_kwargs = {}
-        self.model_app.add_service(cf)
+            request_schemas = {}
+            response_schemas = {}
+        svc = C()
+        svc.name  = 'foo'
+        svc.api_version = 'bar'
+        svc.meta = {'k': 1}
+        svc.id = 'foo:bar'
+        svc.endpoint = '/foo/bar/'
+        svc.route_kwargs = {}
+        self.model_app.add_service(svc)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {
@@ -308,24 +321,31 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
     @mock.patch('porter.services.api.App')
     def test_readiness_ready_ready1(self, mock_App, mock_init):
         mock_init.return_value = None
-        cf = PredictionService()
-        cf.name = 'model1'
-        cf.api_version = '1.0.0'
-        cf.id = 'model1'
-        cf.endpoint = '/model1/1.0.0/prediction'
-        cf.meta = {'foo': 1, 'bar': 2}
-        self.model_app.add_service(cf)
+        svc = PredictionService()
+        svc.name = 'model1'
+        svc.api_version = '1.0.0'
+        svc.id = 'model1'
+        svc.endpoint = '/model1/1.0.0/prediction'
+        svc.meta = {'foo': 1, 'bar': 2}
+        svc.response_schemas = {}
+        svc.request_schemas = {}
+        self.model_app.add_service(svc)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
@@ -343,30 +363,39 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
     @mock.patch('porter.services.api.App')
     def test_readiness_ready_ready2(self, mock_App, mock_init):
         mock_init.return_value = None
-        cf1 = PredictionService()
-        cf1.name = 'model1'
-        cf1.api_version = '1.0.0'
-        cf1.id = 'model1:1.0.0'
-        cf1.endpoint = '/model1/1.0.0/prediction'
-        cf1.meta = {'foo': 1, 'bar': 2}
-        cf2 = PredictionService()
-        cf2.name = 'model2'
-        cf2.api_version = 'v0'
-        cf2.id = 'model2:v0'
-        cf2.endpoint = '/model2/v0/prediction'
-        cf2.meta = {'foo': 1}
-        self.model_app.add_services(cf1, cf2)
+        svc1 = PredictionService()
+        svc1.name = 'model1'
+        svc1.api_version = '1.0.0'
+        svc1.id = 'model1:1.0.0'
+        svc1.endpoint = '/model1/1.0.0/prediction'
+        svc1.meta = {'foo': 1, 'bar': 2}
+        svc1.response_schemas = {}
+        svc1.request_schemas = {}        
+        svc2 = PredictionService()
+        svc2.name = 'model2'
+        svc2.api_version = 'v0'
+        svc2.id = 'model2:v0'
+        svc2.endpoint = '/model2/v0/prediction'
+        svc2.meta = {'foo': 1}
+        svc2.response_schemas = {}
+        svc2.request_schemas = {}  
+        self.model_app.add_services(svc1, svc2)
         resp_alive = self.app.get('/-/alive')
         resp_ready = self.app.get('/-/ready')
         expected_data = {
-            'request_id': 123,
+            'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {},
@@ -393,8 +422,13 @@ class TestAppHealthChecks(unittest.TestCase):
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 200)
-        self.assertEqual(json.loads(resp_alive.data), expected_data)
-        self.assertEqual(json.loads(resp_ready.data), expected_data)
+        alive_response = json.loads(resp_alive.data)
+        ready_respnose = json.loads(resp_ready.data)
+        self.assertEqual(alive_response, expected_data)
+        self.assertEqual(ready_respnose, expected_data)
+        # make sure the defined schema matches reality
+        sc.health_check.validate(alive_response)  # should not raise exception
+        sc.health_check.validate(ready_respnose)  # should not raise exception
 
     def test_root(self):
         resp = self.app.get('/')
@@ -523,8 +557,8 @@ class TestAppErrorHandling(unittest.TestCase):
             },
             'request_id': 123,
             'error': {
-                'name': 'PredictionError',
-                'messages': ['an error occurred during prediction'],
+                'name': 'InternalServerError',
+                'messages': ['Could not serve model results successfully.'],
                 'user_data': user_data,
                 'traceback': re.compile(r".*testing\sa\sfailing\smodel.*"),
             }
@@ -588,8 +622,8 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             },
             'request_id': 123,
             'error': {
-                'name': 'PredictionError',
-                'messages': ['an error occurred during prediction'],
+                'name': 'InternalServerError',
+                'messages': ['Could not serve model results successfully.'],
             }
         }
         self.assertEqual(resp.status_code, 500)

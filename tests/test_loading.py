@@ -7,7 +7,6 @@ import numpy as np
 import sklearn.linear_model
 import tensorflow as tf
 from porter import loading
-from porter.exceptions import PorterError
 from sklearn.externals import joblib
 
 
@@ -127,13 +126,13 @@ class TestLoadingS3(BaseTestLoading):
 
     def test_load_file_s3_fail_missing_key(self):
         self.bucket = os.environ['PORTER_S3_BUCKET_TEST']
-        with self.assertRaises(PorterError):
+        with self.assertRaises(ValueError):
             loading.load_file('s3://%s/this/does/not/exist' % self.bucket,
                 s3_access_key_id=self.s3_access_key_id,
                 s3_secret_access_key=self.s3_secret_access_key)
 
     def test_load_file_s3_fail_missing_bucket(self):
-        with self.assertRaises(PorterError):
+        with self.assertRaises(ValueError):
             loading.load_file('s3://invalid-bucket/this/does/not/exist',
                 s3_access_key_id=self.s3_access_key_id,
                 s3_secret_access_key=self.s3_secret_access_key)
