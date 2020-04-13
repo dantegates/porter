@@ -323,6 +323,30 @@ class TestPredictionServicePredict(unittest.TestCase):
     @mock.patch('porter.services.api.request_json')
     @mock.patch('porter.services.api.get_model_context', lambda: None)
     @mock.patch('porter.services.BaseService._ids', set())
+    def test__predict_additional_checks_raises_422(self, mock_request_json):
+        model = mock.Mock()
+        model_name = api_version = mock.MagicMock()
+        mock_request_json.return_value = {'id': 1}
+        model.predict.return_value = [1]
+        mock_additional_checks = mock.Mock()
+        mock_additional_checks.side_effect = ValueError('verify user message is passed on')
+        prediction_service = PredictionService(
+            model=model,
+            name=model_name,
+            api_version=api_version,
+            meta={},
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=False,
+            additional_checks=mock_additional_checks
+        )
+        with self.assertRaisesRegex(exc.UnprocessableEntity, '.*verify user message is passed on.*'):
+            _ = prediction_service._predict()
+        mock_additional_checks.assert_called()
+
+    @mock.patch('porter.services.api.request_json')
+    @mock.patch('porter.services.api.get_model_context', lambda: None)
+    @mock.patch('porter.services.BaseService._ids', set())
     def test_get_post_data_batch_prediction(self, mock_request_json):
         mock_model = mock.Mock()
         mock_model.predict.return_value = []

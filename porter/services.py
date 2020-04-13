@@ -493,10 +493,13 @@ class PredictionService(BaseService):
             supported or not. If ``True`` the API will accept an array of objects
             to predict on. If ``False`` the API will only accept a single object
             per request. Optional.
-        additional_checks (callable): Raises ``ValueError`` or subclass
-            thereof if POST request is invalid. The signature should accept a
-            single positional argument for the validated POST input parsed to
-            a :obj:`pandas.DataFrame`.
+        additional_checks (callable): If ``additional_checks`` raises a
+            ``ValueError`` when called, a 422 UnprocessableEntity response
+            will be returned to the user. This method allows users to
+            implement additional data validations that cannot be expressed
+            with an OpenAPI schema. The signature should accept a single
+            positional argument for the validated POST input parsed to a
+            :obj:`pandas.DataFrame`.
         feature_schema (:class:`porter.schemas.Object` or `None`): Description
             of an a single feature set. Can be used to validate inputs if
             ``validate_request_data=True`` and document the API if added to an
@@ -623,8 +626,12 @@ class PredictionService(BaseService):
         # Only perform user checks after the schema has been (optionally)
         # validated. This way users don't need to do any error handling in
         # additional_checks.
+        # If the user checks fail (ValueError raised) raise a 422.
         if self.additional_checks is not None:
-            self.additional_checks(X_input)
+            try:
+                self.additional_checks(X_input)
+            except ValueError as err:
+                raise werkzeug_exc.UnprocessableEntity(*err.args) from err
 
         # Once the input data has been fully validated, extract the feature
         # columns (all features provided in ``feature_schema``) if provided.
