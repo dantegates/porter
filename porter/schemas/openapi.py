@@ -7,6 +7,23 @@ import fastjsonschema
 from jinja2 import Template
 
 
+def _numpy_to_builtin(x):
+    """Convert NumPy dtypes (int32, float64, etc) to built-ins (int, float, etc)"""
+    if hasattr(x, 'keys'):
+        # mapping
+        keys = list(x.keys())
+    elif hasattr(x, '__len__'):
+        # sequence
+        keys = range(len(x))
+    else:
+        return
+    for k in keys:
+        if hasattr(x[k], 'tolist'):
+            x[k] = x[k].tolist()
+        elif isinstance(x[k], dict):
+            _numpy_to_builtin(x[k])
+
+
 class ApiObject:
     """Simple abstractions providing an interface from `python` objects and
     popular API standards such as `openapi` and `jsonschema`.
@@ -79,6 +96,8 @@ class ApiObject:
                 method and others.
 
         """
+        # possible hack for accepting numpy types
+        #_numpy_to_builtin(data)
         try:
             self._validate(data)
         except fastjsonschema.exceptions.JsonSchemaException as err:
