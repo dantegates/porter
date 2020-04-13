@@ -182,6 +182,7 @@ class BaseService(abc.ABC, StatefulRoute):
 
     # TODO: do we really need to validate responses? I could be useful for testing
     # but we could also manually call .validate()
+    # TODO: What is the proper default for validate_request_data
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False,
                  namespace='', validate_request_data=False,
                  validate_response_data=False):
@@ -559,6 +560,7 @@ class PredictionService(BaseService):
         ('GET', 200, schemas.String(), None)
     ]
 
+    # TODO: what is the proper default for batch_prediction?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  action=None, batch_prediction=False,
                  additional_checks=None, feature_schema=None,
