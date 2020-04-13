@@ -1,1 +1,1 @@
-include porter/assets/swagger.html
+include porter/assets/swagger-ui/*
