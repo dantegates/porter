@@ -14,7 +14,8 @@ Getting started is as easy as:
     prediction_service = PilotPredictionService(
         model=my_model,
         name='my-model',
-        api_version='v1')
+        api_version='v1',
+        batch_prediction=True)
 
     app = ModelApp()
     app.add_service(prediction_service)
@@ -49,6 +50,11 @@ Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get 
                 "The browser (or proxy) sent a request that this server could not understand."
             ],
             "name": "BadRequest"
+        },
+        "model_context": {
+            "api_version": "v1",
+            "model_meta": {},
+            "model_name": "my-model"
         },
         "request_id": "852ca09d578b447aa3d41d70b8cc4431"
     }

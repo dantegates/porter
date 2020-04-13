@@ -180,7 +180,7 @@ class BaseService(abc.ABC, StatefulRoute):
     # subclasses can override this to add additional defaults
     _service_default_schemas = []
 
-    # TODO: do we really need to validate responses? I could be useful for testing
+    # TODO: do we really need to validate responses? It could be useful for testing
     # but we could also manually call .validate()
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False,
                  namespace='', validate_request_data=False,
@@ -250,7 +250,7 @@ class BaseService(abc.ABC, StatefulRoute):
         caught_error = None
         # Add the service to a context that is unique by http transaction.
         # This allows us to determine how to approach error handling in
-        # resonses.py.
+        # resonses.py (or anywhere else for that matter).
         api.set_model_context(self)
         try:
             response = self.serve()
@@ -493,11 +493,10 @@ class PredictionService(BaseService):
             supported or not. If ``True`` the API will accept an array of objects
             to predict on. If ``False`` the API will only accept a single object
             per request. Optional.
-        additional_checks (callable): Raises
-            :class:`porter.exceptions.InvalidModelInput` or subclass thereof
-            if POST request is invalid. The signature should accept a single
-            positional argument for the validated POST input parsed to a
-            ``pandas.DataFrame``.
+        additional_checks (callable): Raises ``ValueError`` or subclass
+            thereof if POST request is invalid. The signature should accept a
+            single positional argument for the validated POST input parsed to
+            a :obj:`pandas.DataFrame`.
         feature_schema (:class:`porter.schemas.Object` or `None`): Description
             of an a single feature set. Can be used to validate inputs if
             ``validate_request_data=True`` and document the API if added to an
@@ -540,8 +539,8 @@ class PredictionService(BaseService):
             predictions or not. If ``True`` the API will accept an array of
             objects to predict on. If ``False`` the API will only accept a
             single object per request. Optional.
-        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput`
-            or subclass thereof if POST request is invalid.
+        additional_checks (callable): Raises ValueError or subclass thereof if
+            POST request is invalid.
         feature_schema (`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
@@ -560,6 +559,7 @@ class PredictionService(BaseService):
         ('GET', 200, schemas.String(), None)
     ]
 
+    # TODO: what is the proper default for batch_prediction?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  action=None, batch_prediction=False,
                  additional_checks=None, feature_schema=None,
@@ -603,10 +603,11 @@ class PredictionService(BaseService):
                 to the user.
 
         Raises:
-            :class:`porter.exceptions.ModelContextError`: Raised whenever an error
-                occurs during prediction. The error contains information
-                about the model context which a custom error handler can
-                use to add to the errors response.
+            :class:`werkzeug.exceptions.BadRequest`: Raised when request data cannot
+                be parsed (in super().get_post_data).
+            :class:`werkzeug.exceptions.UnprocessableEntity`: Raised when parsed
+                request data does not follow the specified schema (in
+                super().get_post_data).
         """
         if api.request_method() == 'GET':
             return porter_responses.Response(
@@ -619,9 +620,9 @@ class PredictionService(BaseService):
         # provided, the schema is vetted in get_post_data()
         X_input = self.get_post_data()
 
-        # Only perform user checks after the standard checks have been passed.
-        # This allows the user to assume that all columns are present and there
-        # are no nulls present.
+        # Only perform user checks after the schema has been (optionally)
+        # validated. This way users don't need to do any error handling in
+        # additional_checks.
         if self.additional_checks is not None:
             self.additional_checks(X_input)
 
@@ -783,8 +784,9 @@ class ModelApp:
             None
 
         Raises:
-            :class:`porter.exceptions.PorterError`: If the type of
-                ``service`` is not recognized.
+            ValueError: If ``service.id`` has already been registered on the
+                app. This prevents errors from trying to route multiple classes
+                on the same endpoint.
         """
         # register the service with the add
         if service.id in self._service_ids:
