@@ -493,11 +493,10 @@ class PredictionService(BaseService):
             supported or not. If ``True`` the API will accept an array of objects
             to predict on. If ``False`` the API will only accept a single object
             per request. Optional.
-        additional_checks (callable): Raises
-            :class:`porter.exceptions.InvalidModelInput` or subclass thereof
-            if POST request is invalid. The signature should accept a single
-            positional argument for the validated POST input parsed to a
-            ``pandas.DataFrame``.
+        additional_checks (callable): Raises ``ValueError`` or subclass
+            thereof if POST request is invalid. The signature should accept a
+            single positional argument for the validated POST input parsed to
+            a :obj:`pandas.DataFrame`.
         feature_schema (:class:`porter.schemas.Object` or `None`): Description
             of an a single feature set. Can be used to validate inputs if
             ``validate_request_data=True`` and document the API if added to an
@@ -540,8 +539,8 @@ class PredictionService(BaseService):
             predictions or not. If ``True`` the API will accept an array of
             objects to predict on. If ``False`` the API will only accept a
             single object per request. Optional.
-        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput`
-            or subclass thereof if POST request is invalid.
+        additional_checks (callable): Raises ValueError or subclass thereof if
+            POST request is invalid.
         feature_schema (`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
@@ -603,10 +602,11 @@ class PredictionService(BaseService):
                 to the user.
 
         Raises:
-            :class:`porter.exceptions.ModelContextError`: Raised whenever an error
-                occurs during prediction. The error contains information
-                about the model context which a custom error handler can
-                use to add to the errors response.
+            werkzeug.exceptions.BadRequest: Raised when request data cannot
+                be parsed (in super().get_post_data).
+            werkzeug.exceptions.UnprocessableEntity: Raised when parsed
+                request data does not follow the specified schema (in
+                super().get_post_data).
         """
         if api.request_method() == 'GET':
             return porter_responses.Response(
@@ -783,8 +783,9 @@ class ModelApp:
             None
 
         Raises:
-            :class:`porter.exceptions.PorterError`: If the type of
-                ``service`` is not recognized.
+            ValueError: If ``service.id`` has already been registered on the
+                app. This prevents errors from trying to route multiple classes
+                on the same endpoint.
         """
         # register the service with the add
         if service.id in self._service_ids:
