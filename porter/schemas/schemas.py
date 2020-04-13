@@ -84,7 +84,7 @@ error_body = openapi.Object(
 generic_error = openapi.Object(
     properties={
         **_base_response,
-        **_error_body
+        **_error_body,
     },
     reference_name='GenericError'
 )

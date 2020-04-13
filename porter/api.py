@@ -34,6 +34,20 @@ def request_id():
         flask.g.request_id = uuid.uuid4().hex
     return flask.g.request_id
 
+def set_model_context(service):
+    """Register a model on the request context.
+
+    Args:
+        service (:class:`porter.sevices.BaseService`)
+    """
+    # http://flask.pocoo.org/docs/dev/tutorial/dbcon/
+    flask.g.model_context = service
+
+def get_model_context():
+    """Returns :class:`porter.sevices.BaseService` or None"""
+    # http://flask.pocoo.org/docs/dev/tutorial/dbcon/
+    return getattr(flask.g, 'model_context', None)
+
 
 App = flask.Flask
 """alias of ``flask.app.Flask``."""

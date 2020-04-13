@@ -9,9 +9,9 @@ import unittest
 from unittest import mock
 
 import flask
+from werkzeug import exceptions as exc
 from porter import __version__
 from porter import constants as cn
-from porter import exceptions as exc
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
 from porter.services import ModelApp, PredictionService
 import porter.schemas as sc
@@ -53,7 +53,7 @@ class TestAppPredictions(unittest.TestCase):
         feature_schema2 = sc.Object(properties={'feature1': sc.Number()})
         def user_check(X):
             if (X.feature1 == 0).any():
-                raise exc.InvalidModelInput
+                raise exc.UnprocessableEntity
 
         # define objects for model 3
         class Model3(BaseModel):
@@ -214,12 +214,12 @@ class TestAppPredictions(unittest.TestCase):
         self.assertTrue(all('error' in json.loads(actual.data) for actual in actuals))
         # check response values
         expected_error_values = [
-            {'name': 'InvalidModelInput'},
-            {'name': 'InvalidModelInput'},
-            {'name': 'InvalidModelInput'},
-            {'name': 'InvalidModelInput'},
-            {'name': 'InvalidModelInput'},
-            {'name': 'InvalidModelInput'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
+            {'name': 'UnprocessableEntity'},
             {'name': 'BadRequest'},
         ]
         for actual, expectations in zip(actuals, expected_error_values):
@@ -557,8 +557,8 @@ class TestAppErrorHandling(unittest.TestCase):
             },
             'request_id': 123,
             'error': {
-                'name': 'PredictionError',
-                'messages': ['an error occurred during prediction'],
+                'name': 'InternalServerError',
+                'messages': ['Could not serve model results successfully.'],
                 'user_data': user_data,
                 'traceback': re.compile(r".*testing\sa\sfailing\smodel.*"),
             }
@@ -622,8 +622,8 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
             },
             'request_id': 123,
             'error': {
-                'name': 'PredictionError',
-                'messages': ['an error occurred during prediction'],
+                'name': 'InternalServerError',
+                'messages': ['Could not serve model results successfully.'],
             }
         }
         self.assertEqual(resp.status_code, 500)

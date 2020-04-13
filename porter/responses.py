@@ -11,7 +11,8 @@ from . import api
 
 
 class Response:
-    def __init__(self, data, *, service_class=None, status_code=None):
+    def __init__(self, data, *, status_code=None):
+        service_class = api.get_model_context()
         if isinstance(data, dict):
             self.data = self._init_payload(service_class, data)
         else:
@@ -52,17 +53,17 @@ class Response:
 _init_model_context = Response._init_model_context
 
 
-def make_prediction_response(model_service, id_value, prediction):
+def make_prediction_response(id_value, prediction):
     payload = {
         cn.PREDICTION_KEYS.PREDICTIONS: {
             cn.PREDICTION_PREDICTIONS_KEYS.ID: id_value,
             cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: prediction
         }
     }
-    return Response(payload, service_class=model_service)
+    return Response(payload)
 
 
-def make_batch_prediction_response(model_service, id_values, predictions):
+def make_batch_prediction_response(id_values, predictions):
     payload = {
         cn.PREDICTION_KEYS.PREDICTIONS: [
             {
@@ -72,7 +73,7 @@ def make_batch_prediction_response(model_service, id_values, predictions):
             for id, p in zip(id_values, predictions)
         ]
     }
-    return Response(payload, service_class=model_service)
+    return Response(payload)
 
 
 def make_error_response(error):
@@ -99,8 +100,7 @@ def make_error_response(error):
         # silent=True -> flask.request.get_json(...) returns None if user did not
         error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True, force=True)
 
-    return Response(payload, service_class=getattr(error, 'model_service', None),
-                    status_code=getattr(error, 'code', 500))
+    return Response(payload, status_code=getattr(error, 'code', 500))
 
 
 def make_alive_response(app):

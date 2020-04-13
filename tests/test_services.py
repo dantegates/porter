@@ -2,12 +2,12 @@ import time
 import unittest
 from unittest import mock
 
+from werkzeug import exceptions as exc
 import numpy as np
 import pandas as pd
 import porter.responses as porter_responses
 from porter import __version__
 from porter import constants as cn
-from porter import exceptions as exc
 from porter.services import (BaseService, ModelApp,
                              PredictionService,
                              StatefulRoute, serve_error_message)
@@ -21,6 +21,7 @@ class TestFunctionsUnit(unittest.TestCase):
     @mock.patch('porter.services.cf.return_message_on_error', True)
     @mock.patch('porter.services.cf.return_traceback_on_error', True)
     @mock.patch('porter.services.cf.return_user_data_on_error', True)
+    @mock.patch('porter.responses.api.get_model_context', mock.MagicMock)
     def test_serve_error_message_status_codes_arbitrary_error(self, mock_flask_request, mock_flask_jsonify):
         # if the current error does not have an error code make sure
         # the response gets a 500
@@ -36,6 +37,7 @@ class TestFunctionsUnit(unittest.TestCase):
     @mock.patch('porter.services.cf.return_message_on_error', True)
     @mock.patch('porter.services.cf.return_traceback_on_error', True)
     @mock.patch('porter.services.cf.return_user_data_on_error', True)
+    @mock.patch('porter.responses.api.get_model_context', mock.MagicMock)
     def test_serve_error_message_status_codes_werkzeug_error(self, mock_flask_request, mock_flask_jsonify):
         # make sure that workzeug error codes get passed on to response
         error = ValueError('an error message')
@@ -183,7 +185,7 @@ class TestPredictionService(unittest.TestCase):
         name = 'my-model'
         version = '1.0'
         meta = {}
-        with self.assertRaises(exc.PredictionError) as ctx:
+        with self.assertRaises(exc.InternalServerError) as ctx:
             sp = PredictionService(
                 model=mock.Mock(), name=name, api_version=version,
                 meta=meta, preprocessor=mock.Mock(), postprocessor=mock.Mock(),
@@ -533,13 +535,13 @@ class TestPredictionService(unittest.TestCase):
 
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor_fail(self):
-        with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
+        with self.assertRaisesRegex(ValueError, '`meta` does not follow the proper schema'):
             with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
                 service_config = PredictionService(
                     model=None, name='foo', api_version='bar', meta=object())
-        with self.assertRaisesRegex(exc.PorterError, '.*callable.*'):
-            service_config = PredictionService(
-                model=None, additional_checks=1)
+        with self.assertRaisesRegex(ValueError, '.*callable.*'):
+            service_config = PredictionService(model=None, additional_checks=1)
+
 
 
 class TestModelApp(unittest.TestCase):
@@ -627,7 +629,7 @@ class TestModelApp(unittest.TestCase):
             name = 'service2'
         model_app = ModelApp()
         model_app.add_service(service1)
-        with self.assertRaisesRegex(exc.PorterError, 'service has already been added'):
+        with self.assertRaisesRegex(ValueError, 'service has already been added'):
             model_app.add_service(service2)
 
 
@@ -650,7 +652,7 @@ class TestBaseService(unittest.TestCase):
             def status(self): pass
 
 
-        with self.assertRaisesRegex(exc.PorterError, 'Could not jsonify meta data'):
+        with self.assertRaisesRegex(ValueError, '`meta` does not follow the proper schema'):
             with mock.patch('porter.services.cf.json_encoder', spec={'encode.side_effect': TypeError}) as mock_encoder:
                 SC(name='foo', api_version='bar', meta=object())
         service_config = SC(name='foo', api_version='bar', meta=None)
@@ -659,13 +661,15 @@ class TestBaseService(unittest.TestCase):
         service_config.id
         # make sure that creating a config with same name and version raises
         # error
-        with self.assertRaisesRegex(exc.PorterError, '.*likely means that you tried to instantiate a service.*'):
+        with self.assertRaisesRegex(ValueError, '.*likely means that you tried to instantiate a service.*'):
             service_config = SC(name='foo', api_version='bar', meta=None)
 
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
     @mock.patch('porter.services.api.request_id', lambda: 123)
     @mock.patch('porter.services.BaseService.action', None)
+    @mock.patch('porter.services.api.set_model_context', lambda service: None)
+    @mock.patch('porter.responses.api.get_model_context', mock.MagicMock(name='Service', api_version='v1', meta={}))
     def test_api_logging_no_exception(self):
         class Service(BaseService):
             def serve(self):
@@ -696,6 +700,8 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
     @mock.patch('porter.services.api.request_id', lambda: 123)
     @mock.patch('porter.services.BaseService.action', None)
+    @mock.patch('porter.services.api.set_model_context', lambda service: None)
+    @mock.patch('porter.responses.api.get_model_context', mock.MagicMock(name='Service', api_version='v1', meta={}))
     def test_api_logging_exception(self):
         class Service(BaseService):
             def serve(self):
@@ -706,7 +712,7 @@ class TestBaseService(unittest.TestCase):
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
             service1 = Service(name='name1', api_version='version1', log_api_calls=True)
             # unhandled exceptions should always get wrapped as a prediction error
-            with self.assertRaisesRegex(exc.PredictionError, 'Could not serve model results successfully.'):
+            with self.assertRaisesRegex(exc.InternalServerError, 'Could not serve model results successfully.'):
                 service1()
             mock__logger.info.assert_called_with(
                 'api logging',
@@ -720,7 +726,7 @@ class TestBaseService(unittest.TestCase):
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
             service2 = Service(name='name2', api_version='version2', log_api_calls=False)
             # unhandled exceptions should always get wrapped as a prediction error
-            with self.assertRaisesRegex(exc.PredictionError, 'Could not serve model results successfully.'):
+            with self.assertRaisesRegex(exc.InternalServerError, 'Could not serve model results successfully.'):
                 service2()
             mock__logger.assert_not_called()
 
@@ -728,6 +734,8 @@ class TestBaseService(unittest.TestCase):
     @mock.patch('porter.api.request_id', lambda: 123)
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.BaseService.action', None)
+    @mock.patch('porter.services.api.set_model_context', lambda service: None)
+    @mock.patch('porter.responses.api.get_model_context', mock.MagicMock(name='Service', api_version='v1', meta={}))
     def test_serve_logging_with_exception(self, mock__logger):
         e = Exception('testing')
         class Service(BaseService):
@@ -739,7 +747,7 @@ class TestBaseService(unittest.TestCase):
                 return 'ready'
 
         service = Service(name='name', api_version='version')
-        with self.assertRaisesRegex(exc.PredictionError, 'Could not serve model results successfully.'):
+        with self.assertRaisesRegex(exc.InternalServerError, 'Could not serve model results successfully.'):
             service()
         mock__logger.exception.assert_called_with(
             e,

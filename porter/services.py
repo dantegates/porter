@@ -29,11 +29,11 @@ import warnings
 import flask
 import pandas as pd
 import werkzeug.exceptions
+import werkzeug.exceptions as exc
 
 from . import api
 from . import config as cf
 from . import constants as cn
-from . import exceptions as exc
 from . import responses as porter_responses
 from . import schemas
 
@@ -217,27 +217,46 @@ class BaseService(abc.ABC, StatefulRoute):
             self.add_response_schema(*schema)
 
     def __call__(self):
-        """Serve a response to the user."""
+        """Serve a response to the user.
+
+        Basically this method wraps `self.serve()` with boiler plate such as
+
+        - converting the output of `self.serve()` to objects that can be served
+          to the user.
+        - logging
+        - error handling
+        - validation of response schemas
+
+        Returns:
+            A "Response" object: The output of `self.serve()` converted 
+                wrapped in a Response object with a status code to be served
+                to the client. Currently this is a `flask.Response` object in
+                particular.
+
+        Raises:
+            :class:`porter.exceptions.ModelContextError`
+            :class:`werkzeug.exceptions.HTTPException`
+        """
+        caught_error = None
         response = None
+        api.set_model_context(self)
         try:
             response = self.serve()
             if not isinstance(response, porter_responses.Response):
-                response = porter_responses.Response(response, service_class=self)
+                response = porter_responses.Response(response)
             response = response.jsonify()
-        except exc.ModelContextError as err:
-            err.update_model_context(self)
-            self._log_error(err)
-            raise err
-        except werkzeug.exceptions.BadRequest as err:
-            model_context_error = exc.BadRequest(err.description)
-            raise model_context_error
+        except exc.HTTPException as error:
+            caught_error = error
+            raise error
         # re-raise any unhandled exceptions as model context errors
-        except Exception as err:
-            model_context_error = exc.PredictionError('Could not serve model results successfully.')
-            model_context_error.update_model_context(self)
-            self._log_error(err)
-            raise model_context_error from err
+        except Exception as error:
+            caught_error = error
+            error = exc.InternalServerError('Could not serve model results successfully.')
+            raise error from caught_error
         finally:
+            if caught_error is not None:
+                self._log_error(caught_error)
+
             if self.log_api_calls:
                 request_data = api.request_json()
                 if response is not None:
@@ -304,9 +323,8 @@ class BaseService(abc.ABC, StatefulRoute):
             schemas.model_meta.validate(meta)
         except ValueError as err:
             if err.args[0].startswith('Schema validation failed'):
-                raise exc.PorterError(
-                    'Could not jsonify meta data. Make sure that meta data is '
-                    'valid JSON and that all keys are of the same type.')
+                raise ValueError(
+                    '`meta` does not follow the proper schema, all values should be strings')
             raise err
 
     def update_meta(self, meta):
@@ -320,8 +338,12 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @id.setter
     def id(self, value):
+        """
+        Raises:
+            :class:`ValueError`
+        """
         if value in self._ids:
-            raise exc.PorterError(
+            raise ValueError(
                 f'The id={value} has already been used. '
                 'This likely means that you tried to instantiate a service '
                 'with parameters that were already used.')
@@ -365,6 +387,9 @@ class BaseService(abc.ABC, StatefulRoute):
     def get_post_data(self):
         """Return POST data.
 
+        Raises:
+            :class:`werkzeug.exceptions.UnprocessableEntity`
+
         The data will be the return value of ``porter.config.json_encoder``.
 
         If ``self.validate_request_data is True`` and a request schema has
@@ -378,7 +403,7 @@ class BaseService(abc.ABC, StatefulRoute):
                     schema.validate(data)
                 except ValueError as err:
                     if err.args[0].startswith('Schema validation failed'):
-                        raise exc.InvalidModelInput(*err.args)
+                        raise exc.UnprocessableEntity(*err.args)
                     else:
                         raise err
         return data
@@ -522,7 +547,7 @@ class PredictionService(BaseService):
         self.postprocessor = postprocessor
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
-            raise exc.PorterError('`additional_checks` must be callable')
+            raise ValueError('`additional_checks` must be callable')
         self.action = action or self.action
         self.additional_checks = additional_checks
 
@@ -564,18 +589,7 @@ class PredictionService(BaseService):
         if api.request_method() == 'GET':
             return porter_responses.Response(
                 'This endpoint is live. Send POST requests for predictions')
-        try:
-            response = self._predict()
-        # All we have to do with the exception handling here is
-        # signal to __call__() that this is a model context error.
-        # If it's a werkzeug exception let it fall through.
-        except (exc.ModelContextError, werkzeug.exceptions.HTTPException) as err:
-            raise err
-        # All other errors should be wrapped in a PredictionError and raise 500
-        except Exception as err:
-            error = exc.PredictionError('an error occurred during prediction')
-            raise error from err
-        return response
+        return self._predict()
 
     def _predict(self):
         # retrieve the data and validate the inputs. If
@@ -611,11 +625,9 @@ class PredictionService(BaseService):
 
         # finally format the predictions and return
         if self.batch_prediction:
-            response = porter_responses.make_batch_prediction_response(
-                self, X_input[_ID], preds)
+            response = porter_responses.make_batch_prediction_response(X_input[_ID], preds)
         else:
-            response = porter_responses.make_prediction_response(
-                self, X_input[_ID].iloc[0], preds[0])
+            response = porter_responses.make_prediction_response(X_input[_ID].iloc[0], preds[0])
 
         return response
 
@@ -754,7 +766,7 @@ class ModelApp:
         """
         # register the service with the add
         if service.id in self._service_ids:
-            raise exc.PorterError(
+            raise ValueError(
                 f'a service has already been added using id={service.id}')
         self._services.append(service)
         self._service_ids.add(service.id)
@@ -794,9 +806,8 @@ class ModelApp:
             schemas.app_meta.validate(meta)
         except TypeError as err:
             if err.args[0].startswith('Schema validation failed'):
-                raise exc.PorterError(
-                    'Could not jsonify meta data. Make sure that meta data is '
-                    'valid JSON and that all keys are of the same type.')
+                raise ValueError(
+                    '`meta` does not follow the proper schema, all values should be strings')
             raise err
 
     # TODO: we need tests for this
@@ -817,7 +828,6 @@ class ModelApp:
         # register error handler for all werkzeug default exceptions
         for error in werkzeug.exceptions.default_exceptions:
             app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(exc.PredictionError, serve_error_message)
 
         # route the health checks
         serve_alive = ServeAlive(self)
