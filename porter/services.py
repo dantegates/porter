@@ -180,9 +180,8 @@ class BaseService(abc.ABC, StatefulRoute):
     # subclasses can override this to add additional defaults
     _service_default_schemas = []
 
-    # TODO: do we really need to validate responses? I could be useful for testing
+    # TODO: do we really need to validate responses? It could be useful for testing
     # but we could also manually call .validate()
-    # TODO: What is the proper default for validate_request_data
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False,
                  namespace='', validate_request_data=False,
                  validate_response_data=False):
@@ -251,7 +250,7 @@ class BaseService(abc.ABC, StatefulRoute):
         caught_error = None
         # Add the service to a context that is unique by http transaction.
         # This allows us to determine how to approach error handling in
-        # resonses.py.
+        # resonses.py (or anywhere else for that matter).
         api.set_model_context(self)
         try:
             response = self.serve()
@@ -604,9 +603,9 @@ class PredictionService(BaseService):
                 to the user.
 
         Raises:
-            werkzeug.exceptions.BadRequest: Raised when request data cannot
+            :class:`werkzeug.exceptions.BadRequest`: Raised when request data cannot
                 be parsed (in super().get_post_data).
-            werkzeug.exceptions.UnprocessableEntity: Raised when parsed
+            :class:`werkzeug.exceptions.UnprocessableEntity`: Raised when parsed
                 request data does not follow the specified schema (in
                 super().get_post_data).
         """
@@ -621,9 +620,9 @@ class PredictionService(BaseService):
         # provided, the schema is vetted in get_post_data()
         X_input = self.get_post_data()
 
-        # Only perform user checks after the standard checks have been passed.
-        # This allows the user to assume that all columns are present and there
-        # are no nulls present.
+        # Only perform user checks after the schema has been (optionally)
+        # validated. This way users don't need to do any error handling in
+        # additional_checks.
         if self.additional_checks is not None:
             self.additional_checks(X_input)
 
