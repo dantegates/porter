@@ -450,98 +450,6 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaises(exc.InvalidModelInput):
             _ = serve_prediction()
 
-    @mock.patch('porter.services.api')
-    @mock.patch('porter.responses.api')
-    @mock.patch('porter.services.BaseService._ids', set())
-    def test_get_post_data_prediction_schema(self, mock_responses_api, mock_services_api):
-        # test if validating or not;
-        # test_schemas_openapi.py confirms more complex validations also work
-        feature_schema = openapi.Object(
-            properties=dict(
-                a=openapi.String(),
-                b=openapi.Integer()
-            )
-        )
-        prediction_schema = openapi.Object(
-            properties=dict(
-                x=openapi.Number(additional_params=dict(minimum=0, maximum=1)),
-                y=openapi.Integer(),
-            )
-        )
-        # test both instance and batch prediction
-        for batch_prediction in (False, True):
-            in_good = {'id': 1, 'a': 'a', 'b': 1}
-            in_bad = {'id': 1, 'a': 'a', 'b': 1.5}
-            if batch_prediction:
-                in_good, in_bad = [in_good], [in_bad]
-
-            out_good = [{'id': 1, 'x': 0.5, 'y': 0}]
-            out_bad = [{'id': 1, 'x': -0.5, 'y': 0}]
-
-            # test all combos of validating request x response
-            for val_request in (False, True):
-                for val_response in (False, True):
-                    # TODO: tests only pass if
-                    # (val_request,val_response) = (True,False)
-                    if (not val_request) or val_response:
-                        continue
-                    #print('* batch, request, response = {}, {}, {}'.format(
-                    #    batch_prediction, val_request, val_response
-                    #))
-                    mock_model = mock.Mock()
-                    mock_name = mock_version = mock.MagicMock()
-                    serve_prediction = PredictionService(
-                        model=mock_model,
-                        name=mock_name,
-                        api_version=mock_version,
-                        meta={},
-                        allow_nulls=mock.Mock(),
-                        preprocessor=None,
-                        postprocessor=None,
-                        batch_prediction=batch_prediction,
-                        additional_checks=None,
-                        feature_schema=feature_schema,
-                        prediction_schema=prediction_schema,
-                        validate_request_data=val_request,
-                        validate_response_data=val_response,
-                    )
-                    # good in + out should always work
-                    mock_services_api.request_json.return_value = in_good
-                    mock_model.predict.return_value = out_good
-                    _ = serve_prediction()
-
-                    # bad in + good out should raise if val_request
-                    mock_services_api.request_json.return_value = in_bad
-                    mock_model.predict.return_value = out_good
-                    if val_request:
-                        with self.assertRaises(exc.InvalidModelInput):
-                            _ = serve_prediction()
-                    else:
-                        _ = serve_prediction()
-
-                    # good in + bad out should raise if val_response
-                    mock_services_api.request_json.return_value = in_good
-                    mock_model.predict.return_value = out_bad
-                    if val_response:
-                        # TODO: should be new `exc.InvalidModelOutput` ?
-                        with self.assertRaises(ValueError):
-                            _ = serve_prediction()
-                    else:
-                        _ = serve_prediction()
-
-                    # bad in + bad out should only work if
-                    # neither val_request nor val_response
-                    mock_services_api.request_json.return_value = in_bad
-                    mock_model.predict.return_value = out_bad
-                    if val_request:
-                        with self.assertRaises(exc.InvalidModelInput):
-                            _ = serve_prediction()
-                    elif val_response:
-                        with self.assertRaises(ValueError):
-                            _ = serve_prediction()
-                    else:
-                        _ = serve_prediction()
-
     @mock.patch('porter.services.BaseService._ids', set())
     def test_constructor(self):
         service_config = PredictionService(
@@ -556,6 +464,237 @@ class TestPredictionService(unittest.TestCase):
         with self.assertRaisesRegex(exc.PorterError, '.*callable.*'):
             service_config = PredictionService(
                 model=None, additional_checks=1)
+
+
+def test_jsonify(data):
+    # this is an ugly shim to replace api.jsonify(),
+    # which uses flask.jsonify(),
+    # which requires an App context
+    import json
+    import porter.config as cf
+    from flask import Response
+    out = json.dumps(data, cls=cf.json_encoder)
+    raw_data = json.loads(out)
+    out = Response(out)
+    out.raw_data = raw_data
+    return out
+
+@mock.patch('porter.services.api.jsonify', test_jsonify)
+@mock.patch('porter.responses.api.jsonify', test_jsonify)
+@mock.patch('porter.services.api')
+@mock.patch('porter.responses.api')
+@mock.patch('porter.services.BaseService._ids', set())
+class TestPredictionServiceSchemas(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.feature_schema = openapi.Object(
+            properties=dict(
+                a=openapi.String(),
+                b=openapi.Integer()
+            )
+        )
+        cls.prediction_schema = openapi.Object(
+            properties=dict(
+                x=openapi.Number(additional_params=dict(minimum=0, maximum=1)),
+                y=openapi.Integer(),
+            )
+        )
+        cls.in_good = [{'id': 1, 'a': 'a', 'b': 1}]
+        cls.in_bad = [{'id': 1, 'a': 'a', 'b': 1.5}]
+        cls.out_good = [{'id': 1, 'x': 0.5, 'y': 0}]
+        cls.out_bad = [{'id': 1, 'x': -0.5, 'y': 0}]
+
+    def get_prediction_service(self, batch_prediction, val_request, val_response):
+        mock_model = mock.Mock()
+        mock_name = mock_version = mock.MagicMock()
+        mock_name = 'TestModel'
+        mock_version = 'v{}{}{}'.format(1*batch_prediction, 1*val_request, 1*val_response)
+        return PredictionService(
+            model=mock_model,
+            name=mock_name,
+            api_version=mock_version,
+            meta={},
+            allow_nulls=mock.Mock(),
+            preprocessor=None,
+            postprocessor=None,
+            batch_prediction=batch_prediction,
+            additional_checks=None,
+            feature_schema=self.feature_schema,
+            prediction_schema=self.prediction_schema,
+            validate_request_data=val_request,
+            validate_response_data=val_response,)
+
+    def test_instance_no_validation(self, mock_responses_api, mock_services_api):
+        serve = self.get_prediction_service(False, False, False)
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_bad
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_bad
+        serve()
+
+    def test_instance_validate_input(self, mock_responses_api, mock_services_api):
+        serve = self.get_prediction_service(False, True, False)
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_good
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_bad
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+    def test_instance_validate_output(self, mock_responses_api, mock_services_api):
+        mock_services_api.request_method.return_value = 'POST'
+        serve = self.get_prediction_service(False, False, True)
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(ValueError):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(ValueError):
+            serve()
+
+    def test_instance_validate_both(self, mock_responses_api, mock_services_api):
+        mock_services_api.request_method.return_value = 'POST'
+        serve = self.get_prediction_service(False, True, True)
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_good
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_good[0]
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(ValueError):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_bad[0]
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+    def test_batch_no_validation(self, mock_responses_api, mock_services_api):
+        serve = self.get_prediction_service(True, False, False)
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_bad
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_bad
+        serve()
+
+    def test_batch_validate_input(self, mock_responses_api, mock_services_api):
+        serve = self.get_prediction_service(True, True, False)
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_good
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_bad
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+    def test_batch_validate_output(self, mock_responses_api, mock_services_api):
+        mock_services_api.request_method.return_value = 'POST'
+        #mock_responses_api.jsonify.return_value = mock.MagicMock(status_code=200)
+        serve = self.get_prediction_service(True, False, True)
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(ValueError):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(ValueError):
+            serve()
+
+    def test_batch_validate_both(self, mock_responses_api, mock_services_api):
+        mock_services_api.request_method.return_value = 'POST'
+        serve = self.get_prediction_service(True, True, True)
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_good
+        serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_good
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_good
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(ValueError):
+            serve()
+
+        mock_services_api.request_json.return_value = self.in_bad
+        serve.model.predict.return_value = self.out_bad
+        with self.assertRaises(exc.InvalidModelInput):
+            serve()
 
 
 class TestModelApp(unittest.TestCase):
