@@ -378,7 +378,6 @@ class TestPredictionServicePredict(unittest.TestCase):
             prediction_service = PredictionService(model=None, additional_checks=1)
 
 
-
 @mock.patch('porter.responses.api.request_id', lambda: 123)
 @mock.patch('porter.services.api.request_id', lambda: 123)
 class TestPredictionServiceSchemas(unittest.TestCase):
