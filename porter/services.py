@@ -20,16 +20,13 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 """
 
 import abc
-import collections
 import json
 import logging
-import os
 import warnings
 
 import flask
 import pandas as pd
-import werkzeug.exceptions
-import werkzeug.exceptions as exc
+import werkzeug.exceptions as werkzeug_exc
 
 from . import api
 from . import config as cf
@@ -121,10 +118,10 @@ class ServeReady(StatefulRoute):
 
 class BaseService(abc.ABC, StatefulRoute):
     """
-    Abstract base class for services.
-
     A service class contains all necessary state and functionality to route a
     service and serve requests.
+
+    This class does nothing on its own and is meant to be extended.
 
     Args:
         name (str): The model name. The final routed endpoint is generally
@@ -195,6 +192,11 @@ class BaseService(abc.ABC, StatefulRoute):
         self.namespace = namespace
         self.validate_request_data = validate_request_data
         self.validate_response_data = validate_response_data
+        if self.validate_response_data:
+            warnings.warn('Setting ``validate_response_data`` may significantly '
+                          'impact the latency of responses and return confusing '
+                          'error messages to the user. '
+                          'Use only during development for testing and debugging.')
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
@@ -217,42 +219,60 @@ class BaseService(abc.ABC, StatefulRoute):
             self.add_response_schema(*schema)
 
     def __call__(self):
-        """Serve a response to the user.
+        """Process HTTP requests and return a response.
 
-        Basically this method wraps `self.serve()` with boiler plate such as
+        This method is the main mechanism for serving model predictions.
 
-        - converting the output of `self.serve()` to objects that can be served
-          to the user.
-        - logging
-        - error handling
-        - validation of response schemas
+        Essentially this method wraps ``self.serve()`` (which must be implemented
+        by a subclass) with boiler plate such as
+
+        - Converting Python objects to raw HTTP responses.
+        - Logging API requests.
+        - Error handling.
+        - Validation of response schemas. 
 
         Returns:
-            A "Response" object: The output of `self.serve()` converted 
+            A "Response" object or ``None``: The output of ``self.serve()`` converted 
                 wrapped in a Response object with a status code to be served
                 to the client. Currently this is a `flask.Response` object in
                 particular.
 
         Raises:
-            :class:`porter.exceptions.ModelContextError`
             :class:`werkzeug.exceptions.HTTPException`
         """
-        caught_error = None
+        # Default response is `null` in the event that an error occurs in
+        # self.serve()
         response = None
+        # When we do `except Exception as error` the name `error` will not
+        # live outside of the except scope. We'll check if this name has been
+        # overwritten in the finally block to determine if we need to log an
+        # error.
+        caught_error = None
+        # Add the service to a context that is unique by http transaction.
+        # This allows us to determine how to approach error handling in
+        # resonses.py.
         api.set_model_context(self)
         try:
             response = self.serve()
+            # Allow users to return a JSON-like object instead of a `Response`.
+            # This is much more user friendly.
             if not isinstance(response, porter_responses.Response):
                 response = porter_responses.Response(response)
             response = response.jsonify()
-        except exc.HTTPException as error:
+        # Note on the error handling here. The purpose of this block is to log
+        # any errors that were raised in self.serve(). If we happen to catch
+        # an unhandled exception we'll re-raise an internal server error.
+        #
+        # The only reason we distinguish between HTTPException and Exception
+        # here is to give unhandled exceptions a message more relevant to `porter`
+        # than the werkzeug default.
+        except werkzeug_exc.HTTPException as error:
             caught_error = error
             raise error
-        # re-raise any unhandled exceptions as model context errors
         except Exception as error:
             caught_error = error
-            error = exc.InternalServerError('Could not serve model results successfully.')
-            raise error from caught_error
+            wrapped_error = werkzeug_exc.InternalServerError('Could not serve model results successfully.')
+            raise wrapped_error from caught_error
         finally:
             if caught_error is not None:
                 self._log_error(caught_error)
@@ -281,13 +301,15 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @abc.abstractmethod
     def serve(self):
-        """Return a response to be served to the user (usually the return
-        value of one of the functions in :mod:`porter.responses` or an instance of
-        :class:`porter.responses.Response`).
+        """Return a response to be served to the user.
 
-        Custom subclasses may find it easier to return a native Python object
-        such as a ``str`` or ``dict``, in such cases the object must be
-        "jsonify-able".
+        Users extending this base class will want to return a native Python
+        object such as a ``str`` or ``dict``. In such cases the object must be
+        compatible with :obj:`porter.config.json_encoder`.
+
+        For subclasses defined internally, this should be the return value of
+        one of the functions in :mod:`porter.responses` or an instance of
+        :class:`porter.responses.Response`.
         """
 
     @abc.abstractproperty
@@ -403,7 +425,7 @@ class BaseService(abc.ABC, StatefulRoute):
                     schema.validate(data)
                 except ValueError as err:
                     if err.args[0].startswith('Schema validation failed'):
-                        raise exc.UnprocessableEntity(*err.args)
+                        raise werkzeug_exc.UnprocessableEntity(*err.args)
                     else:
                         raise err
         return data
@@ -826,7 +848,7 @@ class ModelApp:
         app.json_encoder = cf.json_encoder
 
         # register error handler for all werkzeug default exceptions
-        for error in werkzeug.exceptions.default_exceptions:
+        for error in werkzeug_exc.default_exceptions:
             app.register_error_handler(error, serve_error_message)
 
         # route the health checks
