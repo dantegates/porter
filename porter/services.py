@@ -695,7 +695,7 @@ class PredictionService(BaseService):
         response_schema = schemas.Object(
             properties={
                 'request_id': schemas.request_id,
-                'schemas.model_context': schemas.model_context,
+                'model_context': schemas.model_context,
                 'predictions': prediction_schema
             }
         )
