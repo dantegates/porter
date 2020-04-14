@@ -303,6 +303,7 @@ class CustomService(BaseService):
         data = self.get_post_data()
         return {'results': ['foo', 'bar']}
 
+    @property
     def status(self):
         return 'READY'
 
