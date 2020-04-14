@@ -15,8 +15,8 @@ REQUIRES_PYTHON = '>=3.6.0'
 REQUIRED = [
     # package: version
     'Flask>=1.0.2,<1.1.0',
-    'numpy>=1.15.0,<1.16.0',
-    'pandas>=0.23.0,<0.24.0',
+    'numpy>=1.15.0,<=1.18.2',
+    'pandas>=0.23.0,<=1.0.3',
 ]
 
 # These are packages required for non-essential functionality, e.g. loading

@@ -22,6 +22,7 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 import abc
 import json
 import logging
+import os
 import warnings
 
 import flask
@@ -702,7 +703,7 @@ class PredictionService(BaseService):
         response_schema = schemas.Object(
             properties={
                 'request_id': schemas.request_id,
-                'schemas.model_context': schemas.model_context,
+                'model_context': schemas.model_context,
                 'predictions': prediction_schema
             }
         )
@@ -851,7 +852,8 @@ class ModelApp:
         Returns:
             An instance of :class:`porter.api.App`.
         """
-        app = api.App(self.name, static_folder='porter/assets')
+        static_folder = os.path.join(os.path.dirname(__file__), 'assets')
+        app = api.App(self.name, static_folder=static_folder)
 
         # register a custom JSON encoder
         app.json_encoder = cf.json_encoder

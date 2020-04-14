@@ -17,7 +17,7 @@ from porter.services import ModelApp, PredictionService
 import porter.schemas as sc
 
 
-@mock.patch('porter.responses.api.request_id', lambda: 123)
+@mock.patch('porter.responses.api.request_id', lambda: '123')
 class TestAppPredictions(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -60,6 +60,7 @@ class TestAppPredictions(unittest.TestCase):
             def predict(self, X):
                 return X['feature1'] * -1
         feature_schema3 = sc.Object(properties={'feature1': sc.Number()})
+        wrong_prediction_schema3 = sc.Number(additional_params=dict(minimum=0))
 
         # define configs and add services to app
         prediction_service1 = PredictionService(
@@ -96,9 +97,36 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
+        prediction_service4 = PredictionService(
+            model=Model3(),
+            name='model-4',
+            api_version='v0.0-alpha',
+            preprocessor=None,
+            postprocessor=None,
+            feature_schema=feature_schema3,
+            validate_request_data=True,
+            validate_response_data=True,
+            batch_prediction=False,
+            meta={'algorithm': 'randomforest', 'lasttrained': 1}
+        )
+        prediction_service5 = PredictionService(
+            model=Model3(),
+            name='model-5',
+            api_version='v0.0-alpha',
+            preprocessor=None,
+            postprocessor=None,
+            feature_schema=feature_schema3,
+            prediction_schema=wrong_prediction_schema3,
+            validate_request_data=True,
+            validate_response_data=True,
+            batch_prediction=False,
+            meta={'algorithm': 'randomforest', 'lasttrained': 1}
+        )
         cls.model_app.add_service(prediction_service1)
         cls.model_app.add_service(prediction_service2)
         cls.model_app.add_service(prediction_service3)
+        cls.model_app.add_service(prediction_service4)
+        cls.model_app.add_service(prediction_service5)
 
     def test_prediction_success(self):
         post_data1 = [
@@ -241,6 +269,34 @@ class TestAppPredictions(unittest.TestCase):
             actual_error_obj = json.loads(actual.data)
             for key, value in expectations.items():
                 self.assertEqual(actual_error_obj['model_context'][key], value)
+
+    def test_prediction_response_valid(self):
+        # test that validation passes for valid response
+        post_data4 = {'id': 1, 'feature1': 5}
+        actual4 = self.app.post('/model-4/v0.0-alpha/prediction', data=json.dumps(post_data4))
+        actual4 = json.loads(actual4.data)
+        expected4 = {
+            'request_id': '123',
+            'model_context': {
+                'model_name': 'model-4',
+                'api_version': 'v0.0-alpha',
+                'model_meta': {
+                    'algorithm': 'randomforest',
+                    'lasttrained': 1
+                }
+            },
+            'predictions': {'id': 1, 'prediction': -5}
+        }
+        self.assertEqual(actual4, expected4)
+
+    def test_prediction_response_invalid(self):
+        # test that validation fails for invalid response
+        post_data5 = {'id': 1, 'feature1': 5}
+        actual5 = self.app.post('/model-5/v0.0-alpha/prediction', data=json.dumps(post_data5))
+        actual5 = json.loads(actual5.data)
+        self.assertRegex(
+            actual5['error']['messages'][0],
+            'Schema validation failed: data.predictions.prediction must be bigger')
 
     def test_get_prediction_endpoints(self):
         resp1 = self.app.get('/a-model/v0/predict')
