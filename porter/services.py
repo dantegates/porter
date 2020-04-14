@@ -22,6 +22,7 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 import abc
 import json
 import logging
+import os
 import warnings
 
 import flask
@@ -844,7 +845,8 @@ class ModelApp:
         Returns:
             An instance of :class:`porter.api.App`.
         """
-        app = api.App(self.name, static_folder='porter/assets')
+        static_folder = os.path.join(os.path.dirname(__file__), 'assets')
+        app = api.App(self.name, static_folder=static_folder)
 
         # register a custom JSON encoder
         app.json_encoder = cf.json_encoder
