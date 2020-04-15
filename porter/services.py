@@ -755,6 +755,7 @@ class ModelApp:
         docs_url (str): Endpoint the API documentation is exposed at.
     """
 
+    # TODO: are name and description required if docs is True
     def __init__(self, *, name=__name__, description=None, version=None, meta=None,
                  expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
         self.name = name
@@ -777,7 +778,7 @@ class ModelApp:
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
-        return self.app(*args, **kwargs)
+        return self.run(*args, **kwargs)
 
     def add_services(self, *services):
         """Add services to the app from `*services`.
