@@ -405,113 +405,135 @@ class TestPredictionServicePredict(unittest.TestCase):
 class TestPredictionServiceSchemas(unittest.TestCase):
     """Test the schema methods of PredictionService."""
     def test__add_feature_schema_instance(self):
-        # this test also implicitly covers BaseService.add_request_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        feature_schema = openapi.Object(properties=dict(x=openapi.Integer()))
-        prediction_service = PredictionService(
-            model=model,
-            name=model_name,
-            api_version=api_version,
-            meta={},
-            preprocessor=None,
-            postprocessor=None,
-            batch_prediction=False,
-            feature_schema=feature_schema,
-        )
-        # check _request_schemas
-        self.assertIsInstance(prediction_service._request_schemas['POST'], openapi.Object)
-        # check request_schemas
-        request_schema = prediction_service.request_schemas['POST']
-        self.assertIsInstance(request_schema, openapi.RequestSchema)
-        # check that id field was inserted
-        self.assertIn('id', request_schema.api_obj.properties)
+        feature_schema = openapi.Object(properties=dict(
+            x=openapi.Integer(),
+            y=openapi.Number(),
+            z=openapi.String(),
+        ))
+        with mock.patch('porter.services.BaseService.add_request_schema') as mock_add_request_schema:
+            prediction_service = PredictionService(
+                model=model,
+                name=model_name,
+                api_version=api_version,
+                meta={},
+                preprocessor=None,
+                postprocessor=None,
+                batch_prediction=False,
+                feature_schema=feature_schema,
+            )
+            args = mock_add_request_schema.call_args_list[0][0]
+            self.assertEqual(len(args), 2)
+            self.assertEqual(args[0].upper(), 'POST')
+            request_obj = args[1]
+            self.assertIsInstance(request_obj, openapi.Object)
+            self.assertIn('id', request_obj.properties)
+            self.assertIn('x', request_obj.properties)
+            self.assertIn('y', request_obj.properties)
+            self.assertIn('z', request_obj.properties)
 
     def test__add_feature_schema_batch(self):
-        # this test also implicitly covers BaseService.add_request_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        feature_schema = openapi.Object(properties=dict(x=openapi.Integer()))
-        prediction_service = PredictionService(
-            model=model,
-            name=model_name,
-            api_version=api_version,
-            meta={},
-            preprocessor=None,
-            postprocessor=None,
-            batch_prediction=True,
-            feature_schema=feature_schema,
-        )
-        # check _request_schemas
-        self.assertIsInstance(prediction_service._request_schemas['POST'], openapi.Array)
-        # check request_schemas
-        request_schema = prediction_service.request_schemas['POST']
-        self.assertIsInstance(request_schema, openapi.RequestSchema)
-        # check that id field was inserted
-        self.assertIn('id', request_schema.api_obj.item_type.properties)
+        feature_schema = openapi.Object(properties=dict(
+            x=openapi.Integer(),
+            y=openapi.Number(),
+            z=openapi.String(),
+        ))
+        with mock.patch('porter.services.BaseService.add_request_schema') as mock_add_request_schema:
+            prediction_service = PredictionService(
+                model=model,
+                name=model_name,
+                api_version=api_version,
+                meta={},
+                preprocessor=None,
+                postprocessor=None,
+                batch_prediction=True,
+                feature_schema=feature_schema,
+            )
+            args = mock_add_request_schema.call_args_list[0][0]
+            self.assertEqual(args[0].upper(), 'POST')
+            request_obj = args[1]
+            self.assertIsInstance(request_obj, openapi.Array)
+            item_obj = request_obj.item_type
+            self.assertIn('id', item_obj.properties)
+            self.assertIn('x', item_obj.properties)
+            self.assertIn('y', item_obj.properties)
+            self.assertIn('z', item_obj.properties)
 
     def test__add_prediction_schema_instance(self):
-        # this test also implicitly covers BaseService.add_response_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        prediction_schema = openapi.Object(properties=dict(x=openapi.Integer()))
-        prediction_service = PredictionService(
-            model=model,
-            name=model_name,
-            api_version=api_version,
-            meta={},
-            preprocessor=None,
-            postprocessor=None,
-            batch_prediction=False,
-            prediction_schema=prediction_schema,
-        )
-        # check _response_schemas
-        self.assertIsInstance(prediction_service._response_schemas['POST', 200], openapi.Object)
-        # check for one corresponding element in response_schemas
-        n = 0
-        for schema in prediction_service.response_schemas['POST']:
-            if schema.status_code == 200:
-                n += 1
-                response_obj = schema.api_obj
-        self.assertEqual(n, 1)
-        # check properties of relevant response
-        self.assertIn('request_id', response_obj.properties)
-        self.assertIn('model_context', response_obj.properties)
-        self.assertIn('id', response_obj.properties['predictions'].properties)
-        self.assertIn('prediction', response_obj.properties['predictions'].properties)
+        prediction_schema = openapi.Object(properties=dict(
+            prediction=openapi.Number(),
+            confidence=openapi.Number(),
+        ))
+        with mock.patch('porter.services.BaseService.add_response_schema') as mock_add_response_schema:
+            prediction_service = PredictionService(
+                model=model,
+                name=model_name,
+                api_version=api_version,
+                meta={},
+                preprocessor=None,
+                postprocessor=None,
+                batch_prediction=False,
+                prediction_schema=prediction_schema,
+            )
+            args = mock_add_response_schema.call_args_list[-1][0]
+            self.assertEqual(args[0].upper(), 'POST')
+            self.assertEqual(args[1], 200)
+            response_obj = args[2]
+            self.assertIsInstance(response_obj, openapi.Object)
+            self.assertIn('request_id', response_obj.properties)
+            self.assertIn('model_context', response_obj.properties)
+            self.assertIn('predictions', response_obj.properties)
+            pred_obj = response_obj.properties['predictions']
+            self.assertIn('id', pred_obj.properties)
+            self.assertIn('prediction', pred_obj.properties)
+            pred_schema = pred_obj.properties['prediction']
+            self.assertIn('prediction', pred_schema.properties)
+            self.assertIn('confidence', pred_schema.properties)
+            # TODO: should a description be passed?
 
     def test__add_prediction_schema_batch(self):
-        # this test also implicitly covers BaseService.add_response_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        prediction_schema = openapi.Object(properties=dict(x=openapi.Integer()))
-        prediction_service = PredictionService(
-            model=model,
-            name=model_name,
-            api_version=api_version,
-            meta={},
-            preprocessor=None,
-            postprocessor=None,
-            batch_prediction=True,
-            prediction_schema=prediction_schema,
-        )
-        # check _response_schemas
-        self.assertIsInstance(prediction_service._response_schemas['POST', 200], openapi.Object)
-        # check for one corresponding element in response_schemas
-        n = 0
-        for schema in prediction_service.response_schemas['POST']:
-            if schema.status_code == 200:
-                n += 1
-                response_obj = schema.api_obj
-        self.assertEqual(n, 1)
-        # check properties of relevant response
-        self.assertIn('request_id', response_obj.properties)
-        self.assertIn('model_context', response_obj.properties)
-        self.assertIsInstance(response_obj.properties['predictions'], openapi.Array)
+        prediction_schema = openapi.Object(properties=dict(
+            prediction=openapi.Number(),
+            confidence=openapi.Number(),
+        ))
+        with mock.patch('porter.services.BaseService.add_response_schema') as mock_add_response_schema:
+            prediction_service = PredictionService(
+                model=model,
+                name=model_name,
+                api_version=api_version,
+                meta={},
+                preprocessor=None,
+                postprocessor=None,
+                batch_prediction=True,
+                prediction_schema=prediction_schema,
+            )
+            args = mock_add_response_schema.call_args_list[-1][0]
+            self.assertEqual(args[0].upper(), 'POST')
+            self.assertEqual(args[1], 200)
+            response_obj = args[2]
+            self.assertIsInstance(response_obj, openapi.Object)
+            self.assertIn('request_id', response_obj.properties)
+            self.assertIn('model_context', response_obj.properties)
+            self.assertIn('predictions', response_obj.properties)
+            pred_obj = response_obj.properties['predictions']
+            self.assertIsInstance(pred_obj, openapi.Array)
+            item_obj = pred_obj.item_type
+            self.assertIn('id', item_obj.properties)
+            self.assertIn('prediction', item_obj.properties)
+            pred_schema = item_obj.properties['prediction']
+            self.assertIn('prediction', pred_schema.properties)
+            self.assertIn('confidence', pred_schema.properties)
 
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data_validation(self, mock_request_json):
@@ -812,6 +834,47 @@ class TestBaseService(unittest.TestCase):
             service = Service(name='my-service', api_version='v11', namespace='/n/s/')
             expected = '/n/s/my-service/v11/bar'
             self.assertEqual(service.endpoint, expected)
+
+
+class TestBaseServiceSchemas(unittest.TestCase):
+    """Test the schema methods of BaseService."""
+
+    def test_add_request_schema(self):
+        input_schema = openapi.Object(properties=dict(
+            x=openapi.Integer(),
+            y=openapi.Number(),
+            z=openapi.String()
+        ))
+        service = mock.MagicMock()
+        service.request_schemas = {}
+        BaseService.add_request_schema(
+            service, 'post', input_schema, description='test')
+        request_schema = service.request_schemas['POST']
+        self.assertIsInstance(request_schema, openapi.RequestSchema)
+        self.assertEqual(request_schema.description, 'test')
+        # TODO: we don't necessarily explicitly guarantee openapi object equality
+        self.assertEqual(request_schema.api_obj, input_schema)
+
+    def test_add_response_schema(self):
+        output_schema = openapi.Object(properties=dict(
+            prediction=openapi.Number(),
+            confidence=openapi.Number(),
+        ))
+        service = mock.MagicMock()
+        service.response_schemas = {}
+        BaseService.add_response_schema(
+            service, 'post', 200, output_schema, description='test')
+        # make sure there's now one corresponding element
+        n = 0
+        for schema in service.response_schemas['POST']:
+            if schema.status_code == 200:
+                n += 1
+                response_schema = schema
+        self.assertEqual(n, 1)
+        # check properties
+        self.assertIsInstance(response_schema, openapi.ResponseSchema)
+        self.assertEqual(response_schema.description, 'test')
+        self.assertEqual(response_schema.api_obj, output_schema)
 
 
 if __name__ == '__main__':
