@@ -778,6 +778,7 @@ class ModelApp:
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
+        # TODO: docs need to be built before this happens
         return self.app(*args, **kwargs)
 
     def add_services(self, *services):
