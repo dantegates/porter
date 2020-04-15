@@ -402,14 +402,9 @@ class TestPredictionServicePredict(unittest.TestCase):
             prediction_service = PredictionService(model=None, additional_checks=1)
 
 
-@mock.patch('porter.responses.api.request_id', lambda: 123)
-@mock.patch('porter.services.api.request_id', lambda: 123)
 class TestPredictionServiceSchemas(unittest.TestCase):
     """Test the schema methods of PredictionService."""
-    @mock.patch('porter.services.api.request_json')
-    @mock.patch('porter.services.api.get_model_context', lambda: None)
-    @mock.patch('porter.services.BaseService._ids', set())
-    def test__add_feature_schema_instance(self, mock_request_json):
+    def test__add_feature_schema_instance(self):
         # this test also implicitly covers BaseService.add_request_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
@@ -433,10 +428,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         # check that id field was inserted
         self.assertIn('id', request_schema.api_obj.properties)
 
-    @mock.patch('porter.services.api.request_json')
-    @mock.patch('porter.services.api.get_model_context', lambda: None)
-    @mock.patch('porter.services.BaseService._ids', set())
-    def test__add_feature_schema_batch(self, mock_request_json):
+    def test__add_feature_schema_batch(self):
         # this test also implicitly covers BaseService.add_request_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
@@ -460,10 +452,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         # check that id field was inserted
         self.assertIn('id', request_schema.api_obj.item_type.properties)
 
-    @mock.patch('porter.services.api.request_json')
-    @mock.patch('porter.services.api.get_model_context', lambda: None)
-    @mock.patch('porter.services.BaseService._ids', set())
-    def test__add_prediction_schema_instance(self, mock_request_json):
+    def test__add_prediction_schema_instance(self):
         # this test also implicitly covers BaseService.add_response_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
@@ -494,10 +483,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         self.assertIn('id', response_obj.properties['predictions'].properties)
         self.assertIn('prediction', response_obj.properties['predictions'].properties)
 
-    @mock.patch('porter.services.api.request_json')
-    @mock.patch('porter.services.api.get_model_context', lambda: None)
-    @mock.patch('porter.services.BaseService._ids', set())
-    def test__add_prediction_schema_batch(self, mock_request_json):
+    def test__add_prediction_schema_batch(self):
         # this test also implicitly covers BaseService.add_response_schema
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
@@ -528,8 +514,6 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         self.assertIsInstance(response_obj.properties['predictions'], openapi.Array)
 
     @mock.patch('porter.services.api.request_json')
-    @mock.patch('porter.services.api.get_model_context', lambda: None)
-    @mock.patch('porter.services.BaseService._ids', set())
     def test_get_post_data_validation(self, mock_request_json):
         # this test also implicitly covers BaseService.get_post_data
         mock_model = mock.Mock()
