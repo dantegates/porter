@@ -62,6 +62,11 @@ class TestAppPredictions(unittest.TestCase):
         feature_schema3 = sc.Object(properties={'feature1': sc.Number()})
         wrong_prediction_schema3 = sc.Number(additional_params=dict(minimum=0))
 
+        cls.prediction_service_error = E = Exception('this mock service failed during prediction')
+        class ModelFailing(BaseModel):
+            def predict(self, X):
+                raise E
+
         # define configs and add services to app
         prediction_service1 = PredictionService(
             model=Model1(),
@@ -122,11 +127,18 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
+        prediction_service_failing = PredictionService(
+            model=ModelFailing(),
+            name='failing-model',
+            api_version='v1',
+            action='fail',
+        )
         cls.model_app.add_service(prediction_service1)
         cls.model_app.add_service(prediction_service2)
         cls.model_app.add_service(prediction_service3)
         cls.model_app.add_service(prediction_service4)
         cls.model_app.add_service(prediction_service5)
+        cls.model_app.add_service(prediction_service_failing)
 
     def test_prediction_success(self):
         post_data1 = [
@@ -270,7 +282,7 @@ class TestAppPredictions(unittest.TestCase):
             for key, value in expectations.items():
                 self.assertEqual(actual_error_obj['model_context'][key], value)
 
-    def test_prediction_response_valid(self):
+    def test_prediction_response_valid_schema(self):
         # test that validation passes for valid response
         post_data4 = {'id': 1, 'feature1': 5}
         actual4 = self.app.post('/model-4/v0.0-alpha/prediction', data=json.dumps(post_data4))
@@ -289,7 +301,7 @@ class TestAppPredictions(unittest.TestCase):
         }
         self.assertEqual(actual4, expected4)
 
-    def test_prediction_response_invalid(self):
+    def test_prediction_response_invalid_schema(self):
         # test that validation fails for invalid response
         post_data5 = {'id': 1, 'feature1': 5}
         actual5 = self.app.post('/model-5/v0.0-alpha/prediction', data=json.dumps(post_data5))
@@ -305,6 +317,15 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(resp1.status_code, 200)
         self.assertEqual(resp2.status_code, 200)
         self.assertEqual(resp3.status_code, 200)
+
+    @mock.patch('porter.services.BaseService._log_error')
+    def test_prediction_service_that_fails(self, mock__log_error):
+        # test how unhandled exceptions are treated
+        resp = self.app.post('/failing-model/v1/fail', data='{}')
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(resp.json['error']['messages'], ['Could not serve model results successfully.'])
+        # make sure the original exception was logged
+        mock__log_error.assert_called_with(self.prediction_service_error)
 
 
 @mock.patch('porter.responses.api.request_id', lambda: '123')

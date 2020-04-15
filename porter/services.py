@@ -34,7 +34,7 @@ from . import config as cf
 from . import constants as cn
 from . import responses as porter_responses
 from . import schemas
-
+from .exceptions import PorterException
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -197,7 +197,9 @@ class BaseService(abc.ABC, StatefulRoute):
             warnings.warn('Setting ``validate_response_data`` may significantly '
                           'impact the latency of responses and return confusing '
                           'error messages to the user. '
-                          'Use only during development for testing and debugging.')
+                          'Use only during development for testing and debugging. '
+                          'This is an experimental feature and may be removed in '
+                          'future releases.')
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
@@ -267,14 +269,17 @@ class BaseService(abc.ABC, StatefulRoute):
         # The only reason we distinguish between HTTPException and Exception
         # here is to give unhandled exceptions a message more relevant to `porter`
         # than the werkzeug default.
-        except werkzeug_exc.HTTPException as error:
+        except (PorterException, werkzeug_exc.HTTPException) as error:
             caught_error = error
             raise error
         except Exception as error:
             caught_error = error
-            wrapped_error = werkzeug_exc.InternalServerError('Could not serve model results successfully.')
-            raise wrapped_error from caught_error
+            msg = 'Could not serve model results successfully.'
+            wrapped_error = werkzeug_exc.InternalServerError(msg) 
+            raise wrapped_error from error
         finally:
+            # log the original error, not necessarily the one we raised
+            # (i.e. InternalServerError)
             if caught_error is not None:
                 self._log_error(caught_error)
 
@@ -289,8 +294,13 @@ class BaseService(abc.ABC, StatefulRoute):
             if self.validate_response_data:
                 schema = self._response_schemas.get((api.request_method(), response.status_code))
                 if schema is not None:
-                    # TODO: use json.loads?, numpy types can break this
-                    schema.validate(response.raw_data)
+                    # eh, this is a bit of hack to work around
+                    # fastjsonschema not understanding how to validate numpy
+                    # types.
+                    # There is probably a better way to do this, but this validates
+                    # exactly what we want to and is a quick fix for a feature that
+                    # is experimental anyway.
+                    schema.validate(json.loads(response.data))
         return response
 
     def define_endpoint(self):
