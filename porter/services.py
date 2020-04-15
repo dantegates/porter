@@ -778,7 +778,7 @@ class ModelApp:
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
-        return self.run(*args, **kwargs)
+        return self.app(*args, **kwargs)
 
     def add_services(self, *services):
         """Add services to the app from `*services`.
