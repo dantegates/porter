@@ -11,7 +11,7 @@ from porter import constants as cn
 from porter.services import (BaseService, ModelApp,
                              PredictionService,
                              StatefulRoute, serve_error_message)
-from porter.schemas import openapi
+from porter import schemas
 
 
 class TestFunctionsUnit(unittest.TestCase):
@@ -181,10 +181,11 @@ class TestPredictionServiceCall(unittest.TestCase):
 
     @mock.patch('porter.services.PredictionService._predict')
     @mock.patch('porter.services.api')
+    @mock.patch('porter.responses.api')
     @mock.patch('porter.services.PredictionService.check_meta', lambda self, meta: meta)
     @mock.patch('porter.services.PredictionService.update_meta', lambda self, meta: meta)
     @mock.patch('porter.services.BaseService._ids', set())
-    def test_serve_fail(self, mock_api, mock__predict):
+    def test_serve_fail(self, mock_responses_api, mock_services_api, mock__predict):
         mock__predict.side_effect = Exception
         name = 'my-model'
         version = '1.0'
@@ -408,10 +409,10 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        feature_schema = openapi.Object(properties=dict(
-            x=openapi.Integer(),
-            y=openapi.Number(),
-            z=openapi.String(),
+        feature_schema = schemas.Object(properties=dict(
+            x=schemas.Integer(),
+            y=schemas.Number(),
+            z=schemas.String(),
         ))
         with mock.patch('porter.services.BaseService.add_request_schema') as mock_add_request_schema:
             prediction_service = PredictionService(
@@ -428,7 +429,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         self.assertEqual(len(args), 2)
         self.assertEqual(args[0].upper(), 'POST')
         request_obj = args[1]
-        self.assertIsInstance(request_obj, openapi.Object)
+        self.assertIsInstance(request_obj, schemas.Object)
         self.assertIn('id', request_obj.properties)
         self.assertIn('x', request_obj.properties)
         self.assertIn('y', request_obj.properties)
@@ -438,10 +439,10 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        feature_schema = openapi.Object(properties=dict(
-            x=openapi.Integer(),
-            y=openapi.Number(),
-            z=openapi.String(),
+        feature_schema = schemas.Object(properties=dict(
+            x=schemas.Integer(),
+            y=schemas.Number(),
+            z=schemas.String(),
         ))
         with mock.patch('porter.services.BaseService.add_request_schema') as mock_add_request_schema:
             prediction_service = PredictionService(
@@ -457,7 +458,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         args = mock_add_request_schema.call_args_list[0][0]
         self.assertEqual(args[0].upper(), 'POST')
         request_obj = args[1]
-        self.assertIsInstance(request_obj, openapi.Array)
+        self.assertIsInstance(request_obj, schemas.Array)
         item_obj = request_obj.item_type
         self.assertIn('id', item_obj.properties)
         self.assertIn('x', item_obj.properties)
@@ -468,9 +469,9 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        prediction_schema = openapi.Object(properties=dict(
-            prediction=openapi.Number(),
-            confidence=openapi.Number(),
+        prediction_schema = schemas.Object(properties=dict(
+            prediction=schemas.Number(),
+            confidence=schemas.Number(),
         ))
         with mock.patch('porter.services.BaseService.add_response_schema') as mock_add_response_schema:
             prediction_service = PredictionService(
@@ -487,7 +488,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         self.assertEqual(args[0].upper(), 'POST')
         self.assertEqual(args[1], 200)
         response_obj = args[2]
-        self.assertIsInstance(response_obj, openapi.Object)
+        self.assertIsInstance(response_obj, schemas.Object)
         self.assertIn('request_id', response_obj.properties)
         self.assertIn('model_context', response_obj.properties)
         self.assertIn('predictions', response_obj.properties)
@@ -502,9 +503,9 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         model = mock.Mock()
         model_name = api_version = mock.MagicMock()
         mock_additional_checks = mock.Mock()
-        prediction_schema = openapi.Object(properties=dict(
-            prediction=openapi.Number(),
-            confidence=openapi.Number(),
+        prediction_schema = schemas.Object(properties=dict(
+            prediction=schemas.Number(),
+            confidence=schemas.Number(),
         ))
         with mock.patch('porter.services.BaseService.add_response_schema') as mock_add_response_schema:
             prediction_service = PredictionService(
@@ -521,12 +522,12 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         self.assertEqual(args[0].upper(), 'POST')
         self.assertEqual(args[1], 200)
         response_obj = args[2]
-        self.assertIsInstance(response_obj, openapi.Object)
+        self.assertIsInstance(response_obj, schemas.Object)
         self.assertIn('request_id', response_obj.properties)
         self.assertIn('model_context', response_obj.properties)
         self.assertIn('predictions', response_obj.properties)
         pred_obj = response_obj.properties['predictions']
-        self.assertIsInstance(pred_obj, openapi.Array)
+        self.assertIsInstance(pred_obj, schemas.Array)
         item_obj = pred_obj.item_type
         self.assertIn('id', item_obj.properties)
         self.assertIn('prediction', item_obj.properties)
@@ -540,7 +541,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         mock_model = mock.Mock()
         mock_model.predict.return_value = []
         mock_name = mock_version = mock.MagicMock()
-        feature_schema = openapi.Object(properties=dict(x=openapi.Integer()))
+        feature_schema = schemas.Object(properties=dict(x=schemas.Integer()))
         prediction_service = PredictionService(
             model=mock_model,
             name=mock_name,
@@ -600,12 +601,13 @@ class TestModelApp(unittest.TestCase):
             endpoint = '/supa/dupa'
             route_kwargs = {'methods': ['GET'], 'strict_slashes': True}
             request_schemas = object()
-        response_schemas = object()
+            response_schemas = object()
             name = 'service3'
 
         # add the services and validate they were routed with the correct
         # parameters.
-        model_app = ModelApp([service1, service2, service3], expose_docs=True, docs_url='/custom/docs/url/')
+        model_app = ModelApp([service1, service2, service3],
+                             expose_docs=True, docs_url='/custom/docs/url/')
 
         expected_calls = [
             mock.call('/an/endpoint', foo=1, bar='baz'),
@@ -626,10 +628,13 @@ class TestModelApp(unittest.TestCase):
         }
         self.assertEqual(model_app._request_schemas, expected_request_schemas)
 
+        health_check_responses = [schemas.ResponseSchema(schemas.health_check, 200)]
         expected_response_schemas = {
+            '/-/alive': {'GET': health_check_responses},
+            '/-/ready': {'GET': health_check_responses},
             service1.endpoint: service1.response_schemas,
             service2.endpoint: service2.response_schemas,
-            service3.endpoint: service3.response_schemas
+            service3.endpoint: service3.response_schemas,
         }
         self.assertEqual(model_app._response_schemas, expected_response_schemas)
 
@@ -716,6 +721,7 @@ class TestBaseService(unittest.TestCase):
             service2()
             mock__logger.assert_not_called()
 
+    @mock.patch('porter.responses.Response.jsonify', lambda x: 321)
     @mock.patch('porter.services.BaseService._ids', set())
     @mock.patch('porter.services.api.request_json', lambda: {'foo': 1, 'bar': {'p': 10}})
     @mock.patch('porter.services.api.request_id', lambda: 123)
@@ -738,7 +744,7 @@ class TestBaseService(unittest.TestCase):
                 'api logging',
                 extra={'request_id': 123,
                        'request_data': {'foo': 1, 'bar': {'p': 10}},
-                       'response_data': None,
+                       'response_data': 321,
                        'service_class': 'Service',
                        'event': 'api_call'}
                 )
@@ -750,6 +756,7 @@ class TestBaseService(unittest.TestCase):
                 service2()
             mock__logger.assert_not_called()
 
+    @mock.patch('porter.responses.Response.jsonify', lambda x: 321)
     @mock.patch('porter.services.BaseService._logger')
     @mock.patch('porter.api.request_id', lambda: 123)
     @mock.patch('porter.services.BaseService._ids', set())
@@ -825,24 +832,24 @@ class TestBaseServiceSchemas(unittest.TestCase):
     """Test the schema methods of BaseService."""
 
     def test_add_request_schema(self):
-        input_schema = openapi.Object(properties=dict(
-            x=openapi.Integer(),
-            y=openapi.Number(),
-            z=openapi.String()
+        input_schema = schemas.Object(properties=dict(
+            x=schemas.Integer(),
+            y=schemas.Number(),
+            z=schemas.String()
         ))
         service = mock.MagicMock()
         service.request_schemas = {}
         BaseService.add_request_schema(
             service, 'post', input_schema, description='test')
         request_schema = service.request_schemas['POST']
-        self.assertIsInstance(request_schema, openapi.RequestSchema)
+        self.assertIsInstance(request_schema, schemas.RequestSchema)
         self.assertEqual(request_schema.description, 'test')
         self.assertIs(request_schema.api_obj, input_schema)
 
     def test_add_response_schema(self):
-        output_schema = openapi.Object(properties=dict(
-            prediction=openapi.Number(),
-            confidence=openapi.Number(),
+        output_schema = schemas.Object(properties=dict(
+            prediction=schemas.Number(),
+            confidence=schemas.Number(),
         ))
         service = mock.MagicMock()
         service.response_schemas = {}
@@ -856,7 +863,7 @@ class TestBaseServiceSchemas(unittest.TestCase):
                 response_schema = schema
         self.assertEqual(n, 1)
         # check properties
-        self.assertIsInstance(response_schema, openapi.ResponseSchema)
+        self.assertIsInstance(response_schema, schemas.ResponseSchema)
         self.assertEqual(response_schema.description, 'test')
         self.assertIs(response_schema.api_obj, output_schema)
 
