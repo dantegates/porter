@@ -161,7 +161,7 @@ class Object(ApiObject):
         self.additional_properties_type = additional_properties_type
         if properties is not None:
             if required == 'all':
-                self.required = tuple(self.properties.keys())
+                self.required = tuple(sorted(self.properties.keys()))
             else:
                 self.required = tuple(required)
         super().__init__(*args, **kwargs)
