@@ -329,6 +329,50 @@ class TestAppPredictions(unittest.TestCase):
         mock__log_error.assert_called_with(self.prediction_service_error)
 
 
+class TestOpenAPIDocumentation(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        service1 = PredictionService(
+            name='service1',
+            api_version='2',
+            model=None,  # we're not going to make calls for predictions here
+            feature_schema=sc.Object(properties={'a': sc.Integer(), 'b': sc.Integer(), 'c': sc.Number()})
+        )
+        service1 = PredictionService(
+            namespace='ns',
+            name='service2',
+            api_version='1',
+            model=None,  # we're not going to make calls for predictions here
+            feature_schema=sc.Object(properties={'a': sc.Integer(), 'b': sc.Integer()})
+        )
+        cls.model_app = ModelApp([], expose_docs=True)
+        cls.app = cls.model_app.app.test_client()
+
+    def test_docs_url(self):
+        resp = self.app.get('/docs/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_can_serve_swagger_files(self):
+        files = [
+            'favicon-16x16.png',
+            'favicon-32x32.png',
+            'index.html',
+            'oauth2-redirect.html',
+            'swagger-ui-bundle.js',
+            'swagger-ui-bundle.js.map',
+            'swagger-ui-standalone-preset.js',
+            'swagger-ui-standalone-preset.js.map',
+            'swagger-ui.css',
+            'swagger-ui.css.map',
+            'swagger-ui.js',
+            'swagger-ui.js.map',
+            'swagger_template.html',
+        ]
+        for filename in files:
+            resp = self.app.get(f'/assets/swagger-ui/{filename}')
+            self.assertEqual(resp.status_code, 200)
+
+
 @mock.patch('porter.responses.api.request_id', lambda: '123')
 class TestAppHealthChecks(unittest.TestCase):
     def test_liveness_live(self):
