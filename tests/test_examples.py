@@ -138,7 +138,7 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_missing_key))
         self.assertEqual(r.status_code, 422)
-        self.assertIn("data must contain ('id', 'user_id', 'title_id', 'genre', 'average_rating')", r.json['error']['messages'][0])
+        self.assertIn("data must contain ('average_rating', 'genre', 'id', 'title_id', 'user_id')", r.json['error']['messages'][0])
 
         r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_genre))
         self.assertEqual(r.status_code, 422)
@@ -346,7 +346,7 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data2))
         self.assertEqual(r.status_code, 422)
-        self.assertIn("data must contain ('string_with_enum_prop', 'an_array', 'another_property', 'yet_another_property')", r.json['error']['messages'][0])
+        self.assertIn("data must contain ('an_array', 'another_property', 'string_with_enum_prop', 'yet_another_property')", r.json['error']['messages'][0])
 
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations1))
