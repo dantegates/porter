@@ -2,7 +2,7 @@ import time
 import unittest
 from unittest import mock
 
-from werkzeug import exceptions as exc
+from werkzeug import exceptions as werkzeug_exc
 import numpy as np
 import pandas as pd
 import porter.responses as porter_responses
@@ -189,7 +189,7 @@ class TestPredictionServiceCall(unittest.TestCase):
         name = 'my-model'
         version = '1.0'
         meta = {}
-        with self.assertRaises(exc.InternalServerError) as ctx:
+        with self.assertRaises(werkzeug_exc.InternalServerError) as ctx:
             sp = PredictionService(
                 model=mock.Mock(), name=name, api_version=version,
                 meta=meta, preprocessor=mock.Mock(), postprocessor=mock.Mock(),
@@ -340,7 +340,7 @@ class TestPredictionServicePredict(unittest.TestCase):
             batch_prediction=False,
             additional_checks=mock_additional_checks
         )
-        with self.assertRaisesRegex(exc.UnprocessableEntity, '.*verify user message is passed on.*'):
+        with self.assertRaisesRegex(werkzeug_exc.UnprocessableEntity, '.*verify user message is passed on.*'):
             _ = prediction_service._predict()
         mock_additional_checks.assert_called()
 
@@ -424,15 +424,15 @@ class TestPredictionServiceSchemas(unittest.TestCase):
                 batch_prediction=False,
                 feature_schema=feature_schema,
             )
-            args = mock_add_request_schema.call_args_list[0][0]
-            self.assertEqual(len(args), 2)
-            self.assertEqual(args[0].upper(), 'POST')
-            request_obj = args[1]
-            self.assertIsInstance(request_obj, openapi.Object)
-            self.assertIn('id', request_obj.properties)
-            self.assertIn('x', request_obj.properties)
-            self.assertIn('y', request_obj.properties)
-            self.assertIn('z', request_obj.properties)
+        args = mock_add_request_schema.call_args_list[0][0]
+        self.assertEqual(len(args), 2)
+        self.assertEqual(args[0].upper(), 'POST')
+        request_obj = args[1]
+        self.assertIsInstance(request_obj, openapi.Object)
+        self.assertIn('id', request_obj.properties)
+        self.assertIn('x', request_obj.properties)
+        self.assertIn('y', request_obj.properties)
+        self.assertIn('z', request_obj.properties)
 
     def test__add_feature_schema_batch(self):
         model = mock.Mock()
@@ -454,15 +454,15 @@ class TestPredictionServiceSchemas(unittest.TestCase):
                 batch_prediction=True,
                 feature_schema=feature_schema,
             )
-            args = mock_add_request_schema.call_args_list[0][0]
-            self.assertEqual(args[0].upper(), 'POST')
-            request_obj = args[1]
-            self.assertIsInstance(request_obj, openapi.Array)
-            item_obj = request_obj.item_type
-            self.assertIn('id', item_obj.properties)
-            self.assertIn('x', item_obj.properties)
-            self.assertIn('y', item_obj.properties)
-            self.assertIn('z', item_obj.properties)
+        args = mock_add_request_schema.call_args_list[0][0]
+        self.assertEqual(args[0].upper(), 'POST')
+        request_obj = args[1]
+        self.assertIsInstance(request_obj, openapi.Array)
+        item_obj = request_obj.item_type
+        self.assertIn('id', item_obj.properties)
+        self.assertIn('x', item_obj.properties)
+        self.assertIn('y', item_obj.properties)
+        self.assertIn('z', item_obj.properties)
 
     def test__add_prediction_schema_instance(self):
         model = mock.Mock()
@@ -483,21 +483,20 @@ class TestPredictionServiceSchemas(unittest.TestCase):
                 batch_prediction=False,
                 prediction_schema=prediction_schema,
             )
-            args = mock_add_response_schema.call_args_list[-1][0]
-            self.assertEqual(args[0].upper(), 'POST')
-            self.assertEqual(args[1], 200)
-            response_obj = args[2]
-            self.assertIsInstance(response_obj, openapi.Object)
-            self.assertIn('request_id', response_obj.properties)
-            self.assertIn('model_context', response_obj.properties)
-            self.assertIn('predictions', response_obj.properties)
-            pred_obj = response_obj.properties['predictions']
-            self.assertIn('id', pred_obj.properties)
-            self.assertIn('prediction', pred_obj.properties)
-            pred_schema = pred_obj.properties['prediction']
-            self.assertIn('prediction', pred_schema.properties)
-            self.assertIn('confidence', pred_schema.properties)
-            # TODO: should a description be passed?
+        args = mock_add_response_schema.call_args_list[-1][0]
+        self.assertEqual(args[0].upper(), 'POST')
+        self.assertEqual(args[1], 200)
+        response_obj = args[2]
+        self.assertIsInstance(response_obj, openapi.Object)
+        self.assertIn('request_id', response_obj.properties)
+        self.assertIn('model_context', response_obj.properties)
+        self.assertIn('predictions', response_obj.properties)
+        pred_obj = response_obj.properties['predictions']
+        self.assertIn('id', pred_obj.properties)
+        self.assertIn('prediction', pred_obj.properties)
+        pred_schema = pred_obj.properties['prediction']
+        self.assertIn('prediction', pred_schema.properties)
+        self.assertIn('confidence', pred_schema.properties)
 
     def test__add_prediction_schema_batch(self):
         model = mock.Mock()
@@ -518,22 +517,22 @@ class TestPredictionServiceSchemas(unittest.TestCase):
                 batch_prediction=True,
                 prediction_schema=prediction_schema,
             )
-            args = mock_add_response_schema.call_args_list[-1][0]
-            self.assertEqual(args[0].upper(), 'POST')
-            self.assertEqual(args[1], 200)
-            response_obj = args[2]
-            self.assertIsInstance(response_obj, openapi.Object)
-            self.assertIn('request_id', response_obj.properties)
-            self.assertIn('model_context', response_obj.properties)
-            self.assertIn('predictions', response_obj.properties)
-            pred_obj = response_obj.properties['predictions']
-            self.assertIsInstance(pred_obj, openapi.Array)
-            item_obj = pred_obj.item_type
-            self.assertIn('id', item_obj.properties)
-            self.assertIn('prediction', item_obj.properties)
-            pred_schema = item_obj.properties['prediction']
-            self.assertIn('prediction', pred_schema.properties)
-            self.assertIn('confidence', pred_schema.properties)
+        args = mock_add_response_schema.call_args_list[-1][0]
+        self.assertEqual(args[0].upper(), 'POST')
+        self.assertEqual(args[1], 200)
+        response_obj = args[2]
+        self.assertIsInstance(response_obj, openapi.Object)
+        self.assertIn('request_id', response_obj.properties)
+        self.assertIn('model_context', response_obj.properties)
+        self.assertIn('predictions', response_obj.properties)
+        pred_obj = response_obj.properties['predictions']
+        self.assertIsInstance(pred_obj, openapi.Array)
+        item_obj = pred_obj.item_type
+        self.assertIn('id', item_obj.properties)
+        self.assertIn('prediction', item_obj.properties)
+        pred_schema = item_obj.properties['prediction']
+        self.assertIn('prediction', pred_schema.properties)
+        self.assertIn('confidence', pred_schema.properties)
 
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data_validation(self, mock_request_json):
@@ -574,14 +573,14 @@ class TestPredictionServiceSchemas(unittest.TestCase):
             feature_schema=feature_schema,
             validate_request_data=True,
             additional_checks=None)
-        # TODO: recent changes here, but could make this more specific
-        with self.assertRaises(Exception):
+        with self.assertRaises(werkzeug_exc.UnprocessableEntity):
             prediction_service.get_post_data()
 
 
 class TestModelApp(unittest.TestCase):
     @mock.patch('porter.services.api.App')
-    def test_constructor(self, mock_app):
+    @mock.patch('porter.services.schemas.make_openapi_spec')
+    def test_constructor(self, mock_app, mock_make_openapi_spec):
         class service1:
             id = 'service1'
             endpoint = '/an/endpoint'
@@ -601,12 +600,12 @@ class TestModelApp(unittest.TestCase):
             endpoint = '/supa/dupa'
             route_kwargs = {'methods': ['GET'], 'strict_slashes': True}
             request_schemas = object()
-            response_schemas = object()
+        response_schemas = object()
             name = 'service3'
 
         # add the services and validate they were routed with the correct
         # parameters.
-        model_app = ModelApp([service1, service2, service3])
+        model_app = ModelApp([service1, service2, service3], expose_docs=True, docs_url='/custom/docs/url/')
 
         expected_calls = [
             mock.call('/an/endpoint', foo=1, bar='baz'),
@@ -615,8 +614,9 @@ class TestModelApp(unittest.TestCase):
             mock.call()(service2),
             mock.call('/supa/dupa', methods=['GET'], strict_slashes=True),
             mock.call()(service3),
+            mock.call()('/custom/docs/url/')
         ]
-        model_app.app.route.assert_has_calls(expected_calls)
+        model_app.app.route.assert_has_calls(expected_calls, any_order=True)
 
         # verify that the schemas were correctly registered
         expected_request_schemas = {
@@ -732,7 +732,7 @@ class TestBaseService(unittest.TestCase):
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
             service1 = Service(name='name1', api_version='version1', log_api_calls=True)
             # unhandled exceptions should always get wrapped as a prediction error
-            with self.assertRaisesRegex(exc.InternalServerError, 'Could not serve model results successfully.'):
+            with self.assertRaisesRegex(werkzeug_exc.InternalServerError, 'Could not serve model results successfully.'):
                 service1()
             mock__logger.info.assert_called_with(
                 'api logging',
@@ -746,7 +746,7 @@ class TestBaseService(unittest.TestCase):
         with mock.patch('porter.services.BaseService._logger') as mock__logger:
             service2 = Service(name='name2', api_version='version2', log_api_calls=False)
             # unhandled exceptions should always get wrapped as a prediction error
-            with self.assertRaisesRegex(exc.InternalServerError, 'Could not serve model results successfully.'):
+            with self.assertRaisesRegex(werkzeug_exc.InternalServerError, 'Could not serve model results successfully.'):
                 service2()
             mock__logger.assert_not_called()
 
@@ -767,7 +767,7 @@ class TestBaseService(unittest.TestCase):
                 return 'ready'
 
         service = Service(name='name', api_version='version')
-        with self.assertRaisesRegex(exc.InternalServerError, 'Could not serve model results successfully.'):
+        with self.assertRaisesRegex(werkzeug_exc.InternalServerError, 'Could not serve model results successfully.'):
             service()
         mock__logger.exception.assert_called_with(
             e,
@@ -837,8 +837,7 @@ class TestBaseServiceSchemas(unittest.TestCase):
         request_schema = service.request_schemas['POST']
         self.assertIsInstance(request_schema, openapi.RequestSchema)
         self.assertEqual(request_schema.description, 'test')
-        # TODO: we don't necessarily explicitly guarantee openapi object equality
-        self.assertEqual(request_schema.api_obj, input_schema)
+        self.assertIs(request_schema.api_obj, input_schema)
 
     def test_add_response_schema(self):
         output_schema = openapi.Object(properties=dict(
@@ -859,7 +858,7 @@ class TestBaseServiceSchemas(unittest.TestCase):
         # check properties
         self.assertIsInstance(response_schema, openapi.ResponseSchema)
         self.assertEqual(response_schema.description, 'test')
-        self.assertEqual(response_schema.api_obj, output_schema)
+        self.assertIs(response_schema.api_obj, output_schema)
 
 
 if __name__ == '__main__':

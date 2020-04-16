@@ -181,8 +181,6 @@ class BaseService(abc.ABC, StatefulRoute):
     # subclasses can override this to add additional defaults
     _service_default_schemas = []
 
-    # TODO: do we really need to validate responses? It could be useful for testing
-    # but we could also manually call .validate()
     def __init__(self, *, name, api_version, meta=None, log_api_calls=False,
                  namespace='', validate_request_data=False,
                  validate_response_data=False):
@@ -261,7 +259,6 @@ class BaseService(abc.ABC, StatefulRoute):
             # This is much more user friendly.
             if not isinstance(response, porter_responses.Response):
                 response = porter_responses.Response(response)
-            response = response.jsonify()
         # Note on the error handling here. The purpose of this block is to log
         # any errors that were raised in self.serve(). If we happen to catch
         # an unhandled exception we'll re-raise an internal server error.
@@ -271,13 +268,21 @@ class BaseService(abc.ABC, StatefulRoute):
         # than the werkzeug default.
         except (PorterException, werkzeug_exc.HTTPException) as error:
             caught_error = error
+            # we need to make a porter response here so the status code exists
+            # below when we validate the response data.
+            response = porter_responses.make_error_response(caught_error)
             raise error
         except Exception as error:
             caught_error = error
             msg = 'Could not serve model results successfully.'
             wrapped_error = werkzeug_exc.InternalServerError(msg)
+            # we need to make a porter response here so the status code exists
+            # below when we validate the response data.
+            response = porter_responses.make_error_response(wrapped_error)
             raise wrapped_error from error
         finally:
+            response = response.jsonify()
+
             # log the original error, not necessarily the one we raised
             # (i.e. InternalServerError)
             if caught_error is not None:
@@ -285,10 +290,7 @@ class BaseService(abc.ABC, StatefulRoute):
 
             if self.log_api_calls:
                 request_data = api.request_json()
-                if response is not None:
-                    response_data = getattr(response, 'raw_data', response)
-                else:
-                    response_data = response
+                response_data = getattr(response, 'raw_data', response)
                 self._log_api_call(request_data, response_data)
 
             if self.validate_response_data:
@@ -695,6 +697,7 @@ class PredictionService(BaseService):
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
             request_schema = schemas.Array(item_type=request_schema)
+        # TODO: should a description be passed?
         self.add_request_schema('POST', request_schema)
 
     def _add_prediction_schema(self, user_schema):
@@ -718,6 +721,7 @@ class PredictionService(BaseService):
             }
         )
 
+        # TODO: should a description be passed?
         self.add_response_schema('POST', 200, response_schema)
 
 
@@ -755,8 +759,7 @@ class ModelApp:
         docs_url (str): Endpoint the API documentation is exposed at.
     """
 
-    # TODO: are name and description required if docs is True
-    def __init__(self, services, *, name=__name__, description=None, version=None, meta=None,
+    def __init__(self, services, *, name=None, description=None, version=None, meta=None,
                  expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
         self.services = services
         self.name = name
@@ -780,7 +783,6 @@ class ModelApp:
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
-        # TODO: docs need to be built before this happens 
         return self.app(*args, **kwargs)
 
     def _add_service(self, service):
@@ -841,9 +843,9 @@ class ModelApp:
             raise err
 
     def _init_app(self):
-        return api.App(self.name, static_folder=cn.ASSETS_DIR)
+        name = __name__ if self.name is None else self.name
+        return api.App(name, static_folder=cn.ASSETS_DIR)
 
-    # TODO: we need tests for this
     def _build_app(self):
         """Build and return the app.
 
@@ -885,11 +887,16 @@ class ModelApp:
         if self.expose_docs:
             self._route_docs()
 
-    # TODO: move this back to openapi.py
+    # TODO: perhaps this should be moved into the schemas module at some point
     def _route_docs(self):
         openapi_json =  schemas.make_openapi_spec(self.name, self.description, self.version,
-                                          self._request_schemas, self._response_schemas,
-                                          self._additional_params)
+                                                  self._request_schemas, self._response_schemas,
+                                                  self._additional_params)
+
+        @self.app.route(self.docs_url)
+        def docs():
+            html = schemas.make_docs_html(self.docs_json_url)
+            return html
 
         @self.app.route('/assets/swagger-ui/{filename}')
         def swagger_ui(filename):
@@ -898,8 +905,3 @@ class ModelApp:
         @self.app.route(self.docs_json_url)
         def docs_json():
             return json.dumps(openapi_json)
-
-        @self.app.route(self.docs_url)
-        def docs():
-            html = schemas.make_docs_html(self.docs_json_url)
-            return html

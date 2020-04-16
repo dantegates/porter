@@ -97,6 +97,7 @@ class TestAppPredictions(unittest.TestCase):
             postprocessor=None,
             feature_schema=feature_schema3,
             validate_request_data=True,
+            validate_response_data=True,
             batch_prediction=False,
             meta={'algorithm': 'randomforest', 'lasttrained': 1}
         )
@@ -223,6 +224,12 @@ class TestAppPredictions(unittest.TestCase):
         actual_data = json.loads(actual.data)
         self.assertIn('request_id', actual_data)
         self.assertEqual(expectd_data['error'], actual_data['error'])
+
+    def test_asdkfj(self):
+        post_data2 = [{'id': 1, 'feature1': 2}, {'id': 2, 'feature1': 2}]
+        resp = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data2))
+        print(resp.json)
+        self.assertEqual(resp.status_code, 422)
 
     def test_prediction_bad_requests_422(self):
         # should be array when sent to model1
