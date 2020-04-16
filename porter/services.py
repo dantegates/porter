@@ -275,7 +275,7 @@ class BaseService(abc.ABC, StatefulRoute):
         except Exception as error:
             caught_error = error
             msg = 'Could not serve model results successfully.'
-            wrapped_error = werkzeug_exc.InternalServerError(msg) 
+            wrapped_error = werkzeug_exc.InternalServerError(msg)
             raise wrapped_error from error
         finally:
             # log the original error, not necessarily the one we raised
@@ -756,8 +756,9 @@ class ModelApp:
     """
 
     # TODO: are name and description required if docs is True
-    def __init__(self, *, name=__name__, description=None, version=None, meta=None,
+    def __init__(self, services, *, name=__name__, description=None, version=None, meta=None,
                  expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
+        self.services = services
         self.name = name
         self.meta = {} if meta is None else meta
         self.description = description
@@ -766,6 +767,7 @@ class ModelApp:
         self.expose_docs = expose_docs
         self.docs_url = docs_url
         self.docs_json_url = docs_json_url
+        self.app = self._init_app()
 
         self._services = []
         self._request_schemas = {}
@@ -774,27 +776,14 @@ class ModelApp:
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
-        self.app = self._build_app()
+        self._build_app()
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
-        # TODO: docs need to be built before this happens
+        # TODO: docs need to be built before this happens 
         return self.app(*args, **kwargs)
 
-    def add_services(self, *services):
-        """Add services to the app from `*services`.
-
-        Args:
-            *services (list): List of :class:`porter.services.BaseService` instances
-                to add to the model.
-
-        Returns:
-            None
-        """
-        for service in services:
-            self.add_service(service)
-
-    def add_service(self, service):
+    def _add_service(self, service):
         """Add a service to the app from ``service``.
 
         Args:
@@ -818,6 +807,8 @@ class ModelApp:
         self._request_schemas[service.endpoint] = service.request_schemas
         self._response_schemas[service.endpoint] = service.response_schemas
         # tag the services
+        # TODO: this was coded to PredictionService, i.e. not all services may
+        #       have GET/POST
         self._additional_params[service.endpoint] = {'GET': {'tags': [service.name]}}
         self._additional_params[service.endpoint]['POST'] = {'tags': [service.name]}
         # finally route
@@ -831,11 +822,6 @@ class ModelApp:
             *args: Positional arguments passed on to the wrapped ``flask`` app.
             **kwargs: Keyword arguments passed on to the wrapped ``flask`` app.
         """
-        # Because the ``ModelApp`` API allows services to be added to the app
-        # after it's been instantiated we build the docs immediately before
-        # starting the app to be sure that all services are included in the docs.
-        if self.expose_docs:
-            self._route_docs()
         self.app.run(*args, **kwargs)
 
     def check_meta(self, meta):
@@ -854,6 +840,9 @@ class ModelApp:
                     '`meta` does not follow the proper schema, all values should be strings')
             raise err
 
+    def _init_app(self):
+        return api.App(self.name, static_folder=cn.ASSETS_DIR)
+
     # TODO: we need tests for this
     def _build_app(self):
         """Build and return the app.
@@ -864,21 +853,19 @@ class ModelApp:
         Returns:
             An instance of :class:`porter.api.App`.
         """
-        static_folder = os.path.join(os.path.dirname(__file__), 'assets')
-        app = api.App(self.name, static_folder=static_folder)
 
         # register a custom JSON encoder
-        app.json_encoder = cf.json_encoder
+        self.app.json_encoder = cf.json_encoder
 
         # register error handler for all werkzeug default exceptions
         for error in werkzeug_exc.default_exceptions:
-            app.register_error_handler(error, serve_error_message)
+            self.app.register_error_handler(error, serve_error_message)
 
         # route the health checks
         serve_alive = ServeAlive(self)
         serve_ready = ServeReady(self)
-        app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
-        app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
+        self.app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
+        self.app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
 
         # register the schemas for the health checks
         if self.expose_docs:
@@ -890,9 +877,13 @@ class ModelApp:
 
         # route root
         serve_root = ServeRoot(self)
-        app.route('/', methods=['GET'])(serve_root)
+        self.app.route('/', methods=['GET'])(serve_root)
 
-        return app
+        for service in self.services:
+            self._add_service(service)
+
+        if self.expose_docs:
+            self._route_docs()
 
     # TODO: move this back to openapi.py
     def _route_docs(self):

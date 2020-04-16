@@ -574,18 +574,8 @@ class TestPredictionServiceSchemas(unittest.TestCase):
 
 
 class TestModelApp(unittest.TestCase):
-    @mock.patch('porter.services.ModelApp._build_app')
-    @mock.patch('porter.services.ModelApp.add_service')
-    def test_add_services(self, mock_add_service, mock__build_app):
-        configs = [object(), object(), object()]
-        model_app = ModelApp()
-        model_app.add_services(configs[0], configs[1], configs[2])
-        expected_calls = [mock.call(obj) for obj in configs]
-        mock_add_service.assert_has_calls(expected_calls)
-
-    @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.api.App')
-    def test_add_service(self, mock_app, mock__build_app):
+    def test_constructor(self, mock_app):
         class service1:
             id = 'service1'
             endpoint = '/an/endpoint'
@@ -607,13 +597,11 @@ class TestModelApp(unittest.TestCase):
             request_schemas = object()
             response_schemas = object()
             name = 'service3'
-        model_app = ModelApp()
-        model_app._request_schemas = {}
-        model_app._response_scheams = {}
 
         # add the services and validate they were routed with the correct
         # parameters.
-        model_app.add_services(service1, service2, service3)
+        model_app = ModelApp([service1, service2, service3])
+
         expected_calls = [
             mock.call('/an/endpoint', foo=1, bar='baz'),
             mock.call()(service1),
@@ -639,9 +627,8 @@ class TestModelApp(unittest.TestCase):
         }
         self.assertEqual(model_app._response_schemas, expected_response_schemas)
 
-    @mock.patch('porter.services.ModelApp._build_app')
     @mock.patch('porter.services.api.App')
-    def test_add_service_fail(self, mock_app, mock__build_app):
+    def test_constructor_fail_on_duplicate_services(self, mock_app):
         class service1:
             id = 'service1'
             endpoint = '/an/endpoint'
@@ -656,10 +643,8 @@ class TestModelApp(unittest.TestCase):
             request_schemas = {}
             response_schemas = {}
             name = 'service2'
-        model_app = ModelApp()
-        model_app.add_service(service1)
         with self.assertRaisesRegex(ValueError, 'service has already been added'):
-            model_app.add_service(service2)
+            model_app = ModelApp([service1, service2])
 
 
 class TestBaseService(unittest.TestCase):

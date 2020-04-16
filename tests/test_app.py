@@ -21,8 +21,6 @@ import porter.schemas as sc
 class TestAppPredictions(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.model_app = ModelApp()
-        cls.app = cls.model_app.app.test_client()
         # define objects for model 1
         class Preprocessor1(BasePreProcessor):
             def process(self, X):
@@ -133,12 +131,15 @@ class TestAppPredictions(unittest.TestCase):
             api_version='v1',
             action='fail',
         )
-        cls.model_app.add_service(prediction_service1)
-        cls.model_app.add_service(prediction_service2)
-        cls.model_app.add_service(prediction_service3)
-        cls.model_app.add_service(prediction_service4)
-        cls.model_app.add_service(prediction_service5)
-        cls.model_app.add_service(prediction_service_failing)
+        cls.model_app = ModelApp([
+            prediction_service1,
+            prediction_service2,
+            prediction_service3,
+            prediction_service4,
+            prediction_service5,
+            prediction_service_failing,
+        ])
+        cls.app = cls.model_app.app.test_client()
 
     def test_prediction_success(self):
         post_data1 = [
@@ -330,20 +331,17 @@ class TestAppPredictions(unittest.TestCase):
 
 @mock.patch('porter.responses.api.request_id', lambda: '123')
 class TestAppHealthChecks(unittest.TestCase):
-    def setUp(self):
-        self.model_app = ModelApp()
-        self.app = self.model_app.app.test_client()
-
-    def tearDown(self):
-        self.model_app._services = []
-
     def test_liveness_live(self):
-        resp = self.app.get('/-/alive')
+        model_app = ModelApp([])
+        app = model_app.app.test_client()
+        resp = app.get('/-/alive')
         self.assertEqual(resp.status_code, 200)
 
     def test_readiness_not_ready1(self):
-        resp_alive = self.app.get('/-/alive')
-        resp_ready = self.app.get('/-/ready')
+        model_app = ModelApp([])
+        app = model_app.app.test_client()
+        resp_alive = app.get('/-/alive')
+        resp_ready = app.get('/-/ready')
         expected_data = {
             'request_id': '123',
             'porter_version': __version__,
@@ -362,8 +360,7 @@ class TestAppHealthChecks(unittest.TestCase):
         sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
-    @mock.patch('porter.services.api.App')
-    def test_readiness_not_ready2(self, mock_App, mock_init):
+    def test_readiness_not_ready2(self, mock_init):
         mock_init.return_value = None
         class C(PredictionService):
             status = 'NOTREADY'
@@ -376,9 +373,12 @@ class TestAppHealthChecks(unittest.TestCase):
         svc.id = 'foo:bar'
         svc.endpoint = '/foo/bar/'
         svc.route_kwargs = {}
-        self.model_app.add_service(svc)
-        resp_alive = self.app.get('/-/alive')
-        resp_ready = self.app.get('/-/ready')
+
+        model_app = ModelApp([svc])
+        app = model_app.app.test_client()
+
+        resp_alive = app.get('/-/alive')
+        resp_ready = app.get('/-/ready')
         expected_data = {
             'request_id': '123',
             'porter_version': __version__,
@@ -407,8 +407,7 @@ class TestAppHealthChecks(unittest.TestCase):
         sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
-    @mock.patch('porter.services.api.App')
-    def test_readiness_ready_ready1(self, mock_App, mock_init):
+    def test_readiness_ready_ready1(self, mock_init):
         mock_init.return_value = None
         svc = PredictionService()
         svc.name = 'model1'
@@ -418,9 +417,12 @@ class TestAppHealthChecks(unittest.TestCase):
         svc.meta = {'foo': 1, 'bar': 2}
         svc.response_schemas = {}
         svc.request_schemas = {}
-        self.model_app.add_service(svc)
-        resp_alive = self.app.get('/-/alive')
-        resp_ready = self.app.get('/-/ready')
+
+        model_app = ModelApp([svc])
+        app = model_app.app.test_client()
+
+        resp_alive = app.get('/-/alive')
+        resp_ready = app.get('/-/ready')
         expected_data = {
             'request_id': '123',
             'porter_version': __version__,
@@ -449,8 +451,7 @@ class TestAppHealthChecks(unittest.TestCase):
         sc.health_check.validate(ready_respnose)  # should not raise exception
 
     @mock.patch('porter.services.PredictionService.__init__')
-    @mock.patch('porter.services.api.App')
-    def test_readiness_ready_ready2(self, mock_App, mock_init):
+    def test_readiness_ready_ready2(self, mock_init):
         mock_init.return_value = None
         svc1 = PredictionService()
         svc1.name = 'model1'
@@ -468,9 +469,12 @@ class TestAppHealthChecks(unittest.TestCase):
         svc2.meta = {'foo': 1}
         svc2.response_schemas = {}
         svc2.request_schemas = {}  
-        self.model_app.add_services(svc1, svc2)
-        resp_alive = self.app.get('/-/alive')
-        resp_ready = self.app.get('/-/ready')
+
+        model_app = ModelApp([svc1, svc2])
+        app = model_app.app.test_client()
+
+        resp_alive = app.get('/-/alive')
+        resp_ready = app.get('/-/ready')
         expected_data = {
             'request_id': '123',
             'porter_version': __version__,
@@ -508,8 +512,15 @@ class TestAppHealthChecks(unittest.TestCase):
         sc.health_check.validate(ready_respnose)  # should not raise exception
 
     def test_root(self):
-        resp = self.app.get('/')
+        model_app = ModelApp([])
+        app = model_app.app.test_client()
+        resp = app.get('/')
         self.assertEqual(resp.status_code, 200)
+
+        model_app = ModelApp([], expose_docs=True)
+        app = model_app.app.test_client()
+        resp = app.get('/')
+        self.assertEqual(resp.status_code, 302)
 
 
 @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
@@ -527,14 +538,17 @@ class TestAppErrorHandling(unittest.TestCase):
         # In this class we actually want to test the applications error handling
         # and thus do not set this attribute.
         # See, http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
-        cls.model_app = ModelApp()
+
+        prediction_service = PredictionService(name='failing-model',
+            api_version='B', model=None, meta={'1': 'one', 'two': 2})
+
+        cls.model_app = ModelApp([prediction_service])
         flask_app = cls.model_app.app
         @flask_app.route('/test-error-handling/', methods=['POST'])
         def test_error():
             flask.request.get_json(force=True)
             raise Exception('exceptional testing of exceptions')
         cls.app_test_client = flask_app.test_client()
-        cls.add_failing_model_service()
 
     def test_bad_request(self):
         # note data is unreadable JSON, thus a BadRequest
@@ -651,12 +665,6 @@ class TestAppErrorHandling(unittest.TestCase):
         self.assertEqual(actual['error']['user_data'], expected['error']['user_data'])
         self.assertTrue(expected['error']['traceback'].search(actual['error']['traceback']))
 
-    @classmethod
-    def add_failing_model_service(cls):
-        prediction_service = PredictionService(name='failing-model',
-            api_version='B', model=None, meta={'1': 'one', 'two': 2})
-        cls.model_app.add_service(prediction_service)
-
 
 @mock.patch('porter.services.porter_responses.api.request_id', lambda: 123)
 @mock.patch('porter.services.cf.return_message_on_error', True)
@@ -673,14 +681,18 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
         # In this class we actually want to test the applications error handling
         # and thus do not set this attribute.
         # See, http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
-        cls.model_app = ModelApp()
+
+        prediction_service = PredictionService(name='failing-model',
+            api_version='B', model=None, meta={'1': 'one', 'two': 2})
+
+        cls.model_app = ModelApp([prediction_service])
+
         flask_app = cls.model_app.app
         @flask_app.route('/test-error-handling/', methods=['POST'])
         def test_error():
             flask.request.get_json(force=True)
             raise Exception('exceptional testing of exceptions')
         cls.app_test_client = flask_app.test_client()
-        cls.add_failing_model_service()
 
     @mock.patch('porter.services.PredictionService._predict')
     def test(self, mock__predict):
@@ -709,12 +721,6 @@ class TestAppErrorHandlingCustomKeys(unittest.TestCase):
         self.assertEqual(actual['error'], expected['error'])
         self.assertEqual(actual['request_id'], expected['request_id'])
         self.assertEqual(actual['error'], expected['error'])
-
-    @classmethod
-    def add_failing_model_service(cls):
-        prediction_service = PredictionService(name='failing-model',
-            api_version='B', model=None, meta={'1': 'one', 'two': 2})
-        cls.model_app.add_service(prediction_service)        
 
 
 if __name__ == '__main__':

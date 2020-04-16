@@ -1,6 +1,12 @@
 """Global constants defining endpoint naming conventions, etc."""
 
 import datetime
+import os
+
+# this must be an absolute path
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), 'assets')
+print(ASSETS_DIR)
+
 
 _MODEL_CONTEXT = 'model_context'
 _PREDICTIONS = 'predictions'

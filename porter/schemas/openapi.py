@@ -6,6 +6,8 @@ import os
 import fastjsonschema
 from jinja2 import Template
 
+from ..constants import ASSETS_DIR
+
 
 def _numpy_to_builtin(x):
     """Convert NumPy dtypes (int32, float64, etc) to built-ins (int, float, etc)"""
@@ -359,7 +361,7 @@ def _update_spec(schema, method_dict, components_schemas):
 
 
 # https://github.com/swagger-api/swagger-ui/blob/master/dist/index.html
-with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets/swagger-ui/swagger_template.html')) as f:
+with open(os.path.join(ASSETS_DIR, 'swagger-ui/swagger_template.html')) as f:
     _doc_template = Template(f.read())
 
 

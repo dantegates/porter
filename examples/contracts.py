@@ -294,7 +294,6 @@ in a "tabular" way.
 Here's an example.
 """
 
-
 class CustomService(BaseService):
     action = 'foo'
     route_kwargs = {'methods': ['GET', 'POST']}
@@ -354,14 +353,20 @@ By default you can find the OpenAPI documentation at the endpoint `/docs/` but
 this too can be customized.
 """
 
+# define the services we want to serve from
+services = [
+    instance_prediction_service,
+    batch_prediction_service,
+    probabilistic_service,
+    spark_interface_service,
+    custom_service]
 
-model_app = ModelApp(name='Example Model',
-                     description='An unhelpful description of what this application.',
-                     expose_docs=True)
-model_app.add_services(instance_prediction_service, batch_prediction_service,
-                       probabilistic_service, spark_interface_service,
-                       custom_service)
 
+model_app = ModelApp(
+    services,
+    name='Example Model',
+    description='An unhelpful description of what this application.',
+    expose_docs=True)
 
 
 """

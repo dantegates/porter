@@ -48,12 +48,6 @@ from porter.schemas import Object, Number
 PREPROCESSOR_PATH = os.path.join(f'{model_directory}', 'preprocessor.pkl')
 MODEL_PATH = os.path.join(f'{model_directory}', 'model.h5')
 
-# first we instantiate the model app.
-# The model app is simply a wrapper around the `flask.Flask` object.
-#
-# Services are added to the app with `model_app.add_service` below.
-model_app = ModelApp()
-
 # define the expected input schema so the model can validate the POST
 # request input
 feature_schema = Object(
@@ -113,8 +107,9 @@ prediction_service = PredictionService(
                                     # JSON object only. 
 )
 
-# The model can now be added as a service in the app.
-model_app.add_service(prediction_service)
+# The model app is simply a wrapper around the `flask.Flask` object.
+model_app = ModelApp([prediction_service])
+
 
 
 if __name__ == '__main__':

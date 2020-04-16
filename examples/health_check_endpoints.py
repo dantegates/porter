@@ -8,27 +8,26 @@ import urllib.request
 
 from porter.services import ModelApp, PredictionService
 
-service_config_1 = PredictionService(
+service1 = PredictionService(
     model=None,
     name='a-model',
     api_version='0.0.0'
 )
 
-service_config_2 = PredictionService(
+service2 = PredictionService(
     model=None,
     name='yet-another-model',
     api_version='1.0.0'
 )
 
-service_config_3 = PredictionService(
+service3 = PredictionService(
     model=None,
     name='yet-another-yet-another-model',
     api_version='1.0.0-alpha',
     meta={'arbitrary details': 'about the model'}
 )
 
-model_app = ModelApp()
-model_app.add_services(service_config_1, service_config_2, service_config_3)
+model_app = ModelApp([service1, service2, service3])
 
 
 def get(url):
