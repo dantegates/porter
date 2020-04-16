@@ -6,7 +6,7 @@ build:
 		-t ${ARGS} .
 
 test:
-	python3.6 -m unittest discover -s tests
+	python3.6 -m pytest tests -v --tb=no
 
 lint:
 	python3.6 -m pylint --errors-only porter
