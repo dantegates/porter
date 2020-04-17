@@ -579,29 +579,29 @@ class TestPredictionServiceSchemas(unittest.TestCase):
 
 
 class TestModelApp(unittest.TestCase):
-    @mock.patch('porter.services.api.App')
     @mock.patch('porter.services.schemas.make_openapi_spec')
-    def test_constructor(self, mock_app, mock_make_openapi_spec):
+    @mock.patch('porter.services.ModelApp._route_endpoint')
+    def test_constructor1(self, mock__route_endpoint, mock_make_openapi_spec):
         class service1:
             id = 'service1'
             endpoint = '/an/endpoint'
             route_kwargs = {'foo': 1, 'bar': 'baz'}
-            request_schemas = object()
-            response_schemas = object()
+            request_schemas = {'GET': object()}
+            response_schemas = {'POST': object()}
             name = 'service1'
         class service2:
             id = 'service2'
             endpoint = '/foobar'
-            route_kwargs = {'methods': ['GET', 'POST']}
-            request_schemas = object()
-            response_schemas = object()
+            route_kwargs = {'methods': ['GET']}
+            request_schemas = {'GET': object()}
+            response_schemas = None
             name = 'service2'
         class service3:
             id = 'service3'
             endpoint = '/supa/dupa'
             route_kwargs = {'methods': ['GET'], 'strict_slashes': True}
-            request_schemas = object()
-            response_schemas = object()
+            request_schemas = {'GET': object(), 'POST': object()}
+            response_schemas = {'GET': object()}
             name = 'service3'
 
         # add the services and validate they were routed with the correct
@@ -610,15 +610,52 @@ class TestModelApp(unittest.TestCase):
                              expose_docs=True, docs_url='/custom/docs/url/')
 
         expected_calls = [
-            mock.call('/an/endpoint', foo=1, bar='baz'),
-            mock.call()(service1),
-            mock.call('/foobar', methods=['GET', 'POST']),
-            mock.call()(service2),
-            mock.call('/supa/dupa', methods=['GET'], strict_slashes=True),
-            mock.call()(service3),
-            mock.call()('/custom/docs/url/')
+            mock.call(service1.endpoint, service1, service1.route_kwargs,
+                      request_schemas=service1.request_schemas,
+                      response_schemas=service1.response_schemas,
+                      additional_params={'GET': {'tags': [service1.name]},
+                                         'POST': {'tags': [service1.name]}}),
+            mock.call(service2.endpoint, service2, service2.route_kwargs,
+                      request_schemas=service2.request_schemas,
+                      response_schemas=service2.response_schemas,
+                      additional_params={'GET': {'tags': [service2.name]}}),
+            mock.call(service3.endpoint, service3, service3.route_kwargs,
+                      request_schemas=service3.request_schemas,
+                      response_schemas=service3.response_schemas,
+                      additional_params={'GET': {'tags': [service3.name]},
+                                         'POST': {'tags': [service3.name]}})
         ]
-        model_app.app.route.assert_has_calls(expected_calls, any_order=True)
+        mock__route_endpoint.assert_has_calls(expected_calls, any_order=True)
+
+    @mock.patch('porter.services.api.App')
+    @mock.patch('porter.services.schemas.make_openapi_spec')
+    def test_constructor2(self, mock_make_openapi_spec, mock_app):
+        class service1:
+            id = 'service1'
+            endpoint = '/an/endpoint'
+            route_kwargs = {'foo': 1, 'bar': 'baz'}
+            request_schemas = {'GET': object()}
+            response_schemas = {'POST': object()}
+            name = 'service1'
+        class service2:
+            id = 'service2'
+            endpoint = '/foobar'
+            route_kwargs = {'methods': ['GET']}
+            request_schemas = {'GET': object()}
+            response_schemas = None
+            name = 'service2'
+        class service3:
+            id = 'service3'
+            endpoint = '/supa/dupa'
+            route_kwargs = {'methods': ['GET'], 'strict_slashes': True}
+            request_schemas = {'GET': object(), 'POST': object()}
+            response_schemas = {'GET': object()}
+            name = 'service3'
+
+        # add the services and validate they were routed with the correct
+        # parameters.
+        model_app = ModelApp([service1, service2, service3],
+                             expose_docs=True, docs_url='/custom/docs/url/')
 
         # verify that the schemas were correctly registered
         expected_request_schemas = {

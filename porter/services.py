@@ -785,37 +785,6 @@ class ModelApp:
         """Return a WSGI interface to the model app."""
         return self.app(*args, **kwargs)
 
-    def _add_service(self, service):
-        """Add a service to the app from ``service``.
-
-        Args:
-            service (object): Instance of :class:`porter.services.BaseService`.
-
-        Returns:
-            None
-
-        Raises:
-            ValueError: If ``service.id`` has already been registered on the
-                app. This prevents errors from trying to route multiple classes
-                on the same endpoint.
-        """
-        # register the service with the add
-        if service.id in self._service_ids:
-            raise ValueError(
-                f'a service has already been added using id={service.id}')
-        self._services.append(service)
-        self._service_ids.add(service.id)
-        # register the service schemas
-        self._request_schemas[service.endpoint] = service.request_schemas
-        self._response_schemas[service.endpoint] = service.response_schemas
-        # tag the services
-        # TODO: this was coded to PredictionService, i.e. not all services may
-        #       have GET/POST
-        self._additional_params[service.endpoint] = {'GET': {'tags': [service.name]}}
-        self._additional_params[service.endpoint]['POST'] = {'tags': [service.name]}
-        # finally route
-        self.app.route(service.endpoint, **service.route_kwargs)(service)
-
     def run(self, *args, **kwargs):
         """
         Run the app.
@@ -864,18 +833,7 @@ class ModelApp:
             self.app.register_error_handler(error, serve_error_message)
 
         # route the health checks
-        serve_alive = ServeAlive(self)
-        serve_ready = ServeReady(self)
-        self.app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(serve_alive)
-        self.app.route(cn.READINESS_ENDPOINT, methods=['GET'])(serve_ready)
-
-        # register the schemas for the health checks
-        if self.expose_docs:
-            health_check_response = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
-            self._response_schemas[cn.LIVENESS_ENDPOINT] = health_check_response
-            self._response_schemas[cn.READINESS_ENDPOINT] = health_check_response
-            self._additional_params[cn.LIVENESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
-            self._additional_params[cn.READINESS_ENDPOINT] = {'GET': {'tags': ['Health Check']}}
+        self._route_health_checks()
 
         # route root
         serve_root = ServeRoot(self)
@@ -886,6 +844,64 @@ class ModelApp:
 
         if self.expose_docs:
             self._route_docs()
+
+    def _route_endpoint(self, endpoint, fn, route_kwargs, *, request_schemas=None,
+                        response_schemas=None, additional_params=None):
+        """Route an endpoint with a contract and do the corresponding "book keeping"."""
+        self.app.route(endpoint, **route_kwargs)(fn)
+        if request_schemas is not None:
+            self._request_schemas[endpoint] = request_schemas
+        if response_schemas is not None:
+            self._response_schemas[endpoint] = response_schemas
+        if additional_params is not None:
+            self._additional_params[endpoint] = additional_params
+
+    def _add_service(self, service):
+        """Add a service to the app from ``service``.
+
+        Args:
+            service (object): Instance of :class:`porter.services.BaseService`.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If ``service.id`` has already been registered on the
+                app. This prevents errors from trying to route multiple classes
+                on the same endpoint.
+        """
+        # register the service with the add
+        if service.id in self._service_ids:
+            raise ValueError(
+                f'a service has already been added using id={service.id}')
+        self._services.append(service)
+        self._service_ids.add(service.id)
+
+        # get an iterable of methods exposed by the service.
+        # `or` accounts for schema attributes can be None
+        methods = (
+            set((service.request_schemas or {}).keys())
+            | set((service.response_schemas or {}).keys()))
+
+        # create tags for the service for the API docs
+        additional_params = {method: {'tags': [service.name]} for method in  methods}
+
+        self._route_endpoint(service.endpoint, service, service.route_kwargs,
+                             request_schemas=service.request_schemas,
+                             response_schemas=service.response_schemas,
+                             additional_params=additional_params)
+
+    def _route_health_checks(self):
+        serve_alive = ServeAlive(self)
+        serve_ready = ServeReady(self)
+        route_kwargs = {'methods': ['GET']}
+        additional_params = {'GET': {'tags': ['Health Check']}}
+        response = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
+
+        self._route_endpoint(cn.LIVENESS_ENDPOINT, serve_alive, route_kwargs,
+                             response_schemas=response, additional_params=additional_params)
+        self._route_endpoint(cn.READINESS_ENDPOINT, serve_ready, route_kwargs,
+                             response_schemas=response, additional_params=additional_params)
 
     # TODO: perhaps this should be moved into the schemas module at some point
     def _route_docs(self):
