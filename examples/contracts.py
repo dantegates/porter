@@ -114,6 +114,7 @@ instance_prediction_service = PredictionService(
     name='user-ratings',
     api_version='v2',
     namespace='datascience',
+    batch_prediction=False,
     feature_schema=ratings_feature_schema,
     validate_request_data=True)
 

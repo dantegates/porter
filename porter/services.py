@@ -577,7 +577,7 @@ class PredictionService(BaseService):
 
     # TODO: what is the proper default for batch_prediction?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 action=None, batch_prediction=False,
+                 action=None, batch_prediction=True,
                  additional_checks=None, feature_schema=None,
                  prediction_schema=None, **kwargs):
         self.model = model
