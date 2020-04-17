@@ -84,7 +84,7 @@ error_body = openapi.Object(
 generic_error = openapi.Object(
     properties={
         **_base_response,
-        'error': openapi.Object(properties=_error_body),
+        'error': error_body,
     },
     reference_name='GenericError'
 )
@@ -93,10 +93,8 @@ generic_error = openapi.Object(
 model_context_error = openapi.Object(
     properties={
         **_base_response,
-        'error': openapi.Object(properties=_error_body),
+        'error': error_body,
         'model_context': model_context
     },
     reference_name='ModelContextError'
 )
-
-
