@@ -325,13 +325,13 @@ class TestHealthChecks(unittest.TestCase):
     def test_make_alive_ready_response_is_ready(self):
         mock_app = mock.Mock(meta={'foo': 1})
         mock_app.meta
-        mock_app._services = [mock.Mock(status='READY',
+        mock_app.services = [mock.Mock(status='READY',
                                         api_version=str(i),
                                         meta={'k': i, 'v': i+1},
                                         id=i,
                                         endpoint=f'/{i}')
                               for i in range(3)]
-        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app.services)]
         actual_alive = make_alive_response(mock_app)
         actual_ready = make_ready_response(mock_app)
         expected = {
@@ -382,13 +382,13 @@ class TestHealthChecks(unittest.TestCase):
     def test_make_alive_ready_response_not_ready(self):
         mock_app = mock.Mock(meta={'foo': 1})
         mock_app.meta
-        mock_app._services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
+        mock_app.services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
                                         api_version=str(i),
                                         meta={'k': i, 'v': i+1},
                                         id=i,
                                         endpoint=f'/{i}')
                               for i in range(3)]
-        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app.services)]
         actual_alive = make_alive_response(mock_app)
         actual_ready = make_ready_response(mock_app)
         expected = {
@@ -439,13 +439,13 @@ class TestHealthChecks(unittest.TestCase):
     def test__build_app_state(self):
         mock_app = mock.Mock(meta={'foo': 1})
         mock_app.meta
-        mock_app._services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
+        mock_app.services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
                                         api_version=str(i),
                                         meta={'k': i, 'v': i+1},
                                         id=i,
                                         endpoint=f'/{i}')
                               for i in range(3)]
-        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app.services)]
         actual = _build_app_state(mock_app)
         expected = {
             'porter_version': VERSION,
@@ -490,7 +490,7 @@ class TestHealthChecks(unittest.TestCase):
             self.assertEqual(actual['services'][key]['model_context'], expected['services'][key]['model_context'])
 
     def test__build_app_state_no_services(self):
-        mock_app = mock.Mock(meta={'foo': 1}, _services=[])
+        mock_app = mock.Mock(meta={'foo': 1}, services=[])
         mock_app.meta
         actual = _build_app_state(mock_app)
         expected = {

@@ -581,7 +581,7 @@ class TestPredictionServiceSchemas(unittest.TestCase):
 class TestModelApp(unittest.TestCase):
     @mock.patch('porter.services.schemas.make_openapi_spec')
     @mock.patch('porter.services.ModelApp._route_endpoint')
-    def test_constructor1(self, mock__route_endpoint, mock_make_openapi_spec):
+    def test_constructor_routing(self, mock__route_endpoint, mock_make_openapi_spec):
         class service1:
             id = 'service1'
             endpoint = '/an/endpoint'
@@ -629,7 +629,7 @@ class TestModelApp(unittest.TestCase):
 
     @mock.patch('porter.services.api.App')
     @mock.patch('porter.services.schemas.make_openapi_spec')
-    def test_constructor2(self, mock_make_openapi_spec, mock_app):
+    def test_constructor_schema_handling(self, mock_make_openapi_spec, mock_app):
         class service1:
             id = 'service1'
             endpoint = '/an/endpoint'
@@ -667,11 +667,11 @@ class TestModelApp(unittest.TestCase):
 
         health_check_responses = [schemas.ResponseSchema(schemas.health_check, 200)]
         expected_response_schemas = {
-            '/-/alive': {'GET': health_check_responses},
-            '/-/ready': {'GET': health_check_responses},
             service1.endpoint: service1.response_schemas,
-            service2.endpoint: service2.response_schemas,
+            # service 2 did not have a response schema
             service3.endpoint: service3.response_schemas,
+            '/-/alive': ModelApp._health_check_response_schemas,
+            '/-/ready': ModelApp._health_check_response_schemas
         }
         self.assertEqual(model_app._response_schemas, expected_response_schemas)
 

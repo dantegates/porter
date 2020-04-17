@@ -759,6 +759,14 @@ class ModelApp:
         docs_url (str): Endpoint the API documentation is exposed at.
     """
 
+    # note: eventually we may want to save this state somewhere else.
+    #       perhaps it might make sense serve health checks from
+    #       BaseService subclasses since we're basically trying to
+    #       replicate that here, but we might not actually want all
+    #       of that overhead either.
+    #       see _route_health_checks() below.
+    _health_check_response_schemas = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
+
     def __init__(self, services, *, name=None, description=None, version=None, meta=None,
                  expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
         self.services = services
@@ -772,7 +780,6 @@ class ModelApp:
         self.docs_json_url = docs_json_url
         self.app = self._init_app()
 
-        self._services = []
         self._request_schemas = {}
         self._response_schemas = {}
         self._additional_params = {}
@@ -874,7 +881,6 @@ class ModelApp:
         if service.id in self._service_ids:
             raise ValueError(
                 f'a service has already been added using id={service.id}')
-        self._services.append(service)
         self._service_ids.add(service.id)
 
         # get an iterable of methods exposed by the service.
@@ -894,9 +900,15 @@ class ModelApp:
     def _route_health_checks(self):
         serve_alive = ServeAlive(self)
         serve_ready = ServeReady(self)
+        # note: Eventually we may want to save this state somewhere else.
+        #       perhaps it might make sense serve health checks from
+        #       BaseService subclasses since we're basically trying to
+        #       replicate that here, but we might not actually want all
+        #       of that overhead either. Another option is to just store
+        #       it on the class as we do with the health check responses.
         route_kwargs = {'methods': ['GET']}
         additional_params = {'GET': {'tags': ['Health Check']}}
-        response = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
+        response = self._health_check_response_schemas
 
         self._route_endpoint(cn.LIVENESS_ENDPOINT, serve_alive, route_kwargs,
                              response_schemas=response, additional_params=additional_params)

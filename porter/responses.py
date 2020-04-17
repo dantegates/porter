@@ -138,7 +138,7 @@ def _build_app_state(app):
                 svc_keys.STATUS: service.status,
                 svc_keys.ENDPOINT: service.endpoint,
             }
-            for service in app._services
+            for service in app.services
         }
     }
  
