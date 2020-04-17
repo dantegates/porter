@@ -10,9 +10,9 @@ request_id = openapi.String(
     'Hex value of UUID assigned to the request.',
     reference_name='RequestID')
 
-app_meta = openapi.Object(additional_properties_type='true')
+app_meta = openapi.Object(properties={}, additional_params=dict(additionalProperties=True))
 
-model_meta = openapi.Object(additional_properties_type='true')
+model_meta = openapi.Object(properties={}, additional_params=dict(additionalProperties=True))
 
 model_context = openapi.Object(
     properties={
