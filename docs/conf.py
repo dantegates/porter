@@ -34,8 +34,13 @@ extensions = [
     #'autodocsumm',
     'sphinx.ext.viewcode',
     'sphinx.ext.autodoc',
+    'sphinx.ext.todo',
     'sphinx.ext.napoleon',
 ]
+
+# show todos (for now)
+todo_include_todos = True
+todo_emit_warnings = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
