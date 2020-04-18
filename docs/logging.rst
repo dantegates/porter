@@ -13,3 +13,6 @@ API calls (request and response payloads) can be logged by passing ``log_api_cal
 - ``"event"``: The type of event being logged, e.g. "request" or "response".
 
 The script `examples/api_logging.py <https://github.com/CadentTech/porter/blob/master/examples/api_logging.py>`_ demonstrates how to configure logging.  
+
+.. todo::
+    Add info on additional loggable values.
