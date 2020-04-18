@@ -11,14 +11,12 @@ Getting started is as easy as:
     from porter.services import ModelApp, PredictionService
 
     my_model = WrappedModel.from_file('my-model.pkl')
-    prediction_service = PilotPredictionService(
+    prediction_service = PredictionService(
         model=my_model,
         name='my-model',
-        api_version='v1',
-        batch_prediction=True)
+        api_version='v1')
 
-    app = ModelApp()
-    app.add_service(prediction_service)
+    app = ModelApp([prediction_service])
     app.run()
 
 Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get a prediction. Behind the scenes (with ``porter``'s default settings) your POST data will be converted to a ``pandas.DataFrame`` and the result of ``my_model.predict()`` will be returned to the user in a payload like the one below
@@ -39,6 +37,8 @@ Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get 
         ],
         "request_id": "0f86644edee546ee9c495a9a71b0746c"
     }
+
+Multiple models can be served by a single app simply by passing additional services to :class:`porter.services.ModelApp`.
 
 ``porter`` also takes care of a lot of the boilerplate for you such as error handling. For example, by default, if the POST data sent to the prediction endpoint can't be parsed the user will receive a response with a 400 status code a payload describing the error.
 
