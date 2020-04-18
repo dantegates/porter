@@ -1,9 +1,12 @@
 .. _tests:
 
-Tests
-=====
+Running the Tests
+=================
 
-To run the test suite for porter execute the command:
+.. note::
+    The test suite assumes that ``[all]`` optional dependencies have been installed.
+
+To run the test suite for ``porter`` execute the command:
 
 .. code-block:: shell
 
