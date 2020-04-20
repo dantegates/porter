@@ -24,6 +24,7 @@ It also includes the ability to load ``.pkl`` and ``.h5`` files so you don't hav
    error_handling
    logging
    tests
+   examples
    porter
 
 * :ref:`genindex`
