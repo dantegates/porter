@@ -78,7 +78,7 @@ This schema is equivalent to the following yaml markup:
 
 .. todo::
 
-    TODO: What else do we want to say about this?  Does openapi.py allow the user to specify by $ref?
+    TODO: What else do we want to say about this?  Does openapi.py allow the user to specify by $ref?  How should the yaml $ref work?
 
 
 Schema Validation

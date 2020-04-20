@@ -22,6 +22,8 @@ Endpoint customization
 
 :class:`porter.services.PredictionService` allows a custom endpoint name through the ``action`` argument, and :class:`porter.services.ModelApp` provides an optional additional level of nesting through the ``namespace`` argument.  For example,
 
+.. todo::
+    correct namespace
 .. code-block:: python
 
     service3 = PredictionService(name='baz', version='v1', action='pred', ...)

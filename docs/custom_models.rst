@@ -103,6 +103,9 @@ And the prediction service could be instantiated as:
         feature_schema=ratings_feature_schema,
         prediction_schema=proba_ratings_prediction_schema)
 
+.. todo::
+    mention calling validate() in unit tests
+
 .. warning::
 
     There is also experimental support for response validation: ``PredictionService(..., validate_response_data=True)``.  Enabling this feature triggers a warning stating that it may increase response latency and produce confusing error messages for users.  This should only be used for testing/debugging.
@@ -169,6 +172,9 @@ A minimal app implementing and documenting this interface might look like:
     custom_app = ModelApp([custom_service], expose_docs=True)
 
 This would expose an endpoint ``/custom-service/v1/custom-action``.
+
+.. todo::
+    just link to example
 
 Here is a more complex example that serves calculations from a callable function:
 

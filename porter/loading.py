@@ -48,12 +48,14 @@ def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
 # https://stackoverflow.com/questions/3095071/in-python-what-happens-when-you-import-inside-of-a-function/3095167#3095167
 def load_pkl(path):
     """Load and return a pickled object with ``joblib``."""
+    # TODO: depend on joblib instead
     from sklearn.externals import joblib
     model = joblib.load(path)
     return model
 
 def load_h5(path):
     """Load and return an object stored in h5 with ``tensorflow``."""
+    # TODO: find minimum version for tf.keras.models.load_model
     import tensorflow as tf
     model = tf.keras.models.load_model(path)
     return model
