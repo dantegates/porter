@@ -89,7 +89,7 @@ class TestContracts(unittest.TestCase):
     def test_instance_prediction_service(self):
         """Configurations for this service are:
 
-        endpoint = /datascience/user-ratings/v2/prediction
+        endpoint = /datascience/user-ratings/v2/instancePrediction
         validate_request_data = True
         batch_prediction = False
 
@@ -133,18 +133,19 @@ class TestContracts(unittest.TestCase):
             "average_rating": -1
         }
 
-        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(valid_data))
+        endpoint = '/datascience/user-ratings/v2/instancePrediction'
+        r = self.test_app.post(endpoint, data=json.dumps(valid_data))
         self.assertEqual(r.status_code, 200)
 
-        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_missing_key))
+        r = self.test_app.post(endpoint, data=json.dumps(invalid_data_missing_key))
         self.assertEqual(r.status_code, 422)
         self.assertIn("data must contain ('average_rating', 'genre', 'id', 'title_id', 'user_id')", r.json['error']['messages'][0])
 
-        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_genre))
+        r = self.test_app.post(endpoint, data=json.dumps(invalid_data_invalid_genre))
         self.assertEqual(r.status_code, 422)
         self.assertIn('genre', r.json['error']['messages'][0])
 
-        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_average_rating))
+        r = self.test_app.post(endpoint, data=json.dumps(invalid_data_invalid_average_rating))
         self.assertEqual(r.status_code, 422)
         self.assertIn('average_rating', r.json['error']['messages'][0])
 
@@ -225,14 +226,15 @@ class TestContracts(unittest.TestCase):
             "average_rating": 7.9
         }
 
-        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(valid_data))
+        endpoint = '/datascience/user-ratings/v2/prediction'
+        r = self.test_app.post(endpoint, data=json.dumps(valid_data))
         self.assertEqual(r.status_code, 200)
 
-        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_title_id_is_str))
+        r = self.test_app.post(endpoint, data=json.dumps(invalid_data_title_id_is_str))
         self.assertEqual(r.status_code, 422)
         self.assertIn('data[1].title_id', r.json['error']['messages'][0])
 
-        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_not_an_array))
+        r = self.test_app.post(endpoint, data=json.dumps(invalid_data_not_an_array))
         self.assertEqual(r.status_code, 422)        
         self.assertIn('data must be array', r.json['error']['messages'][0])
 
