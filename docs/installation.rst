@@ -7,7 +7,7 @@ Installation
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/CadentTech/porter#egg=porter
+    pip install -e git+https://github.com/CadentTech/porter#egg=porter[all]
 
 Note that without the ``-e`` flag and ``#egg=porter`` on the end of the url ``pip freeze`` will output ``porter==<version>``
 rather than ``-e git+https://...`` as typically desired.

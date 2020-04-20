@@ -11,9 +11,6 @@ from porter.services import ModelApp, PredictionService
 from porter.utils import JSONFormatter
 
 
-app = ModelApp()
-
-
 class Model(BaseModel):
     def predict(self, X):
         return (X['foo'] % 3) * X['bar']
@@ -25,7 +22,9 @@ prediction_svc = PredictionService(
     api_version='v1',
     batch_prediction=True,
     log_api_calls=True)
-app.add_services(prediction_svc)
+
+
+app = ModelApp([prediction_svc])
 
 
 if __name__ == '__main__':

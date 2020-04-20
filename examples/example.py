@@ -38,6 +38,7 @@ import os
 
 from porter.datascience import WrappedModel, WrappedTransformer, BasePostProcessor
 from porter.services import ModelApp, PredictionService
+from porter.schemas import Object, Number
 
 # Uncomment this and enter a directory with "preprocessor.pkl" and "model.h5"
 # file to make this example working.
@@ -47,19 +48,15 @@ from porter.services import ModelApp, PredictionService
 PREPROCESSOR_PATH = os.path.join(f'{model_directory}', 'preprocessor.pkl')
 MODEL_PATH = os.path.join(f'{model_directory}', 'model.h5')
 
-# first we instantiate the model app.
-# The model app is simply a wrapper around the `flask.Flask` object.
-#
-# Services are added to the app with `model_app.add_service` below.
-model_app = ModelApp()
-
 # define the expected input schema so the model can validate the POST
 # request input
-input_features = [
-    'feature1',
-    'feature2',
-    'column3',
-]
+feature_schema = Object(
+    properties={
+        'feature1': Number(),
+        'feature2': Number(),
+        'column3': Number(),
+    }
+)
 
 # Define a preprocessor, model and postprocessor for transforming the
 # POST request data, predicting and transforming the model's predictions.
@@ -77,7 +74,7 @@ class Postprocessor(BasePostProcessor):
 
 # the service config contains everything needed for `model_app` to add a route
 # for predictions when `model_app.add_service` is called.
-service_config = PredictionService(
+prediction_service = PredictionService(
     model=model,                    # The value of model.predict() is
                                     # returned to the client.
                                     # Required.
@@ -100,21 +97,19 @@ service_config = PredictionService(
                                     # called on the model's predictions before
                                     # returning to user. Optional.
                                     #
-    input_features=input_features,  # The input schema is used to validate
+    feature_schema=feature_schema,  # The input schema is used to validate
                                     # the payload of the POST request.
                                     # Optional.
-                                    #
-    allow_nulls=False,              # Wether nulls are allowed in the POST
-                                    # request data. Optional and meaningless
-                                    # when validate_input=False.
+    validate_request_data=True,     # Whether to validate the request data.
                                     #
     batch_prediction=True           # Whether the API will accept an array of
                                     # JSON objects to predict on or a single
                                     # JSON object only. 
 )
 
-# The model can now be added as a service in the app.
-model_app.add_service(service_config)
+# The model app is simply a wrapper around the `flask.Flask` object.
+model_app = ModelApp([prediction_service])
+
 
 
 if __name__ == '__main__':

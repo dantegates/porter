@@ -5,10 +5,10 @@ Usage
 
 The basic workflow for building a model service is as follows
 
-1. Instantiate an instance of :class:`porter.services.ModelApp`. This is simply an abstraction for the REST app that will expose your models.
-2. Define model classes for each service you want to add to the app. A single service consists of a model that satisfies the :class:`porter.datascience.BaseModel` interface. Additionally you can define processor classes (objects implementing the :class:`porter.datascience.BasePreProcessor` or :class:`porter.datascience.BasePreProcessor` interface) for pre/post processing of model input/output respectively. If you have a serialized sklearn and/or keras object and/or your model is on S3, classes in :class:`porter.datascience` can help load these objects.
+1. Instantiate an instance of :class:`porter.services.ModelApp`. This is simply an abstraction for the REST server that will expose your models.
+2. Define model classes for each service you want to add to the app. These classes should must expose a ``.predict()`` method. Additionally you can define pre- and post-processor classes (objects implementing the :class:`porter.datascience.BasePreProcessor` or :class:`porter.datascience.BasePreProcessor` interface) for pre/post processing of model input/output respectively. If you have a serialized sklearn and/or keras object and/or your model is on S3, classes in :class:`porter.datascience` can help load these objects.
 3. Instantiate classes, such as :class:`porter.services.PredictionService`, with the appropriate arguments for each model you would expose through the app.
-4. Pass the config service from (3) to the ``add_serivce()`` method of your :class:`porter.services.ModelApp` instance.
+4. Pass the service defined in (3) to the ``add_serivce()`` method of your :class:`porter.services.ModelApp` instance.
 5. Call the ``run()`` method of your :class:`porter.services.ModelApp` instance. Your model is now live!
 
 See this `examples/example.py <https://github.com/CadentTech/porter/blob/master/examples/example.py>`_ for an (almost functional) example.

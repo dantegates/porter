@@ -79,5 +79,304 @@ class TestAPILogging(unittest.TestCase):
         namespace = load_example(os.path.join(HERE, '../examples/api_logging.py'))
 
 
+@mock.patch('porter.services.BaseService._ids', set())
+class TestContracts(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.ns = load_example(os.path.join(HERE, '../examples/contracts.py'))
+        cls.test_app = cls.ns['model_app'].app.test_client()
+
+    def test_instance_prediction_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/user-ratings/v2/prediction
+        validate_request_data = True
+        batch_prediction = False
+
+        The description of the input schema is
+
+        {
+            "id": Integer(),
+            "user_id": Integer(),
+            "title_id": Integer(),
+            "genre": String(['comedy', 'action', 'drama']),
+            "average_rating": Number(min=0, max=10)
+        }
+
+        """
+        valid_data = {
+            "id": 0,
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": 7.9
+        }
+
+        invalid_data_missing_key = {
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": 7.9
+        }
+
+        invalid_data_invalid_genre = {
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "isnotvalid",
+            "average_rating": 7.9
+        }
+
+        invalid_data_invalid_average_rating = {
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": -1
+        }
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 200)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_missing_key))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn("data must contain ('average_rating', 'genre', 'id', 'title_id', 'user_id')", r.json['error']['messages'][0])
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_genre))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn('genre', r.json['error']['messages'][0])
+
+        r = self.test_app.post('/datascience/user-ratings/v2/prediction', data=json.dumps(invalid_data_invalid_average_rating))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn('average_rating', r.json['error']['messages'][0])
+
+    def test_batch_prediction_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/user-ratings/v2/prediction
+        validate_request_data = True
+        batch_prediction = True
+
+        The description of the input schema is
+
+        [
+            {
+                "id": Integer(),
+                "user_id": Integer(),
+                "title_id": Integer(),
+                "genre": String(['comedy', 'action', 'drama']),
+                "average_rating": Number(min=0, max=10)
+            },
+            ...
+        ]
+
+        """
+        valid_data = [
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+        ]
+
+        invalid_data_title_id_is_str = [
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 'a',
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+        ]
+
+        invalid_data_not_an_array = {
+            "id": 0,
+            "user_id": 1,
+            "title_id": 19302943284,
+            "genre": "action",
+            "average_rating": 7.9
+        }
+
+        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 200)
+
+        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_title_id_is_str))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn('data[1].title_id', r.json['error']['messages'][0])
+
+        r = self.test_app.post('/datascience/user-ratings/v2/batchPrediction', data=json.dumps(invalid_data_not_an_array))
+        self.assertEqual(r.status_code, 422)        
+        self.assertIn('data must be array', r.json['error']['messages'][0])
+
+    def test_probabilistic_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/proba-model/v3/prediction
+        validate_request_data = False
+        batch_prediction = True
+
+        The description of the input schema is
+
+        [
+            {
+                "id": Integer(),
+                "user_id": Integer(),
+                "title_id": Integer(),
+                "genre": String(['comedy', 'action', 'drama']),
+                "average_rating": Number(min=0, max=10)
+            },
+            ...
+        ]
+        """
+
+        # this endpoint doesn't do data validations so we should get a 500 by sending
+        # bad data instead of a 422
+        invalid_data = {
+            'not the data': 'you were looking for'
+        }
+        r = self.test_app.post('/datascience/proba-model/v3/prediction', data=json.dumps(invalid_data))
+        self.assertEqual(r.status_code, 500)
+
+    def test_spark_interface_service(self):
+        """Configurations for this service are:
+
+        endpoint = /datascience/batch-ratings-model/v1/prediction
+        validate_request_data = False
+        batch_prediction = True
+
+        The description of the input schema is
+
+        [
+            {
+                "id": Integer(),
+                "user_id": Integer(),
+                "title_id": Integer(),
+                "genre": String(['comedy', 'action', 'drama']),
+                "average_rating": Number(min=0, max=10)
+            },
+            ...
+        ]
+        """
+        valid_data = [
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+            {
+                "id": 0,
+                "user_id": 1,
+                "title_id": 19302943284,
+                "genre": "action",
+                "average_rating": 7.9
+            },
+        ]
+        r = self.test_app.post('/datascience/batch-ratings-model/v1/prediction', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 202)
+        self.ns['spark_interface_response_schema'].validate(json.loads(r.data))
+
+    def test_custom_service_validations_fail(self):
+        """Configurations for this service are:
+
+        endpoint = /custom-service/v1/foo
+        validate_request_data = True
+        batch_prediction = N/A
+        """
+        invalid_data1 = 'this string is definitely not an object'
+        invalid_data2 = {'this object': 'is an object', 'but not a': 'correct schema'}
+        invalid_data_checking_nested_validations1 = {
+            'string_with_enum_prop': 'a',
+            'an_array': [1, 2],
+            'another_property': {'a': 'a', 'b': 1},
+            'yet_another_property': [
+                {'foo': 'a'},
+                {'foo': 'a', 'bar': 1}  # all props should be str
+            ]
+        }
+        invalid_data_checking_nested_validations2 = {
+            'string_with_enum_prop': 'a',
+            'an_array': [1, 2],
+            'another_property': {'a': 'a', 'b': 'not an int'},
+            'yet_another_property': [
+                {'foo': 'a'},
+                {'foo': 'a', 'bar': '1'}
+            ]
+        }
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data1))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn('data must be object', r.json['error']['messages'][0])
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data2))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn("data must contain ('an_array', 'another_property', 'string_with_enum_prop', 'yet_another_property')", r.json['error']['messages'][0])
+
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations1))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn("yet_another_property[1].bar", r.json['error']['messages'][0])
+
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations2))
+        self.assertEqual(r.status_code, 422)
+        self.assertIn("another_property.b", r.json['error']['messages'][0])
+
+    def test_custom_service_validations_succeed(self):
+        """Configurations for this service are:
+
+        endpoint = /custom-service/v1/foo
+        validate_request_data = True
+        batch_prediction = N/A
+        """
+        valid_data = {
+            'string_with_enum_prop': 'a',
+            'an_array': [1, 2],
+            'another_property': {'a': 'a', 'b': 1},
+            'yet_another_property': [
+                {'foo': 'a'},
+                {'foo': 'a', 'bar': 'b'}
+            ]
+        }
+        r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(valid_data))
+        self.assertEqual(r.status_code, 200)
+
+
+
 if __name__ == '__main__':
     unittest.main()

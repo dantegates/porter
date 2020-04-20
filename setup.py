@@ -15,8 +15,8 @@ REQUIRES_PYTHON = '>=3.6.0'
 REQUIRED = [
     # package: version
     'Flask>=1.0.2,<1.1.0',
-    'numpy>=1.15.0,<1.16.0',
-    'pandas>=0.23.0,<0.24.0',
+    'numpy>=1.15.0,<=1.18.2',
+    'pandas>=0.23.0,<=1.0.3',
 ]
 
 # These are packages required for non-essential functionality, e.g. loading
@@ -34,7 +34,10 @@ EXTRAS_REQUIRED = {
     'keras-utils': ['keras>=2.2.2,<2.3.0', 'tensorflow>=1.9.0,<1.10.0'],
     'sklearn-utils': ['scikit-learn>=0.19.2,<0.20.0'],
     's3-utils': ['boto3>=1.7.65,<1.8.0'],
+    'schema-validation': ['fastjsonschema==2.14.4'],
 }
+
+EXTRAS_REQUIRED['all'] = [r for requirements in EXTRAS_REQUIRED.values() for r in requirements]
 
 
 # The rest you shouldn't have to touch too much :)
@@ -55,8 +58,9 @@ setup(
     version=VERSION,
     python_requires=REQUIRES_PYTHON,
     packages=find_packages(exclude=(
-        'tests', 'examples'
+        'tests',
     )),
     install_requires=REQUIRED,
-    extras_require=EXTRAS_REQUIRED
+    extras_require=EXTRAS_REQUIRED,
+    include_package_data=True
 )

@@ -4,7 +4,6 @@ from unittest import mock
 
 from porter import __version__ as VERSION
 from porter import constants as cn
-from porter.exceptions import PredictionError
 from porter.responses import (_build_app_state, _is_ready,
                               make_alive_response,
                               make_batch_prediction_response,
@@ -15,6 +14,8 @@ from porter.responses import (_build_app_state, _is_ready,
 
 @mock.patch('porter.responses.api.request_id', lambda: 123)
 class TestResponse(unittest.TestCase):
+
+    @mock.patch('porter.responses.api.get_model_context', lambda: None)
     def test__init__defaults(self):
         r1 = Response({'foo': 1, 'bar': [1, 2]})
         self.assertEqual(r1.data, {'foo': 1, 'bar': [1, 2], 'request_id': 123})
@@ -22,11 +23,14 @@ class TestResponse(unittest.TestCase):
         r2 = Response('a string')
         self.assertEqual(r2.data, 'a string')
 
-    def test__init__model_context(self):
+
+    @mock.patch('porter.responses.api.get_model_context')
+    def test__init__model_context(self, mock_get_model_context):
         class ServiceClass:
             name = 'foo'; api_version = 'v1'; meta = {'a': 1, 2: 'b'}
+        mock_get_model_context.return_value = ServiceClass
 
-        r = Response({'foo': 1, 'bar': [1, 2]}, service_class=ServiceClass)
+        r = Response({'foo': 1, 'bar': [1, 2]})
         actual = r.data
         expected = {
             'request_id': 123,
@@ -43,6 +47,7 @@ class TestResponse(unittest.TestCase):
         }
         self.assertEqual(actual, expected)
 
+    @mock.patch('porter.responses.api.get_model_context', lambda: None)
     def test__init_base_response(self):
         with mock.patch('porter.responses.cf.return_request_id', False):
             self.assertEqual(Response._init_base_response(), {})
@@ -51,13 +56,16 @@ class TestResponse(unittest.TestCase):
 
 @mock.patch('porter.responses.Response._init_base_response', staticmethod(lambda: {'request_id': 123}))
 class Test(unittest.TestCase):
-    def test_make_batch_prediction_response(self):
+
+    @mock.patch('porter.responses.api.get_model_context')    
+    def test_make_batch_prediction_response(self, mock_get_model_context):
         # on setting name after instantiation see
         # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
         mock_model_service = mock.Mock(
             api_version='1', meta={1: '2', '3': 4})
+        mock_get_model_context.return_value = mock_model_service
         mock_model_service.configure_mock(name='a-model')
-        actual = make_batch_prediction_response(mock_model_service, [1, 2, 3], [10.0, 11.0, 12.0])
+        actual = make_batch_prediction_response([1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'request_id': 123,
             'model_context': {
@@ -77,13 +85,15 @@ class Test(unittest.TestCase):
         self.assertEqual(actual.data, expected)
         self.assertIsNone(actual.status_code)
 
-    def test_make_prediction_response(self):
+    @mock.patch('porter.responses.api.get_model_context')
+    def test_make_prediction_response(self, mock_get_model_context):
         # on setting name after instantiation see
         # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
         mock_model_service = mock.Mock(
             api_version='1', meta={1: '2', '3': 4})
+        mock_get_model_context.return_value = mock_model_service
         mock_model_service.configure_mock(name='a-model')
-        actual = make_prediction_response(mock_model_service, 1, 10.0)
+        actual = make_prediction_response(1, 10.0)
         expected = {
             'request_id': 123,
             'model_context': {
@@ -99,13 +109,15 @@ class Test(unittest.TestCase):
         self.assertEqual(actual.data, expected)
         self.assertIsNone(actual.status_code)
 
-    def test_make_batch_prediction_response_with_request_id(self):
+    @mock.patch('porter.responses.api.get_model_context')
+    def test_make_batch_prediction_response_with_request_id(self, mock_get_model_context):
         # on setting name after instantiation see
         # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
         mock_model_service = mock.Mock(
             api_version='1', meta={1: '2', '3': 4})
+        mock_get_model_context.return_value = mock_model_service
         mock_model_service.configure_mock(name='a-model')
-        actual = make_batch_prediction_response(mock_model_service, [1, 2, 3], [10.0, 11.0, 12.0])
+        actual = make_batch_prediction_response([1, 2, 3], [10.0, 11.0, 12.0])
         expected = {
             'request_id': 123,
             'model_context': {
@@ -125,13 +137,15 @@ class Test(unittest.TestCase):
         self.assertEqual(actual.data, expected)
         self.assertIsNone(actual.status_code)
 
-    def test_make_prediction_response_with_request_id(self):
+    @mock.patch('porter.responses.api.get_model_context')
+    def test_make_prediction_response_with_request_id(self, mock_get_model_context):
         # on setting name after instantiation see
         # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
         mock_model_service = mock.Mock(
             api_version='1', meta={1: '2', '3': 4})
+        mock_get_model_context.return_value = mock_model_service
         mock_model_service.configure_mock(name='a-model')
-        actual = make_prediction_response(mock_model_service, 1, 10.0)
+        actual = make_prediction_response(1, 10.0)
         expected = {
             'request_id': 123,
             'model_context': {
@@ -154,7 +168,8 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', True)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
-    def test_make_error_response_non_porter_error(self):
+    @mock.patch('porter.responses.api.get_model_context', lambda: None)
+    def test_make_error_response_not_model_context(self):
         error = Exception('foo bar baz')
         try:
             raise error
@@ -168,7 +183,7 @@ class TestErrorResponses(unittest.TestCase):
                 'name': 'Exception',
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
-                              'line [0-9]*, in test_make_error_response_non_porter_error\n'
+                              'line [0-9]*, in test_make_error_response_not_model_context\n'
                               '    raise error\n'
                               'Exception: foo bar baz.*'),
                 'user_data': {'foo': 1}
@@ -182,15 +197,16 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', True)
     @mock.patch('porter.responses.cf.return_user_data_on_error', True)
-    def test_make_error_response_porter_error(self):
+    @mock.patch('porter.responses.api.get_model_context')
+    def test_make_error_response_model_context(self, mock_get_model_context):
         # on setting name after instantiation see
         # https://docs.python.org/3/library/unittest.mock.html#mock-names-and-the-name-attribute
-        error = PredictionError('foo bar baz')
+        error = Exception('foo bar baz')
         mock_model_service = mock.Mock(
             api_version='V', meta={1: '1', '2': 2},
             id='M:V')
+        mock_get_model_context.return_value = mock_model_service
         mock_model_service.configure_mock(name='M')
-        error.update_model_context(mock_model_service)
         try:
             raise error
         except Exception:
@@ -208,12 +224,12 @@ class TestErrorResponses(unittest.TestCase):
             },
             'request_id': 123,
             'error': {
-                'name': 'PredictionError',
+                'name': 'Exception',
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
-                              'line [0-9]*, in test_make_error_response_porter_error\n'
+                              'line [0-9]*, in test_make_error_response_model_context\n'
                               '    raise error\n'
-                              'porter.exceptions.PredictionError: foo bar baz.*'),
+                              'Exception: foo bar baz.*'),
                 'user_data': {'foo': 1}
             }
         }
@@ -227,7 +243,8 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', True)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
-    def test_make_error_response_custom_response_keys_no_user_data(self):
+    @mock.patch('porter.responses.api.get_model_context', lambda: None)
+    def test_make_error_response_not_model_context_custom_response_keysno_user_data(self):
         error = Exception('foo bar baz')
         try:
             raise error
@@ -241,7 +258,7 @@ class TestErrorResponses(unittest.TestCase):
                 'name': 'Exception',
                 'messages': ('foo bar baz',),
                 'traceback': ('.*'
-                              'line [0-9]*, in test_make_error_response_custom_response_keys_no_user_data\n'
+                              'line [0-9]*, in test_make_error_response_not_model_context_custom_response_keysno_user_data\n'
                               '    raise error\n'
                               'Exception: foo bar baz.*')
             }
@@ -255,7 +272,8 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', False)
     @mock.patch('porter.responses.cf.return_traceback_on_error', False)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
-    def test_make_error_response_custom_response_keys_name_only(self):
+    @mock.patch('porter.responses.api.get_model_context', lambda: None)
+    def test_make_error_response_not_model_context_custom_response_keys_name_only(self):
         error = Exception('foo bar baz')
         try:
             raise error
@@ -278,7 +296,8 @@ class TestErrorResponses(unittest.TestCase):
     @mock.patch('porter.responses.cf.return_message_on_error', True)
     @mock.patch('porter.responses.cf.return_traceback_on_error', False)
     @mock.patch('porter.responses.cf.return_user_data_on_error', False)
-    def test_make_error_response_custom_response_keys_name_and_messages(self):
+    @mock.patch('porter.responses.api.get_model_context', lambda: None)
+    def test_make_error_response_not_model_context_custom_response_keys_name_and_messages(self):
         error = Exception('foo bar baz')
         try:
             raise error
@@ -301,17 +320,18 @@ class TestErrorResponses(unittest.TestCase):
 
 
 @mock.patch('porter.responses.Response._init_base_response', staticmethod(lambda: {'request_id': 123}))
+@mock.patch('porter.responses.api.get_model_context', lambda: None)
 class TestHealthChecks(unittest.TestCase):
     def test_make_alive_ready_response_is_ready(self):
         mock_app = mock.Mock(meta={'foo': 1})
         mock_app.meta
-        mock_app._services = [mock.Mock(status='READY',
+        mock_app.services = [mock.Mock(status='READY',
                                         api_version=str(i),
                                         meta={'k': i, 'v': i+1},
                                         id=i,
                                         endpoint=f'/{i}')
                               for i in range(3)]
-        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app.services)]
         actual_alive = make_alive_response(mock_app)
         actual_ready = make_ready_response(mock_app)
         expected = {
@@ -362,13 +382,13 @@ class TestHealthChecks(unittest.TestCase):
     def test_make_alive_ready_response_not_ready(self):
         mock_app = mock.Mock(meta={'foo': 1})
         mock_app.meta
-        mock_app._services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
+        mock_app.services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
                                         api_version=str(i),
                                         meta={'k': i, 'v': i+1},
                                         id=i,
                                         endpoint=f'/{i}')
                               for i in range(3)]
-        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app.services)]
         actual_alive = make_alive_response(mock_app)
         actual_ready = make_ready_response(mock_app)
         expected = {
@@ -419,13 +439,13 @@ class TestHealthChecks(unittest.TestCase):
     def test__build_app_state(self):
         mock_app = mock.Mock(meta={'foo': 1})
         mock_app.meta
-        mock_app._services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
+        mock_app.services = [mock.Mock(status='READY' if i % 2 else 'NOTREADY',
                                         api_version=str(i),
                                         meta={'k': i, 'v': i+1},
                                         id=i,
                                         endpoint=f'/{i}')
                               for i in range(3)]
-        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app._services)]
+        _ = [m.configure_mock(name=f'svc{i}') for i, m in enumerate(mock_app.services)]
         actual = _build_app_state(mock_app)
         expected = {
             'porter_version': VERSION,
@@ -470,7 +490,7 @@ class TestHealthChecks(unittest.TestCase):
             self.assertEqual(actual['services'][key]['model_context'], expected['services'][key]['model_context'])
 
     def test__build_app_state_no_services(self):
-        mock_app = mock.Mock(meta={'foo': 1}, _services=[])
+        mock_app = mock.Mock(meta={'foo': 1}, services=[])
         mock_app.meta
         actual = _build_app_state(mock_app)
         expected = {

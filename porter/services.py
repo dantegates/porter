@@ -22,31 +22,25 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 import abc
 import json
 import logging
-import string
+import os
 import warnings
 
+import flask
 import pandas as pd
-import werkzeug.exceptions
+import werkzeug.exceptions as werkzeug_exc
 
 from . import api
 from . import config as cf
 from . import constants as cn
-from . import exceptions as exc
 from . import responses as porter_responses
+from . import schemas
+from .exceptions import PorterException
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
 
 _logger = logging.getLogger(__name__)
 
-
-def serve_root():
-    """Return a helpful description of how to use the app."""
-
-    message = (
-        'Send POST requests to /&lt model-name &gt/prediction/'
-    )
-    return message, 200
 
 
 class StatefulRoute:
@@ -69,6 +63,18 @@ def serve_error_message(error):
     response = porter_responses.make_error_response(error)
     _logger.exception(response.data)
     return response.jsonify()
+
+
+class ServeRoot(StatefulRoute):
+    _message = 'Send POST requests to /&lt model-name &gt/prediction/'
+
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self):
+        if self.app.expose_docs:
+            return flask.redirect(self.app.docs_url)
+        return self._message
 
 
 class ServeAlive(StatefulRoute):
@@ -111,37 +117,12 @@ class ServeReady(StatefulRoute):
         return response.jsonify()
 
 
-class PredictSchema:
-    """
-    A simple container that represents a model's schema.
-
-    Args:
-        input_features (list of str): A list of the features input to the
-            model service. If the service defines a preprocessor these are the
-            features expected by the preprocessor.
-
-    Attributes:
-        input_columns (list of str): A list of all columns expected in the
-            POST request payload.
-        input_features (list of str): A list of the features input to the
-            model service. If the service defines a preprocessor these are the
-            features expected by the preprocessor.
-    """
-    def __init__(self, *, input_features):
-        if input_features is not None:
-            input_features = list(input_features)
-            self.input_columns = [_ID] + input_features
-        else:
-            self.input_columns = input_features
-        self.input_features = input_features
-
-
 class BaseService(abc.ABC, StatefulRoute):
     """
-    Abstract base class for services.
-
     A service class contains all necessary state and functionality to route a
     service and serve requests.
+
+    This class does nothing on its own and is meant to be extended.
 
     Args:
         name (str): The model name. The final routed endpoint is generally
@@ -153,6 +134,12 @@ class BaseService(abc.ABC, StatefulRoute):
             Default is False.
         namespace (str): String identifying a namespace that the service belongs
             to. Used to route services by subclasses. Default is "".
+        validate_request_data (bool): Whether to validate the request data or
+            not. Applies to all HTTP methods and does nothing if
+            :meth:`add_request_schema()` is never called.
+        validate_response_data (bool): Whether to validate the response data
+            or not.  Applies to all HTTP methods and does nothing if
+            :meth:`add_response_schema()` is never called.
 
     Attributes:
         id (str): A unique ID for the service.
@@ -163,19 +150,54 @@ class BaseService(abc.ABC, StatefulRoute):
         log_api_calls (bool): Log request and response and response data.
             Default is False.
         namespace (str): A namespace that the service belongs to.
+        validate_request_data (bool): Whether to validate the request data or
+            not. Applies to all HTTP methods and does nothing if
+            :meth:`add_request_schema()` is never called.
+        validate_response_data (bool): Whether to validate the response data
+            or not.  Applies to all HTTP methods and does nothing if
+            :meth:`add_response_schema()` is never called.
         action (str): ``str`` describing the action of the service, e.g.
             "prediction". Used to determine the final routed endpoint.
         endpoint (str): The endpoint where the service is exposed.
+        request_schemas (dict): Dictionary mapping HTTP methods to instances
+            of :class:`porter.schemas.RequestSchema`. Each ``RequestSchema``
+            object is added from calls to :meth:`add_request_schema` and
+            instantiated from the corresponding arguments.
+        response_schemas(dict): Dictionary mapping HTTP methods to a list of
+            :class:`porter.schemas.ResponseSchema`. Each ``ResponseSchema`` object
+            is added from calls to :meth:`add_request_schema` and
+            instantiated from the corresponding arguments.
     """
     _ids = set()
     _logger = logging.getLogger(__name__)
+    _default_response_schemas = [
+        # bad request, raised by flask if json can't be parsed
+        ('POST', 400, schemas.model_context_error, None),
+        # Unprocessable entity, valid json with semantic errors raised by porter
+        ('POST', 422, schemas.model_context_error, None),
+        # internal server error, any unhandled exception in .serve() will cause this
+        ('POST', 500, schemas.model_context_error, None),
+    ]
+    # subclasses can override this to add additional defaults
+    _service_default_schemas = []
 
-    def __init__(self, *, name, api_version, meta=None, log_api_calls=False, namespace=''):
+    def __init__(self, *, name, api_version, meta=None, log_api_calls=False,
+                 namespace='', validate_request_data=False,
+                 validate_response_data=False):
         self.name = name
         self.api_version = api_version
         self.meta = {} if meta is None else meta
         self.check_meta(self.meta)
         self.namespace = namespace
+        self.validate_request_data = validate_request_data
+        self.validate_response_data = validate_response_data
+        if self.validate_response_data:
+            warnings.warn('Setting ``validate_response_data`` may significantly '
+                          'impact the latency of responses and return confusing '
+                          'error messages to the user. '
+                          'Use only during development for testing and debugging. '
+                          'This is an experimental feature and may be removed in '
+                          'future releases.')
         # Assign endpoint and ID last so they can be determined from other
         # instance attributes. If the order of assignment changes here these
         # methods may attempt to access attributes that have not been set yet
@@ -185,31 +207,102 @@ class BaseService(abc.ABC, StatefulRoute):
         self.meta = self.update_meta(self.meta)
         self.log_api_calls = log_api_calls
 
+        # these are a public interface exposing user registered schemas
+        self.request_schemas = {}
+        self.response_schemas = {}
+        # these are used internally for lookups at runtime
+        self._request_schemas = {}
+        self._response_schemas = {}
+        # add response schemas explicitly returned (i.e. raised) by porter.        
+        for schema in self._default_response_schemas:
+            self.add_response_schema(*schema)
+        for schema in self._service_default_schemas:
+            self.add_response_schema(*schema)
+
     def __call__(self):
-        """Serve a response to the user."""
+        """Process HTTP requests and return a response.
+
+        This method is the main mechanism for serving model predictions.
+
+        Essentially this method wraps ``self.serve()`` (which must be implemented
+        by a subclass) with boiler plate such as
+
+        - Converting Python objects to raw HTTP responses.
+        - Logging API requests.
+        - Error handling.
+        - Validation of response schemas. 
+
+        Returns:
+            A "Response" object or ``None``: The output of ``self.serve()`` converted 
+                wrapped in a Response object with a status code to be served
+                to the client. Currently this is a `flask.Response` object in
+                particular.
+
+        Raises:
+            :class:`werkzeug.exceptions.HTTPException`
+        """
+        # Default response is `null` in the event that an error occurs in
+        # self.serve()
         response = None
+        # When we do `except Exception as error` the name `error` will not
+        # live outside of the except scope. We'll check if this name has been
+        # overwritten in the finally block to determine if we need to log an
+        # error.
+        caught_error = None
+        # Add the service to a context that is unique by http transaction.
+        # This allows us to determine how to approach error handling in
+        # resonses.py (or anywhere else for that matter).
+        api.set_model_context(self)
         try:
             response = self.serve()
+            # Allow users to return a JSON-like object instead of a `Response`.
+            # This is much more user friendly.
             if not isinstance(response, porter_responses.Response):
-                response = porter_responses.Response(response, service_class=self)
-            response = response.jsonify()
-        except exc.ModelContextError as err:
-            err.update_model_context(self)
-            self._log_error(err)
-            raise err
-        # technically we should never get here. self.serve() should always
-        # return a ModelContextError but I'm a little paranoid about this.
-        except Exception as err:
-            self._log_error(err)
-            raise err
+                response = porter_responses.Response(response)
+        # Note on the error handling here. The purpose of this block is to log
+        # any errors that were raised in self.serve(). If we happen to catch
+        # an unhandled exception we'll re-raise an internal server error.
+        #
+        # The only reason we distinguish between HTTPException and Exception
+        # here is to give unhandled exceptions a message more relevant to `porter`
+        # than the werkzeug default.
+        except (PorterException, werkzeug_exc.HTTPException) as error:
+            caught_error = error
+            # we need to make a porter response here so the status code exists
+            # below when we validate the response data.
+            response = porter_responses.make_error_response(caught_error)
+            raise error
+        except Exception as error:
+            caught_error = error
+            msg = 'Could not serve model results successfully.'
+            wrapped_error = werkzeug_exc.InternalServerError(msg)
+            # we need to make a porter response here so the status code exists
+            # below when we validate the response data.
+            response = porter_responses.make_error_response(wrapped_error)
+            raise wrapped_error from error
         finally:
+            response = response.jsonify()
+
+            # log the original error, not necessarily the one we raised
+            # (i.e. InternalServerError)
+            if caught_error is not None:
+                self._log_error(caught_error)
+
             if self.log_api_calls:
                 request_data = api.request_json()
-                if response is not None:
-                    response_data = getattr(response, 'raw_data', response)
-                else:
-                    response_data = response
+                response_data = getattr(response, 'raw_data', response)
                 self._log_api_call(request_data, response_data)
+
+            if self.validate_response_data:
+                schema = self._response_schemas.get((api.request_method(), response.status_code))
+                if schema is not None:
+                    # eh, this is a bit of hack to work around
+                    # fastjsonschema not understanding how to validate numpy
+                    # types.
+                    # There is probably a better way to do this, but this validates
+                    # exactly what we want to and is a quick fix for a feature that
+                    # is experimental anyway.
+                    schema.validate(json.loads(response.data))
         return response
 
     def define_endpoint(self):
@@ -221,13 +314,15 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @abc.abstractmethod
     def serve(self):
-        """Return a response to be served to the user (usually the return
-        value of one of the functions in :mod:`porter.responses` or an instance of
-        :class:`porter.responses.Response`).
+        """Return a response to be served to the user.
 
-        Custom subclasses may find it easier to return a native Python object
-        such as a ``str`` or ``dict``, in such cases the object must be
-        "jsonify-able".
+        Users extending this base class will want to return a native Python
+        object such as a ``str`` or ``dict``. In such cases the object must be
+        compatible with :obj:`porter.config.json_encoder`.
+
+        For subclasses defined internally, this should be the return value of
+        one of the functions in :mod:`porter.responses` or an instance of
+        :class:`porter.responses.Response`.
         """
 
     @abc.abstractproperty
@@ -260,12 +355,12 @@ class BaseService(abc.ABC, StatefulRoute):
         this method on the superclass unless they have a good reason not to.
         """
         try:
-            # sort_keys=True tests the flask.jsonify implementation
-            _ = json.dumps(meta, cls=cf.json_encoder, sort_keys=True)
-        except TypeError:
-            raise exc.PorterError(
-                'Could not jsonify meta data. Make sure that meta data is '
-                'valid JSON and that all keys are of the same type.')
+            schemas.model_meta.validate(meta)
+        except ValueError as err:
+            if err.args[0].startswith('Schema validation failed'):
+                raise ValueError(
+                    '`meta` does not follow the proper schema, all values should be strings')
+            raise err
 
     def update_meta(self, meta):
         """Update meta data with instance state if desired and return."""
@@ -278,8 +373,12 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @id.setter
     def id(self, value):
+        """
+        Raises:
+            :class:`ValueError`
+        """
         if value in self._ids:
-            raise exc.PorterError(
+            raise ValueError(
                 f'The id={value} has already been used. '
                 'This likely means that you tried to instantiate a service '
                 'with parameters that were already used.')
@@ -321,7 +420,28 @@ class BaseService(abc.ABC, StatefulRoute):
         self._api_version = value
 
     def get_post_data(self):
-        return api.request_json(force=True)
+        """Return POST data.
+
+        Raises:
+            :class:`werkzeug.exceptions.UnprocessableEntity`
+
+        The data will be the return value of ``porter.config.json_encoder``.
+
+        If ``self.validate_request_data is True`` and a request schema has
+        been defined the data will be validated against the schema.
+        """
+        data = api.request_json(force=True)
+        if self.validate_request_data:
+            schema = self._request_schemas.get('POST')
+            if schema is not None:
+                try:
+                    schema.validate(data)
+                except ValueError as err:
+                    if err.args[0].startswith('Schema validation failed'):
+                        raise werkzeug_exc.UnprocessableEntity(*err.args)
+                    else:
+                        raise err
+        return data
 
     def _log_api_call(self, request_data, response_data):
         self._logger.info('api logging',
@@ -336,6 +456,18 @@ class BaseService(abc.ABC, StatefulRoute):
             extra={'request_id': api.request_id(),
                    'service_class': self.__class__.__name__,
                    'event': 'exception'})
+
+    def add_request_schema(self, method, api_obj, description=None):
+        method = method.upper()
+        self.request_schemas[method] = schemas.RequestSchema(api_obj, description)
+        self._request_schemas[method] = api_obj
+
+    def add_response_schema(self, method, status_code, api_obj, description=None):
+        method = method.upper()
+        self._response_schemas[(method, status_code)] = api_obj
+        if not method in self.response_schemas:
+            self.response_schemas[method] = []
+        self.response_schemas[method].append(schemas.ResponseSchema(api_obj, status_code, description))
 
 
 class PredictionService(BaseService):
@@ -370,17 +502,27 @@ class PredictionService(BaseService):
             `.process()` method of this object will be called on the output of
             ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        input_features (list-like or None): A list (or list like object)
-            containing the feature names required in the POST data. Will be
-            used to validate the POST request if not ``None``. Optional.            
-        allow_nulls (bool): Are nulls allowed in the POST request data? If
-            ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not batch predictions are
             supported or not. If ``True`` the API will accept an array of objects
             to predict on. If ``False`` the API will only accept a single object
             per request. Optional.
-        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput` or subclass thereof
-            if POST request is invalid.
+        additional_checks (callable): If ``additional_checks`` raises a
+            ``ValueError`` when called, a 422 UnprocessableEntity response
+            will be returned to the user. This method allows users to
+            implement additional data validations that cannot be expressed
+            with an OpenAPI schema. The signature should accept a single
+            positional argument for the validated POST input parsed to a
+            :obj:`pandas.DataFrame`.
+        feature_schema (:class:`porter.schemas.Object` or `None`): Description
+            of an a single feature set. Can be used to validate inputs if
+            ``validate_request_data=True`` and document the API if added to an
+            instance of :class:`ModelApp` where ``expose_docs=True``.
+        prediction_schema (:class:`porter.schemas.Object` or `None`):
+            Description of a single model prediction. Can be used to validate
+            outputs if ``validate_request_data=True`` and document the API if
+            added to an instance of :class:`ModelApp` where
+            ``expose_docs=True``.
+        **kwargs: Keyword arguments passed on to :class:`BaseService`.
 
     Attributes:
         id (str): A unique ID for the model. Composed of ``name`` and ``api_version``.
@@ -409,37 +551,59 @@ class PredictionService(BaseService):
             `.process()` method of this object will be called on the output of
             ``model.predict()`` and its return value will be used to populate
             the predictions returned to the user. Optional.
-        schema (object): An instance of :class:`porter.services.Schema`.
-        allow_nulls (bool): Are nulls allowed in the POST request data? If
-            ``False`` an error is raised when nulls are found. Optional.
         batch_prediction (bool): Whether or not the endpoint supports batch
             predictions or not. If ``True`` the API will accept an array of
             objects to predict on. If ``False`` the API will only accept a
             single object per request. Optional.
-        additional_checks (callable): Raises :class:`porter.exceptions.InvalidModelInput`
-            or subclass thereof if POST request is invalid.
+        additional_checks (callable): Raises ValueError or subclass thereof if
+            POST request is invalid.
+        feature_schema (`porter.schemas.Object` or None): Description of an
+            individual instance to be predicted on. Can be used to validate
+            inputs if `validate_request_data=True` and document the API if
+            added to an instance of `ModelApp` where `expose_docs=True`.
+        prediction_schema (`porter.schemas.Object` or None): Description of an
+            individual prediction returned to the user. Can be used to
+            validate outputs if `validate_request_data=True` and document the
+            API if added to an instance of `ModelApp` where
+            `expose_docs=True`.
+
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
     action = 'prediction'
+    _service_default_schemas = [
+        ('GET', 200, schemas.String(), None)
+    ]
 
+    # TODO: what is the proper default for batch_prediction?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 input_features=None, allow_nulls=False, action=None,
-                 batch_prediction=False, additional_checks=None, **kwargs):
+                 action=None, batch_prediction=True,
+                 additional_checks=None, feature_schema=None,
+                 prediction_schema=None, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
-        self.schema = PredictSchema(input_features=input_features)
-        self.allow_nulls = allow_nulls
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
-            raise exc.PorterError('`additional_checks` must be callable')
+            raise ValueError('`additional_checks` must be callable')
         self.action = action or self.action
         self.additional_checks = additional_checks
-        self._validate_input = self.schema.input_columns is not None
+
         self._preprocess_model_input = self.preprocessor is not None
         self._postprocess_model_output = self.postprocessor is not None
+
+        # need to do this before handling schemas
         super().__init__(**kwargs)
+
+        self.feature_schema = feature_schema
+        self.prediction_schema = prediction_schema
+        if self.feature_schema is not None:
+            self._add_feature_schema(self.feature_schema)
+            self.feature_columns = list(self.feature_schema.properties.keys())
+        else:
+            self.feature_columns = None
+        # if None, we'll add the default schema anyway
+        self._add_prediction_schema(self.prediction_schema)
 
     @property
     def status(self):
@@ -455,101 +619,60 @@ class PredictionService(BaseService):
                 to the user.
 
         Raises:
-            porter.exceptions.ModelContextError: Raised whenever an error
-                occurs during prediction. The error contains information
-                about the model context which a custom error handler can
-                use to add to the errors response.
+            :class:`werkzeug.exceptions.BadRequest`: Raised when request data cannot
+                be parsed (in super().get_post_data).
+            :class:`werkzeug.exceptions.UnprocessableEntity`: Raised when parsed
+                request data does not follow the specified schema (in
+                super().get_post_data).
         """
         if api.request_method() == 'GET':
             return porter_responses.Response(
                 'This endpoint is live. Send POST requests for predictions')
-        try:
-            response = self._predict()
-        # All we have to do with the exception handling here is
-        # signal to __call__() that this is a model context error.
-        # If it's a werkzeug exception let it fall through.
-        except (exc.ModelContextError, werkzeug.exceptions.HTTPException) as err:
-            raise err
-        # All other errors should be wrapped in a PredictionError and raise 500
-        except Exception as err:
-            error = exc.PredictionError('an error occurred during prediction')
-            raise error from err
-        return response
+        return self._predict()
 
     def _predict(self):
+        # retrieve the data and validate the inputs. If
+        # self.validate_request_data is True and a feature schema was
+        # provided, the schema is vetted in get_post_data()
         X_input = self.get_post_data()
 
-        if self._validate_input:
-            self.check_request(X_input, self.schema.input_columns,
-                self.allow_nulls, self.additional_checks)
-            X_preprocessed = X_input.loc[:,self.schema.input_features]
+        # Only perform user checks after the schema has been (optionally)
+        # validated. This way users don't need to do any error handling in
+        # additional_checks.
+        # If the user checks fail (ValueError raised) raise a 422.
+        if self.additional_checks is not None:
+            try:
+                self.additional_checks(X_input)
+            except ValueError as err:
+                raise werkzeug_exc.UnprocessableEntity(*err.args) from err
+
+        # Once the input data has been fully validated, extract the feature
+        # columns (all features provided in ``feature_schema``) if provided.
+        # This allows the user to fully anticipate what features are passed
+        # to the preprocessor.
+        if self.feature_columns:
+            X_preprocessed = X_input[self.feature_columns]
         else:
             X_preprocessed = X_input
 
+        # preprocess if user specified a preprocessor
         if self._preprocess_model_input:
             X_preprocessed = self.preprocessor.process(X_preprocessed)
 
+        # get the predictions
         preds = self.model.predict(X_preprocessed)
 
+        # postprocess
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
+        # finally format the predictions and return
         if self.batch_prediction:
-            response = porter_responses.make_batch_prediction_response(
-                self, X_input[_ID], preds)
+            response = porter_responses.make_batch_prediction_response(X_input[_ID], preds)
         else:
-            response = porter_responses.make_prediction_response(
-                self, X_input[_ID].iloc[0], preds[0])
+            response = porter_responses.make_prediction_response(X_input[_ID].iloc[0], preds[0])
 
         return response
-
-    @classmethod
-    def check_request(cls, X_input, input_columns, allow_nulls=False, additional_checks=None):
-        """Check the POST request data raising an error if a check fails.
-
-        Checks include
-
-        1. ``X`` contains all columns in ``feature_names``.
-        2. ``X`` does not contain nulls (only if allow_nulls == True).
-
-        Args:
-            X (``pandas.DataFrame``): A ``pandas.DataFrame`` created from the POST
-                request.
-            feature_names (list): All feature names expected in ``X``.
-            allow_nulls (bool): Whether nulls are allowed in ``X``. False by
-                default.
-
-        Returns:
-            None
-
-        Raises:
-            :class:`porter.exceptions.RequestContainsNulls`: If the input contains nulls
-                and ``allow_nulls`` is False.
-            :class:`porter.exceptions.RequestMissingFields`: If the input is missing
-                required fields.
-            :class:`porter.exceptions.InvalidModelInput`: If user defined ``additional_checks``
-                fails.
-        """
-        cls._default_checks(X_input, input_columns, allow_nulls)
-        # Only perform user checks after the standard checks have been passed.
-        # This allows the user to assume that all columns are present and there
-        # are no nulls present (if allow_nulls is False).
-        if additional_checks is not None:
-            additional_checks(X_input)
-
-    @staticmethod
-    def _default_checks(X, input_columns, allow_nulls):
-        # checks that all columns are present and no nulls sent
-        # (or missing values)
-        try:
-            # check for allow_nulls first to avoid computation if possible
-            if not allow_nulls and X[input_columns].isnull().any().any():
-                null_counts = X[input_columns].isnull().sum()
-                null_columns = null_counts[null_counts > 0].index.tolist()
-                raise exc.RequestContainsNulls(null_columns)
-        except KeyError:
-            missing_fields = [c for c in input_columns if not c in X.columns]
-            raise exc.RequestMissingFields(missing_fields)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a ``pandas.DataFrame``.
@@ -558,28 +681,48 @@ class PredictionService(BaseService):
             ``pandas.DataFrame``. Each ``row`` represents a single instance to
             predict on. If ``self.batch_prediction`` is ``False`` the ``DataFrame``
             will only contain one ``row``.
-
-        Raises:
-            :class:`porter.exceptions.PorterError`: If the request data does not
-                follow the API format.
         """
         data = super().get_post_data()
         if not self.batch_prediction:
-            # if API is not supporting batch prediction user's must send
-            # a single JSON object.
-            if not isinstance(data, dict):
-                raise exc.InvalidModelInput(f'input must be a single JSON object')
-            # wrap the `dict` in a list to convert to a `DataFrame`
             data = [data]
-        elif not isinstance(data, list):
-            raise exc.InvalidModelInput(f'input must be an array of objects')
         return pd.DataFrame(data)
- 
 
-class PredictionServiceConfig(PredictionService):
-    def __init__(self, *args, **kwargs):
-        warnings.warn('PredictionServiceConfig is deprecated. Use PredictionService.')
-        super().__init__(*args, **kwargs)
+    def _add_feature_schema(self, user_schema):
+        assert isinstance(user_schema, schemas.Object), '``feature_schema`` must be an Object'
+        # add ID to schema
+        request_schema = schemas.Object(
+            properties={
+                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
+                **user_schema.properties},
+            reference_name=user_schema.reference_name)
+        if self.batch_prediction:
+            request_schema = schemas.Array(item_type=request_schema)
+        # TODO: should a description be passed?
+        self.add_request_schema('POST', request_schema)
+
+    def _add_prediction_schema(self, user_schema):
+        prediction_schema = schemas.Object(
+            'Model output',
+            properties={
+                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body'),
+                'prediction': user_schema or schemas.Number('Model Prediction')
+            },
+            reference_name=getattr(user_schema, 'reference_name', None)
+        )
+
+        if self.batch_prediction:
+            prediction_schema = schemas.Array(item_type=prediction_schema)
+
+        response_schema = schemas.Object(
+            properties={
+                'request_id': schemas.request_id,
+                'model_context': schemas.model_context,
+                'predictions': prediction_schema
+            }
+        )
+
+        # TODO: should a description be passed?
+        self.add_response_schema('POST', 200, response_schema)
 
 
 class ModelApp:
@@ -590,55 +733,64 @@ class ModelApp:
     Essentially this class is a wrapper around an instance of ``flask.Flask``.
 
     Args:
-        meta (dict): Additional meta data added to the response body. Optional.
+        name (str): Name for the application. This will appear in the documentation
+            if ``expose_docs=True``. Optional.
+        description (str): Description of the application. This will appear in
+            the documentation if ``expose_docs=True``. Optional.
+        version (str): Version of the application. This will appear in the
+            documentation if ``expose_docs=True``. Optional.
+        meta (dict): Additional meta data added to the response body in health
+            checks. Optional.
+        expose_docs (bool): If ``True`` API documentation will be served at
+            ``docs_url``. The documentation is built from the
+            ``request_schemas`` and ``response_schemas`` attributes of
+            services added to the instance. Default is ``False``.
+        docs_url (str): Endpoint for the API documentation. Ignored if
+            ``expose_docs=False``. Defaults to '/docs/'
+
+    Attributes:
+        name (str): Name for the application.
+        description (str): Description of the application.
+        version (str): Version of the application.
+        meta (dict): Additional meta data added to the response body in health
+            checks.
+        expose_docs (bool): Whether the instance is configured to expose API
+            documentation.
+        docs_url (str): Endpoint the API documentation is exposed at.
     """
 
-    def __init__(self, meta=None, description=None):
-        self.meta = {} if meta is None else meta
-        self.check_meta(self.meta)
+    # note: eventually we may want to save this state somewhere else.
+    #       perhaps it might make sense serve health checks from
+    #       BaseService subclasses since we're basically trying to
+    #       replicate that here, but we might not actually want all
+    #       of that overhead either.
+    #       see _route_health_checks() below.
+    _health_check_response_schemas = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
 
-        self._services = []
+    def __init__(self, services, *, name=None, description=None, version=None, meta=None,
+                 expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
+        self.services = services
+        self.name = name
+        self.meta = {} if meta is None else meta
+        self.description = description
+        self.version = version
+        self.check_meta(self.meta)
+        self.expose_docs = expose_docs
+        self.docs_url = docs_url
+        self.docs_json_url = docs_json_url
+        self.app = self._init_app()
+
+        self._request_schemas = {}
+        self._response_schemas = {}
+        self._additional_params = {}
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
-        self.app = self._build_app()
+        self._build_app()
 
     def __call__(self, *args, **kwargs):
         """Return a WSGI interface to the model app."""
         return self.app(*args, **kwargs)
-
-    def add_services(self, *services):
-        """Add services to the app from `*services`.
-
-        Args:
-            *services (list): List of :class:`porter.services.BaseService` instances
-                to add to the model.
-
-        Returns:
-            None
-        """
-        for service in services:
-            self.add_service(service)
-
-    def add_service(self, service):
-        """Add a service to the app from ``service``.
-
-        Args:
-            service (object): Instance of :class:`porter.services.BaseService`.
-
-        Returns:
-            None
-
-        Raises:
-            :class:`porter.exceptions.PorterError`: If the type of
-                ``service`` is not recognized.
-        """
-        if service.id in self._service_ids:
-            raise exc.PorterError(
-                f'a service has already been added using id={service.id}')
-        self._services.append(service)
-        self._service_ids.add(service.id)
-        self.app.route(service.endpoint, **service.route_kwargs)(service)
 
     def run(self, *args, **kwargs):
         """
@@ -659,11 +811,16 @@ class ModelApp:
         """
         try:
             # sort_keys=True tests the flask.jsonify implementation
-            _ = json.dumps(meta, cls=cf.json_encoder, sort_keys=True)
-        except TypeError:
-            raise exc.PorterError(
-                'Could not jsonify meta data. Make sure that meta data is '
-                'valid JSON and that all keys are of the same type.')
+            schemas.app_meta.validate(meta)
+        except TypeError as err:
+            if err.args[0].startswith('Schema validation failed'):
+                raise ValueError(
+                    '`meta` does not follow the proper schema, all values should be strings')
+            raise err
+
+    def _init_app(self):
+        name = __name__ if self.name is None else self.name
+        return api.App(name, static_folder=cn.ASSETS_DIR)
 
     def _build_app(self):
         """Build and return the app.
@@ -674,16 +831,105 @@ class ModelApp:
         Returns:
             An instance of :class:`porter.api.App`.
         """
-        app = api.App(__name__, static_folder=None)
+
         # register a custom JSON encoder
-        app.json_encoder = cf.json_encoder
+        self.app.json_encoder = cf.json_encoder
+
         # register error handler for all werkzeug default exceptions
-        for error in werkzeug.exceptions.default_exceptions:
-            app.register_error_handler(error, serve_error_message)
-        app.register_error_handler(exc.PredictionError, serve_error_message)
-        # This route that can be used to check if the app is running.
-        # Useful for kubernetes/helm integration
-        app.route('/', methods=['GET'])(serve_root)
-        app.route(cn.LIVENESS_ENDPOINT, methods=['GET'])(ServeAlive(self))
-        app.route(cn.READINESS_ENDPOINT, methods=['GET'])(ServeReady(self))
-        return app
+        for error in werkzeug_exc.default_exceptions:
+            self.app.register_error_handler(error, serve_error_message)
+
+        # route the health checks
+        self._route_health_checks()
+
+        # route root
+        serve_root = ServeRoot(self)
+        self.app.route('/', methods=['GET'])(serve_root)
+
+        for service in self.services:
+            self._add_service(service)
+
+        if self.expose_docs:
+            self._route_docs()
+
+    def _route_endpoint(self, endpoint, fn, route_kwargs, *, request_schemas=None,
+                        response_schemas=None, additional_params=None):
+        """Route an endpoint with a contract and do the corresponding "book keeping"."""
+        self.app.route(endpoint, **route_kwargs)(fn)
+        if request_schemas is not None:
+            self._request_schemas[endpoint] = request_schemas
+        if response_schemas is not None:
+            self._response_schemas[endpoint] = response_schemas
+        if additional_params is not None:
+            self._additional_params[endpoint] = additional_params
+
+    def _add_service(self, service):
+        """Add a service to the app from ``service``.
+
+        Args:
+            service (object): Instance of :class:`porter.services.BaseService`.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If ``service.id`` has already been registered on the
+                app. This prevents errors from trying to route multiple classes
+                on the same endpoint.
+        """
+        # register the service with the add
+        if service.id in self._service_ids:
+            raise ValueError(
+                f'a service has already been added using id={service.id}')
+        self._service_ids.add(service.id)
+
+        # get an iterable of methods exposed by the service.
+        # `or` accounts for schema attributes can be None
+        methods = (
+            set((service.request_schemas or {}).keys())
+            | set((service.response_schemas or {}).keys()))
+
+        # create tags for the service for the API docs
+        additional_params = {method: {'tags': [service.name]} for method in  methods}
+
+        self._route_endpoint(service.endpoint, service, service.route_kwargs,
+                             request_schemas=service.request_schemas,
+                             response_schemas=service.response_schemas,
+                             additional_params=additional_params)
+
+    def _route_health_checks(self):
+        serve_alive = ServeAlive(self)
+        serve_ready = ServeReady(self)
+        # note: Eventually we may want to save this state somewhere else.
+        #       perhaps it might make sense serve health checks from
+        #       BaseService subclasses since we're basically trying to
+        #       replicate that here, but we might not actually want all
+        #       of that overhead either. Another option is to just store
+        #       it on the class as we do with the health check responses.
+        route_kwargs = {'methods': ['GET']}
+        additional_params = {'GET': {'tags': ['Health Check']}}
+        response = self._health_check_response_schemas
+
+        self._route_endpoint(cn.LIVENESS_ENDPOINT, serve_alive, route_kwargs,
+                             response_schemas=response, additional_params=additional_params)
+        self._route_endpoint(cn.READINESS_ENDPOINT, serve_ready, route_kwargs,
+                             response_schemas=response, additional_params=additional_params)
+
+    # TODO: perhaps this should be moved into the schemas module at some point
+    def _route_docs(self):
+        openapi_json =  schemas.make_openapi_spec(self.name, self.description, self.version,
+                                                  self._request_schemas, self._response_schemas,
+                                                  self._additional_params)
+
+        @self.app.route(self.docs_url)
+        def docs():
+            html = schemas.make_docs_html(self.docs_json_url)
+            return html
+
+        @self.app.route('/assets/swagger-ui/{filename}')
+        def swagger_ui(filename):
+            return self.app.send_static_file(filename)
+
+        @self.app.route(self.docs_json_url)
+        def docs_json():
+            return json.dumps(openapi_json)
