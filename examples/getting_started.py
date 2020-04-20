@@ -1,10 +1,12 @@
+"""Self-contained working example demonstrating typical usage."""
+
+import pickle
 from porter.datascience import WrappedModel
 from porter.services import ModelApp, PredictionService
-from porter.schemas import Boolean, Integer, Number, String, Array, Object
+from porter.schemas import Boolean, Integer, Number, String, Object
 
 
 # for this example to run, we need to make up a trivial my-model.pkl
-import pickle
 class MyModel:
     def predict(self, X):
         return X['average_rating']
