@@ -113,13 +113,44 @@ And the prediction service could be instantiated as:
 Fully Customized Models
 -----------------------
 
-``porter`` supports interaction with arbitrary Python code by subclassing :class:`porter.services.BaseModel`.  Here is a simple example:
+By subclassing :class:`porter.services.BaseService` it is possible to expose arbitrary Python code.
+
+.. note::
+    We have sometimes found it useful to subclass ``BaseService``.  However, this usage depends on implementation details that may change in future releases.
+
+Consider complex input and output schemas such as:
 
 .. code-block:: python
 
+    from porter.schemas import Object, Array, String, Integer
+
+    custom_service_input = Object(
+        properties={
+            'string_with_enum_prop': String(additional_params={'enum': ['a', 'b', 'abc']}),
+            'an_array': Array(item_type=Number()),
+            'another_property': Object(properties={'a': String(), 'b': Integer()}),
+            'yet_another_property': Array(item_type=Object(additional_properties_type=String()))
+        },
+        reference_name='CustomServiceInputs'
+    )
+
+    custom_service_output_success = Object(
+        properties={
+            'request_id': request_id,
+            'model_context': model_context,
+            'results': Array(item_type=String())
+        }
+    )
+
+A minimal app implementing and documenting this interface might look like:
+
+.. code-block:: python
+
+    from porter.services import BaseService, ModelApp
+
     class CustomService(BaseService):
-        action = 'foo'
-        route_kwargs = {'methods': ['GET', 'POST']}
+        action = 'custom-action'
+        route_kwargs = {'methods': ['POST']}
 
         def serve(self):
             data = self.get_post_data()
@@ -129,6 +160,94 @@ Fully Customized Models
         def status(self):
             return 'READY'
 
+    custom_service = CustomService(
+        name='custom-service',
+        api_version='v1',
+        validate_request_data=True)
+    custom_service.add_request_schema('POST', custom_service_input)
+    custom_service.add_response_schema('POST', 200, custom_service_output_success)
+    custom_app = ModelApp([custom_service], expose_docs=True)
 
-.. todo::
-    Borrow from contracts.py
+This would expose an endpoint ``/custom-service/v1/custom-action``.
+
+Here is a more complex example that serves calculations from a callable function:
+
+.. code-block:: python
+
+    import porter.api as porter_api
+
+    class FunctionService(BaseService):
+
+        route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
+
+        def __init__(self, action, function,
+                     input_schema=None,
+                     output_schema=None,
+                     additional_checks=None,
+                     **kwargs):
+            self._action = action
+            super().__init__(**kwargs)
+            if not callable(function):
+                raise ValueError('`function` must be callable')
+            self.callable = function
+            if input_schema is not None:
+                self.add_request_schema('POST', input_schema)
+            self.add_response_schema('GET', 200, sc.String())
+            if output_schema is not None:
+                self.add_response_schema('POST', 200, output_schema)
+            if additional_checks is not None and not callable(additional_checks):
+                raise ValueError('`additional_checks` must be callable')
+            self.additional_checks = additional_checks
+
+        @property
+        def action(self):
+            return self._action
+
+        @property
+        def status(self):
+            return 'READY'
+
+        def serve(self):
+            if porter_api.request_method() == 'GET':
+                return f"This endpoint is live. Send POST requests for '{self.action}'."
+            data = self.get_post_data()
+            if self.additional_checks is not None:
+                self.additional_checks(data)
+            out = self.callable(data)
+            return out
+
+This could be used, for example, to expose some NumPy functions:
+
+.. code-block:: python
+
+    from porter.exceptions import PorterException
+    import numpy as np
+
+    def sum(x):
+        return np.sum(x).tolist()
+
+    def prod(x):
+        return np.prod(x).tolist()
+
+    def check_for_zeros(x):
+        if 0 in x:
+            raise PorterException('input cannot include zeros', code=422)
+
+    input_schema = sc.Array(item_type=sc.Number(), reference_name='InputSchema')
+    output_schema = sc.Number(reference_name='OutputSchema')
+    service_kw = dict(
+        input_schema=input_schema,
+        output_schema=output_schema,
+        validate_request_data=True)
+
+    sum_service = FunctionService('sum', sum, name='math', api_version='v1', **service_kw)
+    prod_service = FunctionService('prod', prod, name='math', api_version='v1',
+                                   additional_checks=check_for_zeros, **service_kw)
+
+    app = ModelApp(
+        [sum_service, prod_service],
+        name='FunctionService Example',
+        description='Expose arbitrary callable functions by subclassing BaseService.',
+        expose_docs=True)
+
+
