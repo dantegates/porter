@@ -17,6 +17,19 @@ There is a prediction endpoint for each model service added to the :class:`porte
 
 will expose two models on the endpoints ``/foo/v1/prediction`` and ``/foo/v2/prediction``.  The endpoints accept POST requests with JSON payloads and return JSON payloads to the user.  For debugging purposes, the endpoints also accept GET requests, which return the message "This endpoint is live.  Send POST requests for predictions."
 
+Endpoint customization
+^^^^^^^^^^^^^^^^^^^^^^
+
+:class:`porter.services.PredictionService` allows a custom endpoint name through the ``action`` argument, and :class:`porter.services.ModelApp` provides an optional additional level of nesting through the ``namespace`` argument.  For example,
+
+.. code-block:: python
+
+    service3 = PredictionService(name='baz', version='v1', action='pred', ...)
+    model_app = ModelApp([service3], namespace='datascience')
+
+results in a prediction endpoint ``/datascience/baz/v1/pred``.
+
+
 Health Checks
 -------------
 
