@@ -1,7 +1,6 @@
 """Light wrappers around ``flask`` and ``requests``."""
 
 
-import functools
 import json
 import uuid
 
