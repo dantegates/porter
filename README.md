@@ -17,12 +17,11 @@ new model. Getting started is as easy as
 from porter.datascience import WrappedModel
 from porter.services import ModelApp, PredictionService
 my_model = WrappedModel.from_file('my-model.pkl')
-prediction_service = PilotPredictionService(
+prediction_service = PredictionService(
     model=my_model,
     name='my-model',
     api_version='v1')
-app = ModelApp()
-app.add_service(prediction_service)
+app = ModelApp([prediction_service])
 app.run()
 ```
 
