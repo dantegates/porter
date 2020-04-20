@@ -56,14 +56,79 @@ as opposed to the usual ``array``:
 Custom Prediction Schema
 ------------------------
 
-.. todo::
-    Borrow from contracts.py
+Suppose we have a probabilistic model that returns more than a single scalar value for each prediction.  Here is an example model definition that doesn't do anything but give us a working example:
+
+.. code-block:: python
+
+    import pandas as pd
+    import scipy.stats as ss
+
+    class ProbabilisticModel(BaseModel):
+        def predict(self, X):
+            dist = ss.norm(ss.norm(0, 1).rvs(len(X)), 1)
+            return pd.DataFrame({
+                'lower_bound': dist.ppf(0.05),
+                'expected_value': dist.mean(),
+                'upper_bound': dist.ppf(0.95),
+            }).to_dict(orient='records')
+
+The ``predict()`` method of this model accepts a ``DataFrame`` and returns a list of dictionaries, one per input row.  Output of this form is sufficient for yielding valid response JSON payloads with non-scalar predictions.
+
+For `automatically generating <openapi_schemas.html#schema-documentation>`_ appropriate documentation for such a model, the per-row prediction schema could be described as:
+
+.. code-block:: python
+
+    proba_ratings_prediction_schema = Object(
+        'Return a prediction with upper and lower bounds',
+        properties={
+            'lower_bound': Number(
+                'Lower bound on the prediction. '
+                'Actual values should fall below this range just 5% of the time'),
+            'expected_value': Number(
+                'The average value we expect actual values to take.'),
+            'upper_bound': Number(
+                'Upper bound on the prediction. '
+                'Actual values should fall above this range just 95% of the time'),
+        },
+        reference_name='ProbaModelPrediction')
+
+And the prediction service could be instantiated as:
+
+.. code-block:: python
+
+    probabilistic_service = PredictionService(
+        model=ProbabilisticRatingsModel(),
+        name='proba-model',
+        api_version='v1',
+        feature_schema=ratings_feature_schema,
+        prediction_schema=proba_ratings_prediction_schema)
+
+.. warning::
+
+    There is also experimental support for response validation: ``PredictionService(..., validate_response_data=True)``.  Enabling this feature triggers a warning stating that it may increase response latency and produce confusing error messages for users.  This should only be used for testing/debugging.
 
 
 .. _fullycustom:
 
 Fully Customized Models
 -----------------------
+
+``porter`` supports interaction with arbitrary Python code by subclassing :class:`porter.services.BaseModel`.  Here is a simple example:
+
+.. code-block:: python
+
+    class CustomService(BaseService):
+        action = 'foo'
+        route_kwargs = {'methods': ['GET', 'POST']}
+
+        def serve(self):
+            data = self.get_post_data()
+            return {'results': ['foo', 'bar']}
+
+        @property
+        def status(self):
+            return 'READY'
+
 
 .. todo::
     Borrow from contracts.py
