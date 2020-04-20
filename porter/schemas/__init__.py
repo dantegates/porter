@@ -1,3 +1,5 @@
+"""Tools for validating and documenting OpenAPI schemas with ``porter``."""
+
 import warnings
 
 from .openapi import (Array, Boolean, Integer, Number, Object, RequestSchema,
