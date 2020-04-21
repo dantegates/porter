@@ -550,9 +550,6 @@ class PredictionService(BaseService):
             to. The final routed endpoint will become
             "/<namespace>/<name>/<api version>/prediction/". Default is "".
         api_version (str): The model API version.
-        action (str): ``str`` describing the action of the service. Used to
-            determine the final routed endpoint. The final routed endpoint
-            will become "/<namespace>/<name>/<api version>/<action>/".
         endpoint (str): The endpoint where the model predictions are exposed.
             This is computed as "/<name>/<api version>/prediction/".
         model (object): An object implementing the interface defined by
@@ -573,26 +570,30 @@ class PredictionService(BaseService):
             single object per request. Optional.
         additional_checks (callable): Raises ValueError or subclass thereof if
             POST request is invalid.
-        feature_schema (`porter.schemas.Object` or None): Description of an
+        feature_schema (:class:`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
             added to an instance of `ModelApp` where `expose_docs=True`.
-        prediction_schema (`porter.schemas.Object` or None): Description of an
+        prediction_schema (:class:`porter.schemas.Object` or None): Description of an
             individual prediction returned to the user. Can be used to
             validate outputs if `validate_request_data=True` and document the
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
+        request_schema (:class:`porter.schemas.Object` or None) Description of valid
+            request format, including instance IDs, and wrapped as Array if
+            ``batch_prediction=True``.  Can be used for validation outside of ``porter``.
+        response_schema (:class:`porter.schemas.Object` or None) Description of valid
+            POST 200 response format, including ``request_id``, ``model_context``, etc.
 
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
-    action = 'prediction'
     _service_default_schemas = [
         ('GET', 200, schemas.String(), None)
     ]
 
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 action=None, batch_prediction=True,
+                 action='prediction', batch_prediction=True,
                  additional_checks=None, feature_schema=None,
                  prediction_schema=None, **kwargs):
         self.model = model
@@ -601,7 +602,7 @@ class PredictionService(BaseService):
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
             raise ValueError('`additional_checks` must be callable')
-        self.action = action or self.action
+        self._action = action
         self.additional_checks = additional_checks
 
         self._preprocess_model_input = self.preprocessor is not None
@@ -624,6 +625,13 @@ class PredictionService(BaseService):
     def status(self):
         """Return 'READY'. Instances of this class are always ready."""
         return cn.HEALTH_CHECK_VALUES.IS_READY
+
+    @property
+    def action(self):
+        """``str`` describing the action of the service. Used to
+        determine the final routed endpoint. The final routed endpoint
+        will become "/<namespace>/<name>/<api version>/<action>/"."""
+        return self._action
 
     def serve(self):
         """Retrive POST request data from flask and return a response
@@ -712,6 +720,8 @@ class PredictionService(BaseService):
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
             request_schema = schemas.Array(item_type=request_schema)
+        # save this so the user can access it
+        self.request_schema = request_schema
         # TODO: should a description be passed?
         self.add_request_schema('POST', request_schema)
 
@@ -735,6 +745,9 @@ class PredictionService(BaseService):
                 'predictions': prediction_schema
             }
         )
+
+        # save this so the user can access it
+        self.response_schema = response_schema
 
         # TODO: should a description be passed?
         self.add_response_schema('POST', 200, response_schema)
