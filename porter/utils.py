@@ -140,3 +140,6 @@ class JSONFormatter(logging.Formatter):
 def object_constants(obj):
     return [(attr, val) for attr, val in vars(obj).items()
             if not attr.startswith('_') and attr.isupper()]
+
+
+JSONLogFormatter = JSONFormatter
