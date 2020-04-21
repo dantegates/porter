@@ -3,7 +3,7 @@
 Installation
 ============
 
-``porter`` can be installed with ``pip`` as follows:
+``porter`` can be installed with ``pip`` for ``python3.6`` and higher as follows:
 
 .. code-block:: shell
 
