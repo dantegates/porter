@@ -20,14 +20,14 @@ will expose two models on the endpoints ``/foo/v1/prediction`` and ``/foo/v2/pre
 Endpoint customization
 ^^^^^^^^^^^^^^^^^^^^^^
 
-:class:`porter.services.PredictionService` allows a custom endpoint name through the ``action`` argument, and :class:`porter.services.ModelApp` provides an optional additional level of nesting through the ``namespace`` argument.  For example,
+:class:`porter.services.PredictionService` allows a custom endpoint URL through the ``namespace`` and ``action`` arguments.  For example,
 
-.. todo::
-    correct namespace
 .. code-block:: python
 
-    service3 = PredictionService(name='baz', version='v1', action='pred', ...)
-    model_app = ModelApp([service3], namespace='datascience')
+    service3 = PredictionService(
+        name='baz', version='v1',
+        namespace='datascience', action='pred', ...)
+    model_app = ModelApp([service3])
 
 results in a prediction endpoint ``/datascience/baz/v1/pred``.
 
@@ -58,19 +58,3 @@ Two health check endpoints are exposed by each ``porter`` app (not for each serv
     }
 
 
-.. Defining API Schemas
-.. --------------------
-.. 
-.. `porter` includes the ability to define API schemas for your services with explicity support
-.. for the `OpenAPI <https://swagger.io/docs/specification/about/>` standard.
-.. 
-.. While this functionaity is completely optional it is particularly useful
-.. providing the ability to automatically generated documentation and validate
-.. request data. Additionally it can be used to generate an OpenAPI spec from
-.. the command line which can be used for integration with the `vast toolset <https://openapi.tools/>` built around this standard.
-.. 
-.. Here's an example
-.. 
-.. .. literalinclude:: ../examples/contracts.py
-
-    
