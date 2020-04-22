@@ -605,8 +605,34 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'data.model_context.api_version must be string'):
             response_schema.validate(response)
 
-
-
+    def test_request_schema_response_schema_uninitialized(self):
+        model = mock.Mock()
+        model_name = 'my-test-model-noschemas'
+        api_version = 'v1'
+        mock_additional_checks = mock.Mock()
+        prediction_schema = schemas.Object(properties=dict(
+            prediction=schemas.Number(),
+            confidence=schemas.Number(),
+        ))
+        prediction_service = PredictionService(
+            model=model,
+            name=model_name,
+            api_version=api_version,
+            meta={},
+            preprocessor=None,
+            postprocessor=None,
+        )
+        # request_schema is None if feature_schema is None
+        self.assertIs(prediction_service.request_schema, None)
+        # response_schema has a default
+        response = dict(
+            model_context=dict(
+                api_version=api_version,
+                model_meta={},
+                model_name=model_name),
+            predictions=[ dict(id=1, prediction=3.14) ],
+            request_id='abcdefg')
+        prediction_service.response_schema.validate(response)
 
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data_validation(self, mock_request_json):
