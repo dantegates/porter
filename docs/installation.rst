@@ -27,10 +27,10 @@ For more details on this topic see `here <https://codeinthehole.com/tips/using-p
 Dependency Selection
 --------------------
 
-``porter`` optional support for loading ``sklearn`` and ``keras`` models, either directly from disk or via ``S3``.  It also includes optional support for API schema validation.  To enable each of these options explicitly:
+``porter`` offers optional support for loading ``keras`` models and for loading models via ``S3``.  To enable each of these options explicitly:
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/CadentTech/porter#egg=porter[keras-utils,sklearn-utils,s3-utils,schema-validation] 
+    pip install -e git+https://github.com/CadentTech/porter#egg=porter[keras-utils,s3-utils]
 
-You can install only a subset of these additional requirements by removing the undesired names from the comma separated list in the brackets above.
+You can install just one of these additional requirements by removing the undesired name from the list in the brackets above (or you can install without optional dependiencies by removing the bracketed list altogether).

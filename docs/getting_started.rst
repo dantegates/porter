@@ -19,9 +19,6 @@ Getting started is as easy as:
     app = ModelApp([prediction_service])
     app.run()
 
-.. todo::
-    note exact contract for model.predict()
-
 Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get a prediction. Behind the scenes (with ``porter``'s default settings) your POST data will be converted to a ``pandas.DataFrame`` and the result of ``my_model.predict()`` will be returned to the user in a payload like the one below
 
 .. code-block:: javascript
@@ -40,6 +37,8 @@ Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get 
         ],
         "request_id": "0f86644edee546ee9c495a9a71b0746c"
     }
+
+The model can be any Python object with a ``.predict(X)`` method, where ``X`` is a ``DataFrame`` and the return value is a sequence with one element per row of ``X``.  :meth:`WrappedModel.from_file` supports ``.pkl`` files via `joblib <https://joblib.readthedocs.io/>`_ and ``.h5`` files for `keras <https://keras.io/backend/>`_ models.
 
 Multiple models can be served by a single app simply by passing additional services to :class:`porter.services.ModelApp`.
 

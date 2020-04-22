@@ -1,7 +1,6 @@
 """Self-contained working example demonstrating typical usage."""
 
-# TODO: use joblib
-import pickle
+import joblib
 from porter.datascience import WrappedModel
 from porter.services import ModelApp, PredictionService
 from porter.schemas import Boolean, Integer, Number, String, Object
@@ -11,8 +10,7 @@ from porter.schemas import Boolean, Integer, Number, String, Object
 class MyModel:
     def predict(self, X):
         return X['average_rating']
-with open('my-model.pkl', 'wb') as f:
-    pickle.dump(MyModel(), f, -1)
+joblib.dump(MyModel(), 'my-model.pkl')
 
 # now we load the model as a WrappedModel
 my_model = WrappedModel.from_file('my-model.pkl')

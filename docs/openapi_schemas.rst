@@ -43,7 +43,6 @@ This schema is equivalent to the following yaml markup:
 
 .. code-block:: yaml
 
-    - $ref: '#/components/schemas/RatingsModelFeatures'
     - RatingsModelFeatures:
         type: object
         description: Inputs to the ratings model
@@ -76,9 +75,8 @@ This schema is equivalent to the following yaml markup:
     instance_schema = Object(properties={'id': Integer(), **feature_schema.properties})
     batch_schema = Array(item_type=instance_schema)
 
-.. todo::
+Notice that here ``item_type`` is another API object type, in this case ``Object``.  Both :attr:`Array.item_type` and :attr:`Object.properties` are composable in this way, and will be implemented using OpenAPI ``$ref`` if ``reference_name`` is given.
 
-    TODO: What else do we want to say about this?  Does openapi.py allow the user to specify by $ref?  How should the yaml $ref work?
 
 
 Schema Validation

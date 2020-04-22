@@ -612,6 +612,8 @@ class PredictionService(BaseService):
 
         self.feature_schema = feature_schema
         self.prediction_schema = prediction_schema
+        self.request_schema = None
+        self.response_schema = None
         if self.feature_schema is not None:
             self._add_feature_schema(self.feature_schema)
             self.feature_columns = list(self.feature_schema.properties.keys())

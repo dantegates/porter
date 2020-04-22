@@ -20,14 +20,14 @@ Then for production use, either in a shell script or on the command line, invoke
 
     gunicorn app:model_app
 
-See also: `deployment options <https://flask.palletsprojects.com/en/1.1.x/deploying/#deployment>`_ in the Flask documentation.
+For more options, see e.g. `deployment options <https://flask.palletsprojects.com/en/1.1.x/deploying/#deployment>`_ in the Flask documentation.
 
 
 
 Local testing deployment
 ------------------------
 
-For pre-production testing and debugging, it is appropriate to run the underlying `Flask <https://flask.palletsprojects.com/>`_  app's development server directly:
+For pre-production testing and debugging, it is appropriate to run the app's development server directly:
 
 .. code-block:: python
 
@@ -36,5 +36,8 @@ For pre-production testing and debugging, it is appropriate to run the underlyin
     if __name__ == '__main__':
         model_app.run()
 
-.. todo::
-    don't say flask
+This usage will result in a warning to remind you to upgrade for production deployment:
+
+.. code-block:: shell
+
+    WARNING: This is a development server. Do not use it in a production deployment.
