@@ -605,9 +605,6 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'data.model_context.api_version must be string'):
             response_schema.validate(response)
 
-
-
-
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data_validation(self, mock_request_json):
         # this test also implicitly covers BaseService.get_post_data

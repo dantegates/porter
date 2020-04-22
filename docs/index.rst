@@ -23,7 +23,8 @@ It also includes the ability to load ``.pkl`` and ``.h5`` files so you don't hav
    custom_models
    error_handling
    logging
-   tests
+   unit_testing
+   contributing
    examples
    porter
 

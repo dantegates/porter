@@ -584,7 +584,6 @@ class PredictionService(BaseService):
             ``batch_prediction=True``.  Can be used for validation outside of ``porter``.
         response_schema (:class:`porter.schemas.Object` or None) Description of valid
             POST 200 response format, including ``request_id``, ``model_context``, etc.
-
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
