@@ -88,9 +88,35 @@ class TestGettingStarted(unittest.TestCase):
 
 @mock.patch('porter.services.BaseService._ids', set())
 class TestFunctionService(unittest.TestCase):
-    def test(self):
-        # just testing that the example can be executed
-        namespace = load_example(os.path.join(HERE, '../examples/function_service.py'))
+    @classmethod
+    def setUpClass(cls):
+        cls.ns = load_example(os.path.join(HERE, '../examples/function_service.py'))
+        cls.test_app = cls.ns['app'].app.test_client()
+
+    def test_get(self):
+        r = self.test_app.get('/math/v1/sum')
+        self.assertEqual(r.status_code, 200)
+        r = self.test_app.get('/math/v1/prod')
+        self.assertEqual(r.status_code, 200)
+
+    def test_post_sum(self):
+        endpoint = '/math/v1/sum'
+        a = list(range(1, 11))
+        r = self.test_app.post(endpoint, data=json.dumps(a))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(sum(a), int(r.data))
+
+    def test_post_prod(self):
+        endpoint = '/math/v1/prod'
+        a = list(range(1, 11))
+        r = self.test_app.post(endpoint, data=json.dumps(a))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(np.prod(a), int(r.data))
+
+        # test additional_checks: zero not allowed
+        a = list(range(0, 11))
+        r = self.test_app.post(endpoint, data=json.dumps(a))
+        self.assertEqual(r.status_code, 422)
 
 
 @mock.patch('porter.services.BaseService._ids', set())
