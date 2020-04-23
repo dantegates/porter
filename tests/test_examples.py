@@ -80,6 +80,20 @@ class TestAPILogging(unittest.TestCase):
 
 
 @mock.patch('porter.services.BaseService._ids', set())
+class TestGettingStarted(unittest.TestCase):
+    def test(self):
+        # just testing that the example can be executed
+        namespace = load_example(os.path.join(HERE, '../examples/getting_started.py'))        
+
+
+@mock.patch('porter.services.BaseService._ids', set())
+class TestFunctionService(unittest.TestCase):
+    def test(self):
+        # just testing that the example can be executed
+        namespace = load_example(os.path.join(HERE, '../examples/function_service.py'))
+
+
+@mock.patch('porter.services.BaseService._ids', set())
 class TestContracts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
