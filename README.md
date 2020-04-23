@@ -2,75 +2,29 @@
 
 [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
 
-What is `porter`? `porter` is a framework for exposing machine learning models
-behind a REST API. Any object with a `.predict()` method will do which means
-`porter` plays nicely with models you have already trained using
-[sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/)
-or [xgboost](https://xgboost.readthedocs.io/en/latest/) to name a few well
-known machine learning libraries. In addition `porter` also seeks to reduce the amount of
-boiler plate you need to write, e.g. it includes the ability to load `.pkl`
-and `.h5` files so you don't have to write this code each time you deploy a
-new model. Getting started is as easy as
+`porter` is a framework for  data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
+
+In particular `porter`
+
+- Is Designed to be a practical solution for projects from POCs to production grade software.
+- Doesn't make assumptions about what frameworks you should use. Any object with a `predict()` method will do which means `porter` plays nicely with [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/), or [xgboost](https://xgboost.readthedocs.io/en/latest/) models. Models that don't fit this pattern can be easily wrapped and used in porter.
+- Integrates OpenAPI support for validating HTTP Request data and automatically generating API documentation with Swagger.
+- Implements API logging and error handling out of the box.
+- Is built on a robust test suite so you can use `porter` with confidence. Additionally, `porter` has been extensively field tested at Cadent by our Data Science team.
+- Handles boiler plate like such as loading `.pkl` and `.h5` files.
+
+
+Simplicity is also a core goal of this project. The following 6 lines of code are a fully functional example. While this should the most common use cases, ``porter`` is also designed to be easily extended to cover the remaining cases not supported out of the box.
 
 ```python
-# myapp.py
-from porter.datascience import WrappedModel
-from porter.services import ModelApp, PredictionService
-my_model = WrappedModel.from_file('my-model.pkl')
-prediction_service = PredictionService(
-    model=my_model,
-    name='my-model',
-    api_version='v1')
-app = ModelApp([prediction_service])
-app.run()
-```
+   from porter.datascience import WrappedModel
+   from porter.services import ModelApp, PredictionService
 
-To get predictions, simply run the script above and send a POST request to
-the endpoint `localhost:5000/my-model/v1/prediction`. Behind the scenes
-`porter` will convert your POST data to a `pandas.DataFrame`, pass the data
-off to `my_model.predict()` and return the results.
+   my_model = WrappedModel.from_file('my-model.pkl')
+   prediction_service = PilotPredictionService(model=my_model, name='my-model', api_version='v1')
 
-```shell
-python myapp.py &
-curl -POST -d '[{"feature1": 1, "feature2": 2.2}]' localhost:5000/my-model/v1/prediction
-{
-    "model_context": {
-        "api_version": "v1",
-        "model_meta": {},
-        "model_name": "my-model"
-    },
-    "predictions": [
-        {
-            "id": 1,
-            "prediction": 0
-        }
-    ],
-    "request_id": "0f86644edee546ee9c495a9a71b0746c"
-}
-```
-
-`porter` apps are [WSGI](https://wsgi.readthedocs.io/en/latest/learn.html) apps
-which means they can be responsibly deployed into production environments with
-software like [gunicorn](https://gunicorn.org/).
-
-
-# Installation
-
-`porter` can be installed with pip as follows
-
-```shell
-pip install -e git+https://github.com/CadentTech/porter#egg=porter
-```
-
-Note that without the `-e` flag and `#egg=porter` on the end of the url
-`pip freeze` will output `porter==<version>` rather than
-`-e git+https://...` as typically desired.
-
-If you want to install porter from a specific commit or tag, e.g. tag `1.0.0` simply add
-`@<commit-or-tag>` immediately before `#egg=porter`. E.g.
-
-```shell
-pip install -e git+https://github.com/CadentTech/porter@1.0.0#egg=porter
+   app = ModelApp([prediction_service])
+   app.run()
 ```
 
 For more details on this, see [this
