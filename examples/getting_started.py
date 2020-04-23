@@ -6,14 +6,20 @@ from porter.services import ModelApp, PredictionService
 from porter.schemas import Boolean, Integer, Number, String, Object
 
 
-# for this example to run, we need to make up a trivial my-model.pkl
+# for this example to run, we need to make up a trivial class
+# with a .predict() method
 class MyModel:
     def predict(self, X):
         return X['average_rating']
-joblib.dump(MyModel(), 'my-model.pkl')
 
-# now we load the model as a WrappedModel
-my_model = WrappedModel.from_file('my-model.pkl')
+# in a real use case, the trained model would already be saved:
+#joblib.dump(MyModel(), 'my-model.pkl')
+
+# and we could load it with WrappedModel.from_file():
+#my_model = WrappedModel.from_file('my-model.pkl')
+
+# but to make this script testable, we pass a MyModel instance directly:
+my_model = WrappedModel(MyModel())
 
 # define the feature schema
 feature_schema = Object(
