@@ -3,11 +3,13 @@
 REST API
 ========
 
+Below are human friendly descriptions of the REST interface exposed by ``porter`` apps. Concrete descriptions of the API can be generated passing ``expose_docs=True`` to :class:`porter.services.ModelApp`. See the `<OpenAPI Schemas>` page for more details.o
 
-Prediction Endpoints
---------------------
 
-There is a prediction endpoint for each model service added to the :class:`porter.services.ModelApp` instance.  The endpoint is computed from the name and version attributes of the model services: ``/<model name>/<model version>/prediction``.  For example:
+Prediction Service Endpoints
+----------------------------
+
+Each prediction service added to an instance of :class:`porter.services.ModelApp` (often referred to as a "porter app") is routed to its own endpoint.  The endpoint is computed from attributes of the model services: ``/<model name>/<model version>/prediction``.  For example:
 
 .. code-block:: python
 
@@ -15,12 +17,12 @@ There is a prediction endpoint for each model service added to the :class:`porte
     service2 = PredictionService(name='bar', version='v2', ...)
     model_app = ModelApp([service1, service2])
 
-will expose two models on the endpoints ``/foo/v1/prediction`` and ``/foo/v2/prediction``.  The endpoints accept POST requests with JSON payloads and return JSON payloads to the user.  For debugging purposes, the endpoints also accept GET requests, which return the message "This endpoint is live.  Send POST requests for predictions."
+will expose two models on the endpoints ``/foo/v1/prediction`` and ``/ns/bar/v2/prediction``.  The endpoints accept POST requests with JSON payloads and return JSON payloads to the user.  For debugging purposes, the endpoints also accept GET requests, which simply return the message "This endpoint is live.  Send POST requests for predictions."
 
 Endpoint customization
 ^^^^^^^^^^^^^^^^^^^^^^
 
-:class:`porter.services.PredictionService` allows a custom endpoint URL through the ``namespace`` and ``action`` arguments.  For example,
+:class:`porter.services.PredictionService` endpoints can be customized with the ``namespace`` and ``action`` arguments.  For example,
 
 .. code-block:: python
 
@@ -29,13 +31,15 @@ Endpoint customization
         namespace='datascience', action='pred', ...)
     model_app = ModelApp([service3])
 
-results in a prediction endpoint ``/datascience/baz/v1/pred``.
+results in the endpoint ``/datascience/baz/v1/pred``.
+
+:ref:`Custom services<Custom Services>` also have the flexibility to define their endpoints.
 
 
 Health Checks
 -------------
 
-Two health check endpoints are exposed by each ``porter`` app (not for each service): ``/-/alive`` and ``/-/ready``.  These are useful for deploying a ``porter`` app in an environment like Kubernetes or behind a load balancer.  Each health check endpoint returns a JSON payload with metadata about the deployment and services that are running, e.g.:
+Two health check endpoints are exposed by each ``porter`` app (not for each service): ``/-/alive`` and ``/-/ready``.  These are useful for load balancing a ``porter`` app.  Each health check endpoint returns a JSON payload with metadata about the deployment and services that are running, e.g.:
 
 .. code-block:: javascript
 
@@ -57,4 +61,30 @@ Two health check endpoints are exposed by each ``porter`` app (not for each serv
       }
     }
 
+If the app is running, the ``/-/alive`` endpoint response will have a 200 status code. The ``/-/ready`` endpoint will return a 503 if any of the services added to the :class:`porter.services.ModelApp` indicate that they are not ready.
 
+.. note::
+
+    Although all services included in ``porter`` are always considered ready, distinguishing between "liveness" and "readiness" is expected by many platforms `such as Kubernetes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_. Exposing both now allows us to support services that may make that distinction in the future without users having to change their code.
+
+Error Objects
+-------------
+
+Responses to requests that result in client or server side errors will return the appropriate status code and a payload with information describing the error and request context. Such payloads contain ``error`` and ``model_context`` objects as well as the ``request_id``.
+
+.. code-block:: json
+
+    {
+        "error": {
+            "messages": [
+                "Schema validation failed: data must be array"
+            ],
+            "name": "UnprocessableEntity"
+        },
+        "model_context": {
+            "api_version": "v2",
+            "model_meta": {},
+            "model_name": "user-ratings"
+        },
+        "request_id": "e7fd6560f6614a77bd762f878ea1dd7f"
+    }

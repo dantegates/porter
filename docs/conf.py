@@ -36,6 +36,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosectionlabel',
 ]
 
 # show todos (for now)

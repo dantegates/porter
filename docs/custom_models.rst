@@ -1,7 +1,7 @@
 .. _custom_models:
 
-Custom Models
-=============
+Custom Services
+===============
 
 In addition to exposing standard ``sklearn``-compatible models, ``porter`` supports three styles of customization: instance prediction, custom prediction schemas, and fully customized model types.
 

@@ -63,3 +63,28 @@ which generates logs (pretty printed for this example only) such as
 
 
 A full working example can be found in the example script `examples/api_logging.py <https://github.com/CadentTech/porter/blob/master/examples/api_logging.py>`_.
+
+User Logging
+------------
+
+In some cases users may want to add the ``porter`` ``request_id`` to their logs
+to associate their application logs with ``porter``'s default logs. This can
+be accomplished with :obj:`porter.api.request_id`. Note that this function should
+only be while an active request is being handled.
+
+.. code-block:: python
+
+    from porter.api import request_id
+
+    # code called while a request is being processed
+    logger.info('the first message', extra={'request_id': request_id())
+    logger.info('the second message', extra={'request_id': request_id())
+
+In the example above, if a `log formatter <https://docs.python.org/3/library/logging.html#formatter-objects>`_
+using the format ``'[request_id %(request_id)] %(msg)s]'`` was added to ``logger``,
+the code above would generate the following logs for a single request.
+
+.. code-block:: text
+
+    [request_id 6c26423fe85445948071d01283aaf58e] the first message
+    [request_id 6c26423fe85445948071d01283aaf58e] the second message

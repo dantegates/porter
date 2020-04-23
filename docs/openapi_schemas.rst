@@ -3,16 +3,18 @@
 OpenAPI Schemas
 ===============
 
-``porter`` provides support for automatically validating and documenting payload schemas.  Validation and documentation are built on a shared schema specification framework, lending confidence that the documentation accurately reflects models being served.
+``porter`` provides support for automatically validating and documenting payload schemas.  Validation and documentation are built on a shared interface, guaranteeing that the documentation and models are  synchronized.
 
 .. note::
-    These features require the optional ``schema-validation`` dependency to be enabled.
 
+    Currently ``porter`` validates data against OpenAPI schemas by leveraging `fastjsonschema <https://github.com/horejsek/python-fastjsonschema>`_. This implies that ``porter`` currently only supports the intersection of OpenAPI and `JSONSchema <https://json-schema.org/>`_ which is described `here <https://swagger.io/docs/specification/data-models/keywords/>`_.
+
+    At the moment this is simply an implementation detail. Any changes in the future would provide more broad support for the OpenAPI spec.
 
 Schema Definition
 -----------------
 
-``porter`` supports the `OpenAPI Specification <https://swagger.io/docs/specification/about/>`_.  Schema definition is facilitated by :mod:`porter.schemas`.  Valid data types include:
+``porter`` provides a Python interface to the `OpenAPI Specification <https://swagger.io/docs/specification/about/>`_.  Schema definition is facilitated by :mod:`porter.schemas`.  Valid data types include:
 
 .. code-block:: python
 
@@ -21,7 +23,7 @@ Schema Definition
 For each type, the first argument is an optional (but recommended) description.
 Objects take a ``properties`` argument of type ``dict`` specifying the names and types of each nested element.  All types take an optional ``additional_params`` argument, also of type ``dict``, giving access to all other keys in the OpenAPI specification.
 
-For example, the input expected by a :class:`porter.services.PredictionService` serving a rating prediction model might look like so:
+For example, the input expected by a :class:`porter.services.PredictionService` serving rating predictions might look like so:
 
 .. code-block:: python
 
@@ -68,12 +70,52 @@ This schema is equivalent to the following yaml markup:
         required: [average_rating, genre, is_tv, title_id, user_id]
 
 
-``PredictionService`` adds a required integer field, ``id``, to the schema.  Also, by default, ``PredictionService`` performs batch prediction over multiple objects, and thus the above would become the item type for an Array.  These modifications are equivalent to:
+``PredictionService`` adds a required integer field, ``id``, to the schema.  Also, by default, ``PredictionService`` performs batch prediction over multiple objects, and thus the above would become the item type for an Array.  These modifications are roughly equivalent to:
 
 .. code-block:: python
 
     instance_schema = Object(properties={'id': Integer(), **feature_schema.properties})
     batch_schema = Array(item_type=instance_schema)
+
+resulting in the following OpenAPI spec which describes an acceptable payload for a :class:`porter.services.PredictionService` instantiated with ``PredictionService(..., feature_schema=feature_schema)``
+
+.. code-block:: yaml
+
+    type: array
+    items:
+      type: object
+      properties:
+        average_rating:
+          description: The title's average rating.
+          maximum: 10
+          minimum: 0
+          type: number
+        genre:
+          description: The genre.
+          enum:
+          - comedy
+          - action
+          - drama
+          type: string
+        id:
+          description: 'An ID uniquely identifying each instance in the POST body.'
+          type: integer
+        is_tv:
+          description: Whether the content is a TV show.
+          type: boolean
+        title_id:
+          description: The title ID.
+          type: integer
+        user_id:
+          description: The user ID.
+          type: integer
+      required:
+      - average_rating
+      - genre
+      - id
+      - is_tv
+      - title_id
+      - user_id
 
 Notice that here ``item_type`` is another API object type, in this case ``Object``.  Both :attr:`Array.item_type` and :attr:`Object.properties` are composable in this way, and will be implemented using OpenAPI ``$ref`` if ``reference_name`` is given.
 

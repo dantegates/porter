@@ -24,10 +24,10 @@ For more options, see e.g. `deployment options <https://flask.palletsprojects.co
 
 
 
-Local testing deployment
+Local testing
 ------------------------
 
-For pre-production testing and debugging, it is appropriate to run the app's development server directly:
+For local development and debugging, it is appropriate to run the app's development server directly:
 
 .. code-block:: python
 
@@ -35,9 +35,3 @@ For pre-production testing and debugging, it is appropriate to run the app's dev
 
     if __name__ == '__main__':
         model_app.run()
-
-This usage will result in a warning to remind you to upgrade for production deployment:
-
-.. code-block:: shell
-
-    WARNING: This is a development server. Do not use it in a production deployment.
