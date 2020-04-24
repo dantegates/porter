@@ -3,7 +3,7 @@
 REST API
 ========
 
-Below are human-friendly descriptions of the REST interface exposed by ``porter`` apps. Concrete descriptions of the API can be generated passing ``expose_docs=True`` to :class:`porter.services.ModelApp()`. See the :ref:`OpenAPI Schemas <schema_documentation>` page for more details.
+Below are human friendly descriptions of the REST interface exposed by ``porter`` apps. Concrete descriptions of the API can be generated passing ``expose_docs=True`` to :class:`porter.services.ModelApp`. See the `<OpenAPI Schemas>` page for more details.o
 
 
 Prediction Service Endpoints
@@ -88,3 +88,12 @@ Responses to requests that result in client or server side errors will return th
         },
         "request_id": "e7fd6560f6614a77bd762f878ea1dd7f"
     }
+
+Status Codes
+^^^^^^^^^^^^
+
+Clients should be prepared to handle the following error codes from service endpoints.
+
+*400*: Bad Request. Raised when the payload cannot be parsed.
+*422*: Unprocessable Entity. This also indicates there is an error in the request payload, but raises the distinction that although the data was valid JSON, it contains semantic errors. This includes invalid schemas or user raised errors (from ``check_request``).
+*500*: Something went wrong when ``model.predict`` was called.
