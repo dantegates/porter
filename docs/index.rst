@@ -49,10 +49,5 @@ Features include:
    porter
 
 * :ref:`genindex`
-* :ref:`search`
 
 
-.. check out this crazy vim macro that helped in doubling up on backticks:
-.. ls`lf`.ll/[^:)]`\w
-
-.. vim: tw=0
