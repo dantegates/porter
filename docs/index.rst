@@ -6,7 +6,7 @@
 porter documentation
 ====================
 
-`porter <https://github.com/CadentTech/porter/>`_ is a framework for  data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
+`porter <https://github.com/CadentTech/porter/>`_ is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
 
 Simplicity is a core goal of this project. The following 6 lines of code are a fully functional example. While this should the most common use case, ``porter`` is also designed to be easily extended to cover the remaining cases not supported out of the box.
 
