@@ -3,7 +3,7 @@
 REST API
 ========
 
-Below are human friendly descriptions of the REST interface exposed by ``porter`` apps. Concrete descriptions of the API can be generated passing ``expose_docs=True`` to :class:`porter.services.ModelApp`. See the `<OpenAPI Schemas>` page for more details.o
+Below are human-friendly descriptions of the REST interface exposed by ``porter`` apps. Concrete descriptions of the API can be generated passing ``expose_docs=True`` to :class:`porter.services.ModelApp()`. See the :ref:`OpenAPI Schemas <schema_documentation>` page for more details.
 
 
 Prediction Service Endpoints
@@ -88,6 +88,8 @@ Responses to requests that result in client or server side errors will return th
         },
         "request_id": "e7fd6560f6614a77bd762f878ea1dd7f"
     }
+
+
 
 Status Codes
 ^^^^^^^^^^^^
