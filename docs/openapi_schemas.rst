@@ -3,7 +3,7 @@
 OpenAPI Schemas
 ===============
 
-``porter`` provides support for automatically validating and documenting payload schemas.  Validation and documentation are built on a shared interface, guaranteeing that the documentation and models are  synchronized.
+``porter`` provides support for automatically validating and documenting payload schemas.  Validation and documentation are built on a shared interface, guaranteeing that the documentation and models are  synchronized. For additional information, we recommend taking a look at :ref:`this script <contracts.py>` which contains several working examples.
 
 .. note::
 
