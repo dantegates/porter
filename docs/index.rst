@@ -10,7 +10,7 @@ porter documentation
 
 Simplicity is a core goal of this project. The following 6 lines of code are a fully functional example. While this should the most common use case, ``porter`` is also designed to be easily extended to cover the remaining cases not supported out of the box.
 
-.. code-block::
+.. code-block:: python
 
     from porter.datascience import WrappedModel
     from porter.services import ModelApp, PredictionService
