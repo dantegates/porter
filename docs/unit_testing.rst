@@ -5,9 +5,9 @@ Unit Testing porter Apps
 
 .. warning::
 
-    Currently ``porter`` uses `flask <https://flask.palletsprojects.com/en/1.1.x/>` to implement a WSGI server. Even though we are about to recommend using the underlying ``flask`` app in your unittests, this should be considered an implementation detail elsewhere.
+    Currently ``porter`` uses `flask <https://flask.palletsprojects.com/en/1.1.x/>`_ to implement a WSGI server. Even though we are about to recommend using the underlying ``flask`` app in your unittests, this should be considered an implementation detail elsewhere.
 
-    *If* one day decision to no longer use ``flask`` is made the developers of ``porter` will have to rewrite *soooo many* unit tests in order to use the upgrades ourselves. Therefore you can rest assure that *if* this ever happens, we will make accommodations for easily updating test suites.
+    *If* one day the decision is made no longer to use ``flask``, the developers of ``porter`` will have to rewrite *soooo many* unit tests in order to use the upgrades ourselves. Therefore you can rest assured that *if* this ever happens, we will make accommodations for easily updating test suites.
 
     That said, none of our production code is using ``@model_app.app.route(...)`` anywhere, so outside of subclasses of ``unittest.TestCase`` we recommend to forget all about this little secret.
 

@@ -1,4 +1,3 @@
-.. _installation:
 
 Installation
 ============
@@ -33,4 +32,4 @@ Dependency Selection
 
     pip install -e git+https://github.com/CadentTech/porter#egg=porter[keras-utils,s3-utils]
 
-You can install just one of these additional requirements by removing the undesired name from the list in the brackets above (or you can install without optional dependiencies by removing the bracketed list altogether).
+You can install just one of these additional requirements by removing the undesired name from the list in the brackets above (or you can install without optional dependencies by removing the bracketed list altogether).

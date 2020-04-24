@@ -3,7 +3,7 @@
 Error Handling
 ==============
 
-``porter`` error handling is similar to ``flask``. That when an exception goes
+``porter`` error handling is similar to ``flask``. When an exception goes
 unhandled while processing an HTTP request, if the exception has the attribute
 ``code`` then ``porter`` will use this value as the status code for the HTTP
 response.
