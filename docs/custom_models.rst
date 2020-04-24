@@ -3,13 +3,13 @@
 Custom Services
 ===============
 
-In addition to exposing standard ``sklearn``-compatible models, ``porter`` supports three styles of customization: instance prediction, custom prediction schemas, and fully customized model types.
+In addition to exposing standard `sklearn <https://scikit-learn.org/>`_-compatible models, ``porter`` supports three styles of customization: instance prediction, custom prediction schemas, and fully customized model types.
 
 
 Instance Prediction
 -------------------
 
-For models with expensive predictions, you may wish to enforce that prediction is run on individual instances at a time.  For this behavior, simply request ``batch_prediction=False``, e.g.:
+For models with expensive predictions, you may wish to enforce that prediction is run on individual instances at a time.  For this behavior, request ``batch_prediction=False``, e.g.:
 
 .. code-block:: python
 

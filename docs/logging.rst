@@ -1,4 +1,3 @@
-.. _logging:
 
 Logging
 =======
@@ -69,7 +68,7 @@ User Logging
 
 In some cases users may want to add the ``porter`` ``request_id`` to their logs
 to associate their application logs with ``porter``'s default logs. This can
-be accomplished with :obj:`porter.api.request_id`. Note that this function should
+be accomplished with :meth:`porter.api.request_id`. Note that this function should
 only be while an active request is being handled.
 
 .. code-block:: python

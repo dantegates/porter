@@ -174,11 +174,12 @@ we receive predictions as expected, but input such as
 
 will result in a 422 error (Unprocessable Entity).  Error handling is discussed further in :ref:`this section <error_handling>`.
 
+.. _schema_documentation:
 
 Schema Documentation
 --------------------
 
-To expose `Swagger <https://swagger.io/>`_ documentation automatically, simply ``expose_docs=True`` to the :class:`porter.services.ModelApp` constructor.  We'll also set the ``name`` and ``description`` attributes, which will appear in the documentation.
+To expose `Swagger <https://swagger.io/>`_ documentation automatically, simply add ``expose_docs=True`` to the :class:`porter.services.ModelApp` constructor.  We'll also set the ``name`` and ``description`` attributes, which will appear in the documentation.
 
 .. code-block:: python
 
