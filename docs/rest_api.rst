@@ -119,5 +119,5 @@ Status Codes
 Clients should be prepared to handle the following error codes from service endpoints.
 
 - **400**: Bad Request. Raised when the payload cannot be parsed.
-- **422**: Unprocessable Entity. This also indicates there is an error in the request payload, but raises the distinction that although the data was valid JSON, it contains semantic errors. This includes invalid schemas or user raised errors (from ``check_request``).
+- **422**: Unprocessable Entity. This also indicates there is an error in the request payload, but raises the distinction that although the data was valid JSON, it contains semantic errors. This includes invalid schemas or user raised errors (from :attr:`porter.services.PredictionService.additional_checks`).
 - **500**: Something went wrong when ``model.predict`` was called.
