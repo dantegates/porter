@@ -74,7 +74,7 @@ Here are the effects of the optional keyword arguments:
 
 - ``meta``: This sets the ``model_meta`` object that is returned as part of the ``model_context`` in :ref:`POST responses <predictionservice_endpoints>`.
 - ``log_api_calls``: This enables logging; see :ref:`logging`.
-- ``namespace``, ``action``: These, along with ``name`` and ``api_version``, determine the prediction endpoint: ``/<namespace>/<name>/<api version>/prediction/``.
+- ``namespace``, ``action``: These, along with ``name`` and ``api_version``, determine the prediction endpoint: ``/<namespace>/<name>/<api version>/<action>/``.
 - ``preprocessor``, ``postprocessor``: If given, these are instances of subclasses of :class:`porter.datascience.BasePreProcessor` and :class:`porter.datascience.BasePostProcessor`.  These are objects with ``.process()`` methods that operate on input DataFrame ``X`` and output ``y`` before and after ``model.predict()``.  See :ref:`ex_example` and the docstrings of those classes for more details.
 - ``batch_prediction``: See :ref:`instance_prediction` below.
 - ``additional_checks``: Optional callable taking input DataFrame ``X`` and raising a :class:`porter.exceptions.PorterError` for invalid input.  This is intended for input validation against complex constraints that cannot be expressed entirely using ``feature_schema``.
