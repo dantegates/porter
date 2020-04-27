@@ -39,8 +39,8 @@ Features include:
    getting_started
    rest_api
    openapi_schemas
+   service_architecture
    deployment
-   custom_models
    error_handling
    logging
    unit_testing

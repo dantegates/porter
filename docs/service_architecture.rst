@@ -1,13 +1,89 @@
-.. _custom_models:
+.. _service_architecture:
 
-Custom Services
-===============
+Service Architecture
+====================
 
-In addition to exposing standard `sklearn <https://scikit-learn.org/>`_-compatible models, ``porter`` supports three styles of customization: instance prediction, custom prediction schemas, and fully customized model types.
+``porter`` provides a micro-service architecture, in which an *app* routes traffic to one or more *services* with well-defined, minimal interfaces.  The *app* is an instance of :class:`porter.services.ModelApp`, and *services* are instances of classes, such as :class:`porter.services.PredictionService`, that are derived from :class:`porter.services.BaseService`.  We've outlined basic usage of these classes in previous pages; here we discuss each of them in greater detail.
 
+
+ModelApp
+--------
+
+:class:`porter.services.ModelApp` is responsible for providing an interface to each registered service, health checks, and optionally documentation.  The trivial app ``ModelApp([])`` just exposes the health check endpoints ``/-/alive`` and ``/-/ready``.  An app that engages all available functionality might look like this:
+
+.. code-block:: python
+
+    from porter.services import ModelApp
+
+    app = ModelApp(
+        [service1, service2, ...],
+        name='Busy App',
+        description='An app that exposes plenty of services',
+        version='1.0.37',
+        meta={'creators': 'Jack and Jill', 'release-date': '2020-04-01'},
+        expose_docs=True,
+        docs_url='/documentation/',
+        docs_json_url='/_documentation.json')
+
+At present, all keyword arguments to ``ModelApp()`` are optional.  Here are
+their effects:
+
+- ``name``, ``description``, ``version``: These set the title, subtitle, and version badge at the top of the documentation.
+- ``meta``: This sets the ``app_meta`` object returned by the health checks (see :ref:`health_checks`).
+- ``expose_docs``: This enables automatic documentation.
+- ``docs_url``: This determines the URI where the documentation is hosted; by default this is ``/docs/``.  Note that GET requests to ``/`` forward to this URI.
+- ``docs_json_url``: This determines the URI for a JSON representation of the `Swagger <https://swagger.io>`_ input; by default this is ``/_docs.json``.
+
+
+PredictionService
+-----------------
+
+:class:`porter.service.PredictionService` is the workhorse class for serving data science models.  In :ref:`getting_started`, we saw the minimal usage of ``PredictionService``:
+
+.. code-block:: python
+
+    from porter.services import PredictionService
+
+    prediction_service = PredictionService(
+        model=my_model,
+        name='my-model',
+        api_version='v1')
+
+An instance that engages all available functionality might look like this:
+
+.. code-block:: python
+
+    prediction_service = PredictionService(
+        model=model,
+        name='supa-dupa-model',
+        api_version='v1',
+        meta={'creators': 'Alice & Bob'},
+        log_api_calls=True,
+        namespace='datascience',
+        action='prediction',
+        preprocessor=preprocessor,
+        postprocessor=postprocessor,
+        batch_prediction=False,
+        additional_checks=mychecks,
+        feature_schema=feature_schema,
+        prediction_schema=prediction_schema,
+        validate_request_data=True,
+        validate_response_data=True)
+
+Here are the effects of the optional keyword arguments:
+
+- ``meta``: This sets the ``model_meta`` object that is returned as part of the ``model_context`` in :ref:`POST responses <predictionservice_endpoints>`.
+- ``log_api_calls``: This enables logging; see :ref:`logging`.
+- ``namespace``, ``action``: These, along with ``name`` and ``api_version``, determine the prediction endpoint: ``/<namespace>/<name>/<api version>/prediction/``.
+- ``preprocessor``, ``postprocessor``: If given, these are instances of subclasses of :class:`porter.datascience.BasePreProcessor` and :class:`porter.datascience.BasePostProcessor`.  These are objects with ``.process()`` methods that operate on input DataFrame ``X`` and output ``y`` before and after ``model.predict()``.  See :ref:`ex_example` and the docstrings of those classes for more details.
+- ``batch_prediction``: See :ref:`instance_prediction` below.
+- ``additional_checks``: Optional callable taking input DataFrame ``X`` and raising a :class:`porter.exceptions.PorterError` for invalid input.  This is intended for input validation against complex constraints that cannot be expressed entirely using ``feature_schema``.
+- ``feature_schema``, ``prediction_schema``, ``validate_request_data``, ``validate_response_data``: Input and output schemas for automatic validation and/or documentation.  See also :ref:`openapi_schemas` as well as :ref:`custom_prediction_schema` below.
+
+.. _instance_prediction:
 
 Instance Prediction
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 For models with expensive predictions, you may wish to enforce that prediction is run on individual instances at a time.  For this behavior, request ``batch_prediction=False``, e.g.:
 
@@ -50,11 +126,12 @@ as opposed to the usual ``array``:
 
 .. note::
 
-    ``batch_prediction=False`` does not fundamentally change the way ``porter`` interacts with the underlying model object; it simply enforces that the input must include only a single object.  Internally, the input is still converted into a ``pandas.DataFrame`` with a single row.  For a model which fundamentally accepts only a single object as an input, see `Fully Customized Models <fullycustom_>`_.
+    ``batch_prediction=False`` does not fundamentally change the way ``porter`` interacts with the underlying model object; it simply enforces that the input must include only a single object.  Internally, the input is still converted into a ``pandas.DataFrame`` with a single row.  For a model which fundamentally accepts only a single object as an input, see :ref:`baseservice`.
 
+.. _custom_prediction_schema:
 
 Custom Prediction Schema
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Suppose we have a probabilistic model that returns more than a single scalar value for each prediction.  Here is an example model definition that doesn't do anything but give us a working example:
 
@@ -114,9 +191,9 @@ In your own tests of ``probabilistic_service``, you can validate the response da
     There is also experimental support for automatic response validation: ``PredictionService(..., validate_response_data=True)``.  Enabling this feature triggers a warning stating that it may increase response latency and produce confusing error messages for users.  This should only be used for testing/debugging.
 
 
-.. _fullycustom:
+.. _baseservice:
 
-Fully Customized Models
+Subclassing BaseService
 -----------------------
 
 By subclassing :class:`porter.services.BaseService` it is possible to expose arbitrary Python code.

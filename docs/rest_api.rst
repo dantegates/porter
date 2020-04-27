@@ -5,6 +5,7 @@ REST API
 
 Below are human-friendly descriptions of the REST interface exposed by ``porter`` apps. Concrete descriptions of the API can be generated passing ``expose_docs=True`` to :class:`porter.services.ModelApp()`. See the :ref:`OpenAPI Schemas <schema_documentation>` page for more details.
 
+.. _predictionservice_endpoints:
 
 Prediction Service Endpoints
 ----------------------------
@@ -17,7 +18,26 @@ Each prediction service added to an instance of :class:`porter.services.ModelApp
     service2 = PredictionService(name='bar', version='v2', ...)
     model_app = ModelApp([service1, service2])
 
-will expose two models on the endpoints ``/foo/v1/prediction`` and ``/ns/bar/v2/prediction``.  The endpoints accept POST requests with JSON payloads and return JSON payloads to the user.  For debugging purposes, the endpoints also accept GET requests, which simply return the message "This endpoint is live.  Send POST requests for predictions."
+will expose two models on the endpoints ``/foo/v1/prediction`` and ``/ns/bar/v2/prediction``.  The endpoints accept POST requests with JSON payloads and return JSON payloads to the user.  POST responses will look something like:
+
+.. code-block:: javascript
+
+    {
+        "model_context": {
+            "api_version": "v1",
+            "model_meta": {},
+            "model_name": "foo"
+        },
+        "predictions": [
+            {
+                "id": 1,
+                "prediction": 0
+            }
+        ],
+        "request_id": "0f86644edee546ee9c495a9a71b0746c"
+    }
+
+For debugging purposes, the endpoints also accept GET requests, which simply return the message ``"This endpoint is live.  Send POST requests for predictions."``
 
 Endpoint customization
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -33,8 +53,10 @@ Endpoint customization
 
 results in the endpoint ``/datascience/baz/v1/pred``.
 
-:ref:`Custom services<Custom Services>` also have the flexibility to define their endpoints.
+:ref:`Custom services <baseservice>` also have the flexibility to define their endpoints.
 
+
+.. _health_checks:
 
 Health Checks
 -------------

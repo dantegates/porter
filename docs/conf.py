@@ -22,7 +22,8 @@ copyright = '2020, Cadent Data Science'
 author = 'Cadent Data Science'
 
 # The full version, including alpha/beta/rc tags
-release = '0.14.3'
+import porter
+release = porter.__version__
 
 
 # -- General configuration ---------------------------------------------------
