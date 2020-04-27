@@ -248,5 +248,8 @@ A minimal app implementing and documenting this interface might look like:
 
 This would expose an endpoint ``/custom-service/v1/custom-action``.
 
+.. note::
+    Unlike ``PredictionService``, custom subclasses of ``BaseService`` will receive POST data and deliver response data directly, with no automatic conversion to ``pandas.DataFrame``.
+
 For a more complex example that serves calculations from a callable function, more closely matching the behavior of :class:`porter.services.PredictionService`, see the :ref:`ex_function_service` example script.
 
