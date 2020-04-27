@@ -126,13 +126,13 @@ class TestLoadingS3(BaseTestLoading):
 
     def test_load_file_s3_fail_missing_key(self):
         self.bucket = os.environ['PORTER_S3_BUCKET_TEST']
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(Exception, r'An error occurred \(404\)'):
             loading.load_file('s3://%s/this/does/not/exist' % self.bucket,
                 s3_access_key_id=self.s3_access_key_id,
                 s3_secret_access_key=self.s3_secret_access_key)
 
     def test_load_file_s3_fail_missing_bucket(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(Exception, r'An error occurred \(403\)'):
             loading.load_file('s3://invalid-bucket/this/does/not/exist',
                 s3_access_key_id=self.s3_access_key_id,
                 s3_secret_access_key=self.s3_secret_access_key)

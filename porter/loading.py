@@ -68,16 +68,10 @@ def load_s3(path, s3_access_key_id, s3_secret_access_key):
         aws_access_key_id=s3_access_key_id,
         aws_secret_access_key=s3_secret_access_key)
     bucket, key = split_s3_path(path)
-    try:
-        stream = io.BytesIO()
-        _ = s3_client.download_fileobj(bucket, key, stream)
-    except botocore.exceptions.ClientError as err:
-        if err.response['Error']['Code'] == "404":  # not found
-            raise ValueError(
-                'tried to read an object in S3 that does not exist: '
-                f'bucket={bucket}, key={key}')
-        else:
-            raise err
+    # previously, we tried to reinterpret 404s specifically here,
+    # but it's better not to be so tighty coupled to the AWS API
+    stream = io.BytesIO()
+    _ = s3_client.download_fileobj(bucket, key, stream)
     stream.seek(0)
     return stream
 
