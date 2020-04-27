@@ -75,9 +75,9 @@ Here are the effects of the optional keyword arguments:
 - ``meta``: This sets the ``model_meta`` object that is returned as part of the ``model_context`` in :ref:`POST responses <predictionservice_endpoints>`.
 - ``log_api_calls``: This enables logging; see :ref:`logging`.
 - ``namespace``, ``action``: These, along with ``name`` and ``api_version``, determine the prediction endpoint: ``/<namespace>/<name>/<api version>/<action>/``.
-- ``preprocessor``, ``postprocessor``: If given, these are instances of subclasses of :class:`porter.datascience.BasePreProcessor` and :class:`porter.datascience.BasePostProcessor`.  These are objects with ``.process()`` methods that operate on input DataFrame ``X`` and output ``y`` before and after ``model.predict()``.  See :ref:`ex_example` and the docstrings of those classes for more details.
+- ``preprocessor``, ``postprocessor``: These allow transformations to be made to the input and output, immediately before and after ``model.predict()``.  See :ref:`ex_example` and the :class:`porter.services.PredictionService()` docstring for more details.
 - ``batch_prediction``: See :ref:`instance_prediction` below.
-- ``additional_checks``: Optional callable taking input DataFrame ``X`` and raising a :class:`porter.exceptions.PorterError` for invalid input.  This is intended for input validation against complex constraints that cannot be expressed entirely using ``feature_schema``.
+- ``additional_checks``: Optional callable taking input DataFrame ``X`` and raising a ``ValueError`` for invalid input.  This is intended for input validation against complex constraints that cannot be expressed entirely using ``feature_schema``.
 - ``feature_schema``, ``prediction_schema``, ``validate_request_data``, ``validate_response_data``: Input and output schemas for automatic validation and/or documentation.  See also :ref:`openapi_schemas` as well as :ref:`custom_prediction_schema` below.
 
 .. _instance_prediction:
@@ -196,12 +196,7 @@ In your own tests of ``probabilistic_service``, you can validate the response da
 Subclassing BaseService
 -----------------------
 
-By subclassing :class:`porter.services.BaseService` it is possible to expose arbitrary Python code.
-
-.. note::
-    We have sometimes found it useful to subclass ``BaseService``.  However, this usage depends on implementation details that may change in future releases.
-
-Consider complex input and output schemas such as:
+By subclassing :class:`porter.services.BaseService` it is possible to expose arbitrary Python code.  Consider complex input and output schemas such as:
 
 .. code-block:: python
 
