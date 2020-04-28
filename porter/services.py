@@ -34,6 +34,7 @@ from . import constants as cn
 from . import responses as porter_responses
 from . import schemas
 from .exceptions import PorterException
+from . import __version__ as VERSION
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -804,7 +805,8 @@ class ModelApp:
         self.services = services
         self.name = name
         self.meta = {} if meta is None else meta
-        self.description = description
+        base_description = f' (porter v{VERSION})'
+        self.description = base_description if description is None else description + base_description
         self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs

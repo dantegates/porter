@@ -28,7 +28,7 @@ ModelApp
 At present, all keyword arguments to ``ModelApp()`` are optional.  Here are
 their effects:
 
-- ``name``, ``description``, ``version``: These set the title, subtitle, and version badge at the top of the documentation.
+- ``name``, ``description``, ``version``: These set the title, subtitle, and version badge at the top of the documentation.  The ``porter`` version will be appended to the description.
 - ``meta``: This sets the ``app_meta`` object returned by the health checks (see :ref:`health_checks`).
 - ``expose_docs``: This enables automatic documentation.
 - ``docs_url``: This determines the URI where the documentation is hosted; by default this is ``/docs/``.  Note that GET requests to ``/`` forward to this URI.
