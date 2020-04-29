@@ -64,6 +64,7 @@ class TestNumber(unittest.TestCase):
                 ValueError, 'Schema validation failed: data must be bigger'):
             n.validate(999)
         # TODO: float/double distinction not supported by fastjsonschema?
+        # https://github.com/CadentTech/porter/issues/30
 
 class TestInteger(unittest.TestCase):
     def test_integer(self):
@@ -74,6 +75,7 @@ class TestInteger(unittest.TestCase):
         self.assertEqual(oi['description'], 'an integer')
         i.validate(1)
         # TODO: xyz.0 validates as integer, desired behavior?
+        # https://github.com/CadentTech/porter/issues/30
         i.validate(1.0)
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be integer'):

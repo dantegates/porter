@@ -725,6 +725,7 @@ class PredictionService(BaseService):
         # save this so the user can access it
         self.request_schema = request_schema
         # TODO: should a description be passed?
+        # https://github.com/CadentTech/porter/issues/32
         self.add_request_schema('POST', request_schema)
 
     def _add_prediction_schema(self, user_schema):
@@ -752,6 +753,7 @@ class PredictionService(BaseService):
         self.response_schema = response_schema
 
         # TODO: should a description be passed?
+        # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
 
 
@@ -950,6 +952,7 @@ class ModelApp:
                              response_schemas=response, additional_params=additional_params)
 
     # TODO: perhaps this should be moved into the schemas module at some point
+    # https://github.com/CadentTech/porter/issues/32
     def _route_docs(self):
         openapi_json = schemas.make_openapi_spec(self.name, self.description, self.version,
                                                  self._request_schemas, self._response_schemas,

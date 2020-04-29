@@ -38,6 +38,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_generic_error(self):
         # TODO: generic_error exported but not used anywhere?
+        # https://github.com/CadentTech/porter/issues/31
         pass
 
     def test_health_check(self):
