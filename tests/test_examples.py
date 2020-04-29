@@ -9,7 +9,7 @@ import pandas as pd
 import sklearn.preprocessing
 import tensorflow as tf
 from porter.utils import NumpyEncoder
-from sklearn.externals import joblib
+import joblib
 
 HERE = os.path.dirname(__file__)
 

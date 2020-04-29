@@ -7,7 +7,7 @@ import numpy as np
 import sklearn.linear_model
 import tensorflow as tf
 from porter import loading
-from sklearn.externals import joblib
+import joblib
 
 
 class BaseTestLoading(unittest.TestCase):
