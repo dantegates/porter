@@ -33,7 +33,7 @@ REQUIRED = [
 # https://github.com/seatgeek/fuzzywuzzy#installation
 #
 EXTRAS_REQUIRED = {
-    'keras-utils': ['tensorflow>=1.9.0'],
+    'keras-utils': ['tensorflow>=1.4.0'],
     's3-utils': ['boto3>=1.7.65'],
 }
 
