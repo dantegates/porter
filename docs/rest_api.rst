@@ -10,7 +10,7 @@ Below are human-friendly descriptions of the REST interface exposed by ``porter`
 Prediction Service Endpoints
 ----------------------------
 
-Each prediction service added to an instance of :class:`porter.services.ModelApp` (often referred to as a "porter app") is routed to its own endpoint.  The endpoint is computed from attributes of the model services: ``/<model name>/<model version>/prediction``.  For example:
+Each prediction service added to an instance of :class:`ModelApp <porter.services.ModelApp>` (often referred to as a "porter app") is routed to its own endpoint.  The endpoint is computed from attributes of the model services: ``/<model name>/<model version>/prediction``.  For example:
 
 .. code-block:: python
 
@@ -83,7 +83,7 @@ Two health check endpoints are exposed by each ``porter`` app (not for each serv
       }
     }
 
-If the app is running, the ``/-/alive`` endpoint response will have a 200 status code. The ``/-/ready`` endpoint will return a 503 if any of the services added to the :class:`porter.services.ModelApp` indicate that they are not ready.
+If the app is running, the ``/-/alive`` endpoint response will have a 200 status code. The ``/-/ready`` endpoint will return a 503 if any of the services added to the :class:`ModelApp <porter.services.ModelApp>` indicate that they are not ready.
 
 .. note::
 

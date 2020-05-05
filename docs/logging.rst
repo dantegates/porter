@@ -34,7 +34,7 @@ For convenience ``porter`` includes a log formatter that converts log records to
 This is particularly useful for allowing users to programmatically query logs emitted
 from ``porter``.
 
-Th JSON log formatter can be set as follows
+The JSON log formatter can be set as follows:
 
 .. code-block:: python
 
@@ -45,7 +45,7 @@ Th JSON log formatter can be set as follows
         'request_id', 'service_class', 'event')
     logger.setFormatter(formatter)
 
-which generates logs (pretty printed for this example only) such as
+which generates logs (pretty printed for this example only) such as:
 
 .. code-block:: json
 
@@ -69,7 +69,7 @@ User Logging
 In some cases users may want to add the ``porter`` ``request_id`` to their logs
 to associate their application logs with ``porter``'s default logs. This can
 be accomplished with :meth:`porter.api.request_id`. Note that this function should
-only be while an active request is being handled.
+only be called while an active request is being handled.
 
 .. code-block:: python
 

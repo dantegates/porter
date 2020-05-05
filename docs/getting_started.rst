@@ -40,11 +40,11 @@ Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get 
 
 The model can be any Python object with a ``.predict(X)`` method, where ``X`` is a ``DataFrame`` and the return value is a sequence with one element per row of ``X``.
 
-:meth:`WrappedModel.from_file` supports ``.pkl`` files via `joblib <https://joblib.readthedocs.io/>`_ and ``.h5`` files for `keras <https://keras.io/backend/>`_ models. You can even load from AWS S3 by passing a filename such as ``s3://my-bucket/my-model.pkl``.
+:meth:`WrappedModel.from_file() <porter.datascience.WrappedModel.from_file()>` supports ``.pkl`` files via `joblib <https://joblib.readthedocs.io/>`_ and ``.h5`` files for `keras <https://keras.io/backend/>`_ models. You can even load from AWS S3 by passing a filename such as ``s3://my-bucket/my-model.pkl``.
 
 Multiple models can be served by a single app simply by passing additional services to :class:`porter.services.ModelApp`.
 
-Error handling comes for free when exposing models with :class:`porter.services.ModelApp`. For example, by default, if the POST data sent to the prediction endpoint can't be parsed the user will receive a response with a 400 status code a payload describing the error.
+Error handling comes for free when exposing models with :class:`ModelApp <porter.services.ModelApp>`. For example, by default, if the POST data sent to the prediction endpoint can't be parsed the user will receive a response with a 400 status code and a payload describing the error.
 
 .. code-block:: javascript
 

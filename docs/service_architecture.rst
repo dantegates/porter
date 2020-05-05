@@ -9,7 +9,7 @@ Service Architecture
 ModelApp
 --------
 
-:class:`porter.services.ModelApp` is responsible for providing an interface to each registered service, health checks, and optionally documentation.  The trivial app ``ModelApp([])`` just exposes the health check endpoints ``/-/alive`` and ``/-/ready``.  An app that engages all available functionality might look like this:
+:class:`ModelApp <porter.services.ModelApp>` is responsible for providing an interface to each registered service, health checks, and optionally documentation.  The trivial app ``ModelApp([])`` just exposes the health check endpoints ``/-/alive`` and ``/-/ready``.  An app that engages all available functionality might look like this:
 
 .. code-block:: python
 
@@ -25,20 +25,20 @@ ModelApp
         docs_url='/documentation/',
         docs_json_url='/_documentation.json')
 
-At present, all keyword arguments to ``ModelApp()`` are optional.  Here are
+At present, all keyword arguments to :class:`ModelApp() <porter.services.ModelApp()>` are optional.  Here are
 their effects:
 
 - ``name``, ``description``, ``version``: These set the title, subtitle, and version badge at the top of the documentation.  The ``porter`` version will be appended to the description.
 - ``meta``: This sets the ``app_meta`` object returned by the health checks (see :ref:`health_checks`).
 - ``expose_docs``: This enables automatic documentation.
 - ``docs_url``: This determines the URI where the documentation is hosted; by default this is ``/docs/``.  Note that GET requests to ``/`` forward to this URI.
-- ``docs_json_url``: This determines the URI for a JSON representation of the `Swagger <https://swagger.io>`_ input; by default this is ``/_docs.json``.
+- ``docs_json_url``: This determines the URI for a JSON representation of the `Swagger <https://swagger.io>`_ input; by default this is ``/_docs.json``.  This is can be useful for interfacing with other `Swagger-related tools <https://swagger.io/tools/open-source/>`_.
 
 
 PredictionService
 -----------------
 
-:class:`porter.service.PredictionService` is the workhorse class for serving data science models.  In :ref:`getting_started`, we saw the minimal usage of ``PredictionService``:
+:class:`PredictionService <porter.services.PredictionService>` is the workhorse class for serving data science models.  In :ref:`getting_started`, we saw the minimal usage of :class:`PredictionService <porter.services.PredictionService>`:
 
 .. code-block:: python
 
@@ -75,7 +75,7 @@ Here are the effects of the optional keyword arguments:
 - ``meta``: This sets the ``model_meta`` object that is returned as part of the ``model_context`` in :ref:`POST responses <predictionservice_endpoints>`.
 - ``log_api_calls``: This enables logging; see :ref:`logging`.
 - ``namespace``, ``action``: These, along with ``name`` and ``api_version``, determine the prediction endpoint: ``/<namespace>/<name>/<api version>/<action>/``.
-- ``preprocessor``, ``postprocessor``: These allow transformations to be made to the input and output, immediately before and after ``model.predict()``.  See :ref:`ex_example` and the :class:`porter.services.PredictionService()` docstring for more details.
+- ``preprocessor``, ``postprocessor``: These allow transformations to be made to the input and output, immediately before and after ``model.predict()``.  See :ref:`ex_example` and the :class:`PredictionService() <porter.services.PredictionService>` docstring for more details.
 - ``batch_prediction``: See :ref:`instance_prediction` below.
 - ``additional_checks``: Optional callable taking input DataFrame ``X`` and raising a ``ValueError`` for invalid input.  This is intended for input validation against complex constraints that cannot be expressed entirely using ``feature_schema``.
 - ``feature_schema``, ``prediction_schema``, ``validate_request_data``, ``validate_response_data``: Input and output schemas for automatic validation and/or documentation.  See also :ref:`openapi_schemas` as well as :ref:`custom_prediction_schema` below.
@@ -133,7 +133,13 @@ as opposed to the usual ``array``:
 Custom Prediction Schema
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Suppose we have a probabilistic model that returns more than a single scalar value for each prediction.  Here is an example model definition that doesn't do anything but give us a working example:
+By default, :class:`PredictionService <porter.services.PredictionService>` assumes that each prediction is a single scalar value, which can be represented by the following simple schema:
+
+.. code-block:: python
+
+    default_prediction_schema = porter.schemas.Number('Model Prediction')
+
+However, custom models may return more complex outputs.  For example, suppose we have a probabilistic model that returns lower and upper bounds in addition to an expected value.  Here is an example model definition that doesn't do anything but give us a working example:
 
 .. code-block:: python
 
@@ -196,7 +202,7 @@ In your own tests of ``probabilistic_service``, you can validate the response da
 Subclassing BaseService
 -----------------------
 
-By subclassing :class:`porter.services.BaseService` it is possible to expose arbitrary Python code.  Consider complex input and output schemas such as:
+By subclassing :class:`BaseService <porter.services.BaseService>` it is possible to expose arbitrary Python code.  Consider complex input and output schemas such as:
 
 .. code-block:: python
 
@@ -227,16 +233,21 @@ A minimal app implementing and documenting this interface might look like:
     from porter.services import BaseService, ModelApp
 
     class CustomService(BaseService):
+        # action: required property or class attribute
         action = 'custom-action'
+
+        # route_kwargs: required property or class attribute
         route_kwargs = {'methods': ['POST']}
 
-        def serve(self):
-            data = self.get_post_data()
-            return {'results': ['foo', 'bar']}
-
+        # status: required property
         @property
         def status(self):
             return 'READY'
+
+        # serve: required method taking no arguments
+        def serve(self):
+            data = self.get_post_data()
+            return {'results': ['foo', 'bar']}
 
     custom_service = CustomService(
         name='custom-service',
@@ -251,5 +262,5 @@ This would expose an endpoint ``/custom-service/v1/custom-action``.
 .. note::
     Unlike ``PredictionService``, custom subclasses of ``BaseService`` will receive POST data and deliver response data directly, with no automatic conversion to ``pandas.DataFrame``.
 
-For a more complex example that serves calculations from a callable function, more closely matching the behavior of :class:`porter.services.PredictionService`, see the :ref:`ex_function_service` example script.
+For a more complex example that serves calculations from a callable function, more closely matching the behavior of :class:`PredictionService <porter.services.PredictionService>`, see the :ref:`ex_function_service` example script.
 

@@ -87,10 +87,10 @@ porter.utils module
    :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: porter
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. Module contents
+.. ---------------
+.. 
+.. .. automodule:: porter
+..    :members:
+..    :undoc-members:
+..    :show-inheritance:

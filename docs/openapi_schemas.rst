@@ -70,14 +70,14 @@ This schema is equivalent to the following yaml markup:
         required: [average_rating, genre, is_tv, title_id, user_id]
 
 
-``PredictionService`` adds a required integer field, ``id``, to the schema.  Also, by default, ``PredictionService`` performs batch prediction over multiple objects, and thus the above would become the item type for an Array.  These modifications are roughly equivalent to:
+:class:`PredictionService <porter.services.PredictionService>` adds a required integer field, ``id``, to the schema.  Also, by default, :class:`PredictionService <porter.services.PredictionService>` performs batch prediction over multiple objects, and thus the above would become the item type for an Array.  These modifications are roughly equivalent to:
 
 .. code-block:: python
 
     instance_schema = Object(properties={'id': Integer(), **feature_schema.properties})
     batch_schema = Array(item_type=instance_schema)
 
-resulting in the following OpenAPI spec which describes an acceptable payload for a :class:`porter.services.PredictionService` instantiated with ``PredictionService(..., feature_schema=feature_schema)``
+resulting in the following OpenAPI spec which describes an acceptable payload for a :class:`PredictionService <porter.services.PredictionService>` instantiated with ``PredictionService(..., feature_schema=feature_schema)``
 
 .. code-block:: yaml
 
@@ -117,14 +117,14 @@ resulting in the following OpenAPI spec which describes an acceptable payload fo
       - title_id
       - user_id
 
-Notice that here ``item_type`` is another API object type, in this case ``Object``.  Both :attr:`Array.item_type` and :attr:`Object.properties` are composable in this way, and will be implemented using OpenAPI ``$ref`` if ``reference_name`` is given.
+Notice that here ``item_type`` is another API object type, in this case ``Object``.  Both :attr:`Array.item_type <porter.schemas.Array.item_type>` and :attr:`Object.properties <porter.schemas.Object.properties>` are composable in this way, and will be implemented using OpenAPI ``$ref`` if ``reference_name`` is given.
 
 
 
 Schema Validation
 -----------------
 
-We can add input validation against the above schema to the PredictionService in :ref:`getting_started` like so:
+We can add input validation against the above schema to the :class:`PredictionService <porter.services.PredictionService>` in :ref:`getting_started` like so:
 
 .. code-block:: python
 
@@ -179,7 +179,7 @@ will result in a 422 error (Unprocessable Entity).  Error handling is discussed 
 Schema Documentation
 --------------------
 
-To expose `Swagger <https://swagger.io/>`_ documentation automatically, simply add ``expose_docs=True`` to the :class:`porter.services.ModelApp` constructor.  We'll also set the ``name`` and ``description`` attributes, which will appear in the documentation.
+To expose `Swagger <https://swagger.io/>`_ documentation automatically, simply add ``expose_docs=True`` to the :class:`porter.services.ModelApp` constructor.  ``porter`` will also set the ``name`` and ``description`` attributes, which will appear in the documentation.
 
 .. code-block:: python
 
