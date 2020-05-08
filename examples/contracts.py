@@ -61,7 +61,7 @@ ratings_feature_schema = Object(
 """
 `ratings_feature_schema` contains a `validate()` method which can be used to
 validate Python objects against the schema. Keep in mind that you never need
-to call this method explicitly yourself, `porter` will automatically validate
+to call this method explicitly yourself, `porter` can automatically validate
 `POST` data for you.
 """
 
@@ -103,41 +103,22 @@ except Exception as err:
 
 """
 Now we can instantiate a PredictionService for our model and simply pass it
-the schema. By default requests sent to this endpoint will be validated
-according to `ratings_feature_schema`. Validations can be disabled by setting
-`validate_request_data=False`.
+the schema. Validation can be enabled by setting `validate_request_data=True`.
 """
 
 
-instance_prediction_service = PredictionService(
+batch_prediction_service = PredictionService(
     model=RatingsModel(),
     name='user-ratings',
     api_version='v2',
     namespace='datascience',
-    batch_prediction=False,
     feature_schema=ratings_feature_schema,
     validate_request_data=True)
 
 
 """
-Because batch prediction is disabled in `porter` APIs by default the following
-is a valid payload to `/datascience/user-ratings/v2/prediction`
-
-{
-    "id": 1,
-    "user_id": 122333,
-    "title_id": 444455555,
-    "genre": "comedy",
-    "average_rating": 6.7
-}
-
-Note the "id" property which is required by `porter`. Because this property
-is always required, we didn't need to include it in the spec we defined as
-`porter` will add it for us.
-
-If we want to support for batch prediction, we can reuse the schema above and
-simply specify `batch_prediction=True`. Now we can send requests like
-
+Because batch prediction is enabled in `porter` APIs by default, the following
+is a valid payload to `/datascience/user-ratings/v2/prediction`:
 
 [
     {
@@ -156,18 +137,34 @@ simply specify `batch_prediction=True`. Now we can send requests like
     }
 ]
 
-to `/datascience/user-ratings/v2/batchPrediction`.
+Note the "id" property which is required by `porter`. Because this property
+is always required, we didn't need to include it in the spec we defined as
+`porter` will add it for us.
+
+If we want to disable support for batch prediction, we can reuse the schema above and simply
+specify `batch_prediction=False`. Now we can send requests like
+
+{
+    "id": 1,
+    "user_id": 122333,
+    "title_id": 444455555,
+    "genre": "comedy",
+    "average_rating": 6.7
+}
+
+
+to `/datascience/user-ratings/v2/instancePrediction`.
 """
 
 
-batch_prediction_service = PredictionService(
+instance_prediction_service = PredictionService(
     model=RatingsModel(),
     name='user-ratings',
     api_version='v2',
-    action='batchPrediction',
+    action='instancePrediction',
     namespace='datascience',
     feature_schema=ratings_feature_schema,
-    batch_prediction=True,
+    batch_prediction=False,
     validate_request_data=True)
 
 
@@ -217,8 +214,7 @@ probabilistic_service = PredictionService(
     api_version='v3',
     namespace='datascience',
     feature_schema=ratings_feature_schema,
-    prediction_schema=proba_ratings_prediction_schema,
-    batch_prediction=True)
+    prediction_schema=proba_ratings_prediction_schema)
 
 
 """
@@ -275,8 +271,7 @@ spark_interface_service = SparkInterfaceService(
     api_version='v1',
     namespace='datascience',
     feature_schema=ratings_feature_schema,
-    validate_request_data=True,
-    batch_prediction=True)
+    validate_request_data=True)
 
 # note that when we specify schemas directly, ``porter`` leaves them untouched,
 # unlike when they are specified via the "convenience" properties ``feature_schema``

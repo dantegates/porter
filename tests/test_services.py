@@ -535,6 +535,105 @@ class TestPredictionServiceSchemas(unittest.TestCase):
         self.assertIn('prediction', pred_schema.properties)
         self.assertIn('confidence', pred_schema.properties)
 
+    def test_request_schema(self):
+        model = mock.Mock()
+        model_name = api_version = mock.MagicMock()
+        mock_additional_checks = mock.Mock()
+        feature_schema = schemas.Object(properties=dict(
+            x=schemas.Integer(),
+            y=schemas.Number(),
+            z=schemas.String(),
+        ))
+        with mock.patch('porter.services.BaseService.add_request_schema') as mock_add_request_schema:
+            prediction_service = PredictionService(
+                model=model,
+                name=model_name,
+                api_version=api_version,
+                meta={},
+                preprocessor=None,
+                postprocessor=None,
+                batch_prediction=False,
+                feature_schema=feature_schema,
+            )
+        request_schema = prediction_service.request_schema
+        request = dict(id=1, x=2, y=3.5, z='4')
+        request_schema.validate(request)
+        with self.assertRaisesRegex(ValueError, 'data must contain'):
+            request = dict(x=2, y=3.5, z='4')
+            request_schema.validate(request)
+
+    def test_response_schema(self):
+        model = mock.Mock()
+        model_name = 'my-test-model'
+        api_version = 'v1.2'
+        mock_additional_checks = mock.Mock()
+        prediction_schema = schemas.Object(properties=dict(
+            prediction=schemas.Number(),
+            confidence=schemas.Number(),
+        ))
+        with mock.patch('porter.services.BaseService.add_response_schema') as mock_add_response_schema:
+            prediction_service = PredictionService(
+                model=model,
+                name=model_name,
+                api_version=api_version,
+                meta={},
+                preprocessor=None,
+                postprocessor=None,
+                batch_prediction=False,
+                prediction_schema=prediction_schema,
+            )
+        response_schema = prediction_service.response_schema
+        response = dict(
+            model_context=dict(
+                api_version=api_version,
+                model_meta={},
+                model_name=model_name),
+            predictions=dict(
+                id=1,
+                prediction=dict(prediction=3.14, confidence=2.72)),
+            request_id='abcdefg')
+        response_schema.validate(response)
+        response = dict(
+            model_context=dict(
+                api_version=1,
+                model_meta={},
+                model_name=model_name),
+            predictions=dict(
+                id=1,
+                prediction=dict(prediction=3.14, confidence=2.72)),
+            request_id='abcdefg')
+        with self.assertRaisesRegex(ValueError, 'data.model_context.api_version must be string'):
+            response_schema.validate(response)
+
+    def test_request_schema_response_schema_uninitialized(self):
+        model = mock.Mock()
+        model_name = 'my-test-model-noschemas'
+        api_version = 'v1'
+        mock_additional_checks = mock.Mock()
+        prediction_schema = schemas.Object(properties=dict(
+            prediction=schemas.Number(),
+            confidence=schemas.Number(),
+        ))
+        prediction_service = PredictionService(
+            model=model,
+            name=model_name,
+            api_version=api_version,
+            meta={},
+            preprocessor=None,
+            postprocessor=None,
+        )
+        # request_schema is None if feature_schema is None
+        self.assertIs(prediction_service.request_schema, None)
+        # response_schema has a default
+        response = dict(
+            model_context=dict(
+                api_version=api_version,
+                model_meta={},
+                model_name=model_name),
+            predictions=[ dict(id=1, prediction=3.14) ],
+            request_id='abcdefg')
+        prediction_service.response_schema.validate(response)
+
     @mock.patch('porter.services.api.request_json')
     def test_get_post_data_validation(self, mock_request_json):
         # this test also implicitly covers BaseService.get_post_data

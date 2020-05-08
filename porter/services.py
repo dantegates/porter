@@ -22,7 +22,6 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 import abc
 import json
 import logging
-import os
 import warnings
 
 import flask
@@ -35,6 +34,7 @@ from . import constants as cn
 from . import responses as porter_responses
 from . import schemas
 from .exceptions import PorterException
+from . import __version__ as VERSION
 
 # alias for convenience
 _ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
@@ -213,7 +213,7 @@ class BaseService(abc.ABC, StatefulRoute):
         # these are used internally for lookups at runtime
         self._request_schemas = {}
         self._response_schemas = {}
-        # add response schemas explicitly returned (i.e. raised) by porter.        
+        # add response schemas explicitly returned (i.e. raised) by porter.
         for schema in self._default_response_schemas:
             self.add_response_schema(*schema)
         for schema in self._service_default_schemas:
@@ -230,10 +230,10 @@ class BaseService(abc.ABC, StatefulRoute):
         - Converting Python objects to raw HTTP responses.
         - Logging API requests.
         - Error handling.
-        - Validation of response schemas. 
+        - Validation of response schemas.
 
         Returns:
-            A "Response" object or ``None``: The output of ``self.serve()`` converted 
+            A "Response" object or ``None``: The output of ``self.serve()`` converted
                 wrapped in a Response object with a status code to be served
                 to the client. Currently this is a `flask.Response` object in
                 particular.
@@ -387,6 +387,7 @@ class BaseService(abc.ABC, StatefulRoute):
 
     @property
     def namespace(self):
+        """A namespace that the service belongs to."""
         return self._namespace
 
     @namespace.setter
@@ -422,10 +423,11 @@ class BaseService(abc.ABC, StatefulRoute):
     def get_post_data(self):
         """Return POST data.
 
+        Returns:
+            The result of ``porter.config.json_encoder``
+
         Raises:
             :class:`werkzeug.exceptions.UnprocessableEntity`
-
-        The data will be the return value of ``porter.config.json_encoder``.
 
         If ``self.validate_request_data is True`` and a request schema has
         been defined the data will be validated against the schema.
@@ -458,11 +460,26 @@ class BaseService(abc.ABC, StatefulRoute):
                    'event': 'exception'})
 
     def add_request_schema(self, method, api_obj, description=None):
+        """Add a request schema.
+
+        Args:
+            method (str): The HTTP method, usually GET or POST.
+            api_obj (:class:`porter.schemas.ApiObject`): The request data schema.
+            description (str): Description of the schema. Optional.
+        """
         method = method.upper()
         self.request_schemas[method] = schemas.RequestSchema(api_obj, description)
         self._request_schemas[method] = api_obj
 
     def add_response_schema(self, method, status_code, api_obj, description=None):
+        """Add a response schema.
+
+        Args:
+            method (str): The HTTP method, usually GET or POST.
+            status_code (int): The HTTP response status code.
+            api_obj (:class:`porter.schemas.ApiObject`): The request data schema.
+            description (str): Description of the schema. Optional.
+        """
         method = method.upper()
         self._response_schemas[(method, status_code)] = api_obj
         if not method in self.response_schemas:
@@ -534,9 +551,6 @@ class PredictionService(BaseService):
             to. The final routed endpoint will become
             "/<namespace>/<name>/<api version>/prediction/". Default is "".
         api_version (str): The model API version.
-        action (str): ``str`` describing the action of the service. Used to
-            determine the final routed endpoint. The final routed endpoint
-            will become "/<namespace>/<name>/<api version>/<action>/".
         endpoint (str): The endpoint where the model predictions are exposed.
             This is computed as "/<name>/<api version>/prediction/".
         model (object): An object implementing the interface defined by
@@ -557,27 +571,29 @@ class PredictionService(BaseService):
             single object per request. Optional.
         additional_checks (callable): Raises ValueError or subclass thereof if
             POST request is invalid.
-        feature_schema (`porter.schemas.Object` or None): Description of an
+        feature_schema (:class:`porter.schemas.Object` or None): Description of an
             individual instance to be predicted on. Can be used to validate
             inputs if `validate_request_data=True` and document the API if
             added to an instance of `ModelApp` where `expose_docs=True`.
-        prediction_schema (`porter.schemas.Object` or None): Description of an
+        prediction_schema (:class:`porter.schemas.Object` or None): Description of an
             individual prediction returned to the user. Can be used to
             validate outputs if `validate_request_data=True` and document the
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
-
+        request_schema (:class:`porter.schemas.Object` or None) Description of valid
+            request format, including instance IDs, and wrapped as Array if
+            ``batch_prediction=True``.  Can be used for validation outside of ``porter``.
+        response_schema (:class:`porter.schemas.Object` or None) Description of valid
+            POST 200 response format, including ``request_id``, ``model_context``, etc.
     """
 
     route_kwargs = {'methods': ['GET', 'POST'], 'strict_slashes': False}
-    action = 'prediction'
     _service_default_schemas = [
         ('GET', 200, schemas.String(), None)
     ]
 
-    # TODO: what is the proper default for batch_prediction?
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
-                 action=None, batch_prediction=True,
+                 action='prediction', batch_prediction=True,
                  additional_checks=None, feature_schema=None,
                  prediction_schema=None, **kwargs):
         self.model = model
@@ -586,7 +602,7 @@ class PredictionService(BaseService):
         self.batch_prediction = batch_prediction
         if additional_checks is not None and not callable(additional_checks):
             raise ValueError('`additional_checks` must be callable')
-        self.action = action or self.action
+        self._action = action
         self.additional_checks = additional_checks
 
         self._preprocess_model_input = self.preprocessor is not None
@@ -597,6 +613,8 @@ class PredictionService(BaseService):
 
         self.feature_schema = feature_schema
         self.prediction_schema = prediction_schema
+        self.request_schema = None
+        self.response_schema = None
         if self.feature_schema is not None:
             self._add_feature_schema(self.feature_schema)
             self.feature_columns = list(self.feature_schema.properties.keys())
@@ -609,6 +627,13 @@ class PredictionService(BaseService):
     def status(self):
         """Return 'READY'. Instances of this class are always ready."""
         return cn.HEALTH_CHECK_VALUES.IS_READY
+
+    @property
+    def action(self):
+        """``str`` describing the action of the service. Used to
+        determine the final routed endpoint. The final routed endpoint
+        will become "/<namespace>/<name>/<api version>/<action>/"."""
+        return self._action
 
     def serve(self):
         """Retrive POST request data from flask and return a response
@@ -679,8 +704,8 @@ class PredictionService(BaseService):
 
         Returns:
             ``pandas.DataFrame``. Each ``row`` represents a single instance to
-            predict on. If ``self.batch_prediction`` is ``False`` the ``DataFrame``
-            will only contain one ``row``.
+                predict on. If ``self.batch_prediction`` is ``False`` the ``DataFrame``
+                will only contain one ``row``.
         """
         data = super().get_post_data()
         if not self.batch_prediction:
@@ -697,7 +722,10 @@ class PredictionService(BaseService):
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
             request_schema = schemas.Array(item_type=request_schema)
+        # save this so the user can access it
+        self.request_schema = request_schema
         # TODO: should a description be passed?
+        # https://github.com/CadentTech/porter/issues/32
         self.add_request_schema('POST', request_schema)
 
     def _add_prediction_schema(self, user_schema):
@@ -721,7 +749,11 @@ class PredictionService(BaseService):
             }
         )
 
+        # save this so the user can access it
+        self.response_schema = response_schema
+
         # TODO: should a description be passed?
+        # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
 
 
@@ -747,6 +779,8 @@ class ModelApp:
             services added to the instance. Default is ``False``.
         docs_url (str): Endpoint for the API documentation. Ignored if
             ``expose_docs=False``. Defaults to '/docs/'
+        docs_json_url (str): URL where documentation JSON is exposed. Ignored if
+            ``expose_docs=False``. Defaults to '/_docs.json'.
 
     Attributes:
         name (str): Name for the application.
@@ -757,6 +791,7 @@ class ModelApp:
         expose_docs (bool): Whether the instance is configured to expose API
             documentation.
         docs_url (str): Endpoint the API documentation is exposed at.
+        docs_json_url (str): URL where documentation JSON is exposed.
     """
 
     # note: eventually we may want to save this state somewhere else.
@@ -772,7 +807,8 @@ class ModelApp:
         self.services = services
         self.name = name
         self.meta = {} if meta is None else meta
-        self.description = description
+        base_description = f' (porter v{VERSION})'
+        self.description = base_description if description is None else description + base_description
         self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
@@ -916,10 +952,11 @@ class ModelApp:
                              response_schemas=response, additional_params=additional_params)
 
     # TODO: perhaps this should be moved into the schemas module at some point
+    # https://github.com/CadentTech/porter/issues/32
     def _route_docs(self):
-        openapi_json =  schemas.make_openapi_spec(self.name, self.description, self.version,
-                                                  self._request_schemas, self._response_schemas,
-                                                  self._additional_params)
+        openapi_json = schemas.make_openapi_spec(self.name, self.description, self.version,
+                                                 self._request_schemas, self._response_schemas,
+                                                 self._additional_params)
 
         @self.app.route(self.docs_url)
         def docs():

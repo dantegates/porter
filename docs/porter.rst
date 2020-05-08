@@ -62,6 +62,14 @@ porter.responses module
    :undoc-members:
    :show-inheritance:
 
+porter.schemas module
+---------------------
+
+.. automodule:: porter.schemas
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 porter.services module
 ----------------------
 
@@ -79,10 +87,10 @@ porter.utils module
    :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: porter
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. Module contents
+.. ---------------
+.. 
+.. .. automodule:: porter
+..    :members:
+..    :undoc-members:
+..    :show-inheritance:

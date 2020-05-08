@@ -31,6 +31,7 @@ class Response:
         if service_class is not None:
             payload[cn.PREDICTION_KEYS.MODEL_CONTEXT] = self._init_model_context(service_class)
         # TODO: set model context to null?
+        # https://github.com/CadentTech/porter/issues/31
         payload.update(data)
         return payload
 
@@ -141,4 +142,4 @@ def _build_app_state(app):
             for service in app.services
         }
     }
- 
+

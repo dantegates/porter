@@ -22,5 +22,4 @@ install:
 docs: install
 	$(MAKE) -C $(shell pwd)/docs html
 
-.PHONY: openapi
 .PHONY: docs

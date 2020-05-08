@@ -6,34 +6,48 @@
 porter documentation
 ====================
 
-``porter`` is a framework for exposing machine learning models via REST APIs.
-Any object with a ``.predict()`` method will do which means ``porter`` plays
-nicely with models you have already trained using machine learning libraries
-such as `sklearn <https://scikit-learn.org/stable/>`_, `keras
-<https://keras.io/backend/>`_, or `xgboost <https://xgboost.readthedocs.io/en/latest/>`_.
+`porter <https://github.com/CadentTech/porter/>`_ is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
 
-It also includes the ability
-to load ``.pkl`` and ``.h5`` files so you don't have to write this code every
-time you deploy a new model and allows you to easily expose custom models.
+Simplicity is a core goal of this project. The following 6 lines of code are a fully functional example. While this should be the most common use case, ``porter`` is also designed to be easily extended to cover the remaining cases not supported out of the box.
+
+.. code-block:: python
+
+    from porter.datascience import WrappedModel
+    from porter.services import ModelApp, PredictionService
+
+    my_model = WrappedModel.from_file('my-model.pkl')
+    prediction_service = PredictionService(model=my_model, name='my-model', api_version='v1')
+
+    app = ModelApp([prediction_service])
+    app.run()
+
+
+Features include:
+
+- **Practical design**: suitable for projects ranging from proof-of-concept to production grade software.
+- **Framework-agnostic design**: any object with a ``predict()`` method will do, which means ``porter`` plays nicely with `sklearn <https://scikit-learn.org/stable/>`_, `keras <https://keras.io/backend/>`_, or `xgboost <https://xgboost.readthedocs.io/en/latest/>`_ models. Models that don't fit this pattern can be easily wrapped and used in ``porter``.
+- **OpenAPI integration**: lightweight, Pythonic schema specifications support automatic validation of HTTP request data and generation of API documentation using Swagger.
+- **Boiler plate reduction**: ``porter`` takes care of API logging and error handling out of the box, and supports streamlined model loading from ``.pkl`` and ``.h5`` files stored locally or on AWS S3.
+- **Robust testing**: ``porter`` includes a comprehensive test suite, and has been extensively field tested by the Data Science team at Cadent.
 
 
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
 
-   getting_started
    installation
-   usage
+   getting_started
    rest_api
+   openapi_schemas
+   service_architecture
+   deployment
+   error_handling
    logging
-   tests
+   unit_testing
+   contributing
+   examples
    porter
 
 * :ref:`genindex`
-* :ref:`search`
 
 
-.. check out this crazy vim macro that helped in doubling up on backticks:
-.. ls`lf`.ll/[^:)]`\w
-
-.. vim: tw=0

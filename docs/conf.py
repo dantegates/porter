@@ -22,7 +22,8 @@ copyright = '2020, Cadent Data Science'
 author = 'Cadent Data Science'
 
 # The full version, including alpha/beta/rc tags
-release = '0.14.3'
+import porter
+release = porter.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -34,8 +35,14 @@ extensions = [
     #'autodocsumm',
     'sphinx.ext.viewcode',
     'sphinx.ext.autodoc',
+    'sphinx.ext.todo',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosectionlabel',
 ]
+
+# show todos (for now)
+todo_include_todos = True
+todo_emit_warnings = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

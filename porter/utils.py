@@ -55,7 +55,7 @@ class AppEncoder(NumpyEncoder, PythonEncoder):
                 pass
 
 
-class JSONFormatter(logging.Formatter):
+class JSONLogFormatter(logging.Formatter):
     """A JSON formatter for logs.
 
     Usage:
@@ -63,7 +63,7 @@ class JSONFormatter(logging.Formatter):
         >>> logger = logging.getLogger(__name__)
         >>> logger.setLevel('INFO')
         >>> console = logging.StreamHandler()
-        >>> formatter = JSONFormatter('asctime', 'message', 'levelname')
+        >>> formatter = JSONLogFormatter('asctime', 'message', 'levelname')
         >>> console.setFormatter(formatter)
         >>> logger.addHandler(console)
         >>> logger.info({'something': 'interesting'})
@@ -140,3 +140,6 @@ class JSONFormatter(logging.Formatter):
 def object_constants(obj):
     return [(attr, val) for attr, val in vars(obj).items()
             if not attr.startswith('_') and attr.isupper()]
+
+# keep this reference for backwards compatibility
+JSONFormatter = JSONLogFormatter

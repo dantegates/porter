@@ -80,6 +80,7 @@ error_body = openapi.Object(
 
 
 # TODO: just use one error object for all errors with model_context possibly empty?
+# https://github.com/CadentTech/porter/issues/31
 
 generic_error = openapi.Object(
     properties={

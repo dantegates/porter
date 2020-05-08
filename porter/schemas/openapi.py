@@ -1,6 +1,5 @@
-"""Tools for integrating the OpenAPI standard in `porter`."""
+"""Tools for integrating the OpenAPI standard in ``porter``."""
 
-import collections
 import os
 
 import fastjsonschema
@@ -125,7 +124,7 @@ class Boolean(ApiObject):
 class Array(ApiObject):
     """Array type."""
 
-    def __init__(self, *args, item_type=None,  **kwargs):
+    def __init__(self, *args, item_type=None, **kwargs):
         """
         Args:
             *args: Positional arguments passed on to `ApiObject`.
@@ -150,10 +149,13 @@ class Object(ApiObject):
                 instances.
             additional_properties_type (:class:`ApiObject`): If this is a "free form" object,
                 this defines the type of the additional properties.
-            required ("all", `list`, `False): If "all" all properties are
-                required, if a `list` only a subset are required. An empty
-                list means all properties are optional.
+            required ("all" or sequence): If "all", all properties are required; if a
+                sequence, only a subset are required. An empty list means all properties are
+                optional.
             **kwargs: Keyword arguments passed on to :class:`ApiObject`.
+
+        Raises:
+            ValueError: If both ``properties`` and ``additional_properties_type`` are None.
         """
         if properties is None and additional_properties_type is None:
             raise ValueError('at least one of properties and additional_properties_type should be specified')
@@ -368,21 +370,8 @@ with open(os.path.join(ASSETS_DIR, 'swagger-ui/swagger_template.html')) as f:
 def make_docs_html(docs_json_url):
     """
     Args:
-        title (str): The title of the application.
-        description (str): A description of the application.
-        version (str): The version of the application.
-        request_schemas (dict): Nested dictionary mapping endpoints to a
-            dictionary of HTTP methods to instances of :class:`RequestSchema`.
-            E.g. `{"/foo/bar": {"GET": RequestSchema(...)}}`.
-        response_schemas (dict): Nested dictionary mapping endpoints to
-            a dictionary of HTTP methods to lists of instances of
-            :class:`ResponseSchema`.
-            E.g. `{"/foo/bar/": {"GET": [ResponseSchema(...), ResponseSchema(...)]}}`
-        additional_params (dict): A nested dictionary mapping tuples of
-            endpoints and HTTP methods to a dictionary containing arbitrary
-            OpenAPI values that will be applied to the OpenAPI spec for that
-            endpoint/method.
-            E.g. `{("/foo/bar/", 'GET): {"tags": ["tag1", "tag2"]}}`
+        docs_json_url (str): URL where documentation JSON is exposed. Ignored if
+            ``expose_docs=False``.
 
     Returns:
         str: Static html docs to serve.

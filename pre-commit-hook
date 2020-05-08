@@ -16,6 +16,3 @@ rm -rf testenv
 
 # generate docs
 make docs
-
-# generate openapi docs
-make openapi

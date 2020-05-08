@@ -8,7 +8,7 @@ import logging
 
 from porter.datascience import BaseModel
 from porter.services import ModelApp, PredictionService
-from porter.utils import JSONFormatter
+from porter.utils import JSONLogFormatter
 
 
 class Model(BaseModel):
@@ -30,7 +30,7 @@ app = ModelApp([prediction_svc])
 if __name__ == '__main__':
     import logging
     stream_handler = logging.StreamHandler()
-    formatter = JSONFormatter(
+    formatter = JSONLogFormatter(
         'asctime', 'levelname', 'module', 'name', 'message',
         'request_id', 'request_data', 'response_data', 'service_class',
         'event')

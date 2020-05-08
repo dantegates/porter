@@ -5,6 +5,8 @@ import io
 import os
 import tempfile
 
+import joblib
+
 
 def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
     """Load a file and return the result.
@@ -44,14 +46,13 @@ def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
         raise ValueError('unkown file type')
     return obj
 
-# on the reasonableness of imports inside a function, see
-# https://stackoverflow.com/questions/3095071/in-python-what-happens-when-you-import-inside-of-a-function/3095167#3095167
 def load_pkl(path):
     """Load and return a pickled object with ``joblib``."""
-    from sklearn.externals import joblib
     model = joblib.load(path)
     return model
 
+# on the reasonableness of imports inside a function, see
+# https://stackoverflow.com/questions/3095071/in-python-what-happens-when-you-import-inside-of-a-function/3095167#3095167
 def load_h5(path):
     """Load and return an object stored in h5 with ``tensorflow``."""
     import tensorflow as tf
@@ -66,16 +67,10 @@ def load_s3(path, s3_access_key_id, s3_secret_access_key):
         aws_access_key_id=s3_access_key_id,
         aws_secret_access_key=s3_secret_access_key)
     bucket, key = split_s3_path(path)
-    try:
-        stream = io.BytesIO()
-        _ = s3_client.download_fileobj(bucket, key, stream)
-    except botocore.exceptions.ClientError as err:
-        if err.response['Error']['Code'] == "404":  # not found
-            raise ValueError(
-                'tried to read an object in S3 that does not exist: '
-                f'bucket={bucket}, key={key}')
-        else:
-            raise err
+    # previously, we tried to reinterpret 404s specifically here,
+    # but it's better not to be so tighty coupled to the AWS API
+    stream = io.BytesIO()
+    _ = s3_client.download_fileobj(bucket, key, stream)
     stream.seek(0)
     return stream
 

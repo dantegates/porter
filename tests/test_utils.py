@@ -7,7 +7,7 @@ from unittest import mock
 
 import io
 import numpy as np
-from porter.utils import (AppEncoder, JSONFormatter, NumpyEncoder,
+from porter.utils import (AppEncoder, JSONLogFormatter, NumpyEncoder,
                           PythonEncoder)
 
 NOW = datetime.datetime.now()
@@ -121,7 +121,7 @@ class TestJSONFormatterBig(unittest.TestCase):
         logger.setLevel('INFO')
         sio = io.StringIO()
         console = logging.StreamHandler(sio)
-        formatter = JSONFormatter('asctime', 'message', 'levelname')
+        formatter = JSONLogFormatter('asctime', 'message', 'levelname')
         console.setFormatter(formatter)
         logger.addHandler(console)
         self.console, self.logger, self.sio = console, logger, sio
@@ -159,32 +159,32 @@ class TestJSONFormatterBig(unittest.TestCase):
 
 
 class TestJSONFormatterSmall(unittest.TestCase):
-    @mock.patch('porter.utils.JSONFormatter._field_lookup_type', tuple)
+    @mock.patch('porter.utils.JSONLogFormatter._field_lookup_type', tuple)
     def test_format(self):
         record = mock.Mock(x=1, y=10, z=['foo', 10], exc_info=False, stack_info=False)
-        formatter = JSONFormatter('x', 'y', 'z')
+        formatter = JSONLogFormatter('x', 'y', 'z')
         formatter._field_lookup_type = tuple
         actual = formatter.format(record)
         expected = '{"x": 1, "y": 10, "z": ["foo", 10]}'
         self.assertEqual(actual, expected)
 
-    @mock.patch('porter.utils.JSONFormatter._process_record')
+    @mock.patch('porter.utils.JSONLogFormatter._process_record')
     def test_format_small(self, mock__process_record):
         mock__process_record.return_value = {'foo': ['bar', 1], 'baz': 10}
-        formatter = JSONFormatter()
+        formatter = JSONLogFormatter()
         actual = formatter.format(mock.Mock())
         expected = '{"foo": ["bar", 1], "baz": 10}'
         self.assertEqual(actual, expected)
 
     def test__process_record_no_exc_no_stack(self):
-        formatter = JSONFormatter('x', 'y', 'z')
+        formatter = JSONLogFormatter('x', 'y', 'z')
         record = mock.Mock(x = 1, y=10, z=['foo', 10], exc_info=False, stack_info=False)
         actual = formatter._process_record(record)
         expected = {'x': 1, 'y': 10, 'z': ['foo', 10]}
         self.assertEqual(actual, expected)
 
     def test__process_record_with_exc_with_stack(self):
-        formatter = JSONFormatter('x', 'y', 'z')
+        formatter = JSONLogFormatter('x', 'y', 'z')
         try:
             raise Exception('foooooo')
         except Exception:

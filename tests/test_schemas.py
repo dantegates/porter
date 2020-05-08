@@ -10,8 +10,17 @@ class TestSchemas(unittest.TestCase):
         sc.app_meta.validate(dict(a=1, b=3.14, c='test'))
 
     def test_error_body(self):
-        # TODO: error_body exported but not used anywhere?
-        pass
+        sc.error_body.validate(dict(
+            name='BadRequest',
+            messages=['The browser (or proxy) sent a request that this server '
+                      'could not understand.']
+        ))
+        with self.assertRaisesRegex(ValueError, 'data.messages must be array'):
+            sc.error_body.validate(dict(
+                name='BadRequest',
+                messages='The browser (or proxy) sent a request that this server '
+                          'could not understand.'
+            ))
 
     def test_error_messages(self):
         sc.error_messages.validate([
@@ -29,6 +38,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_generic_error(self):
         # TODO: generic_error exported but not used anywhere?
+        # https://github.com/CadentTech/porter/issues/31
         pass
 
     def test_health_check(self):
