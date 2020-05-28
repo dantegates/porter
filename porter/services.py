@@ -817,8 +817,8 @@ class ModelApp:
         self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
-        self.docs_url = docs_url
-        self.docs_json_url = docs_json_url
+        self.docs_url = docs_prefix + docs_url
+        self.docs_json_url = docs_prefix + docs_json_url
         self.docs_prefix = docs_prefix
         self.app = self._init_app()
 
@@ -828,6 +828,7 @@ class ModelApp:
         # this is just a cache of service IDs we can use to verify that
         # each service is given a unique ID
         self._service_ids = set()
+        self.meta.update(self._init_meta())
         self._build_app()
 
     def __call__(self, *args, **kwargs):
@@ -859,6 +860,20 @@ class ModelApp:
                 raise ValueError(
                     '`meta` does not follow the proper schema, all values should be strings')
             raise err
+
+    def _init_meta(self):
+        meta = [
+            ('name', self.name),
+            ('description', self.description),
+            ('version', self.version),
+        ]
+        if self.expose_docs:
+            meta.extend([
+                ('docs_url', self.docs_url),
+                ('docs_json_url', self.docs_json_url),
+                ('docs_prefix', self.docs_prefix),
+            ])
+        return meta
 
     def _init_app(self):
         name = __name__ if self.name is None else self.name
@@ -960,17 +975,15 @@ class ModelApp:
     # TODO: perhaps this should be moved into the schemas module at some point
     # https://github.com/CadentTech/porter/issues/32
     def _route_docs(self):
-        docs_url = self.docs_prefix + self.docs_url
-        docs_json_url = self.docs_prefix + self.docs_json_url
         docs_assets_path = self.docs_prefix + '/assets/swagger-ui/<path:filename>'
 
         openapi_json = schemas.make_openapi_spec(self.name, self.description, self.version,
                                                  self._request_schemas, self._response_schemas,
                                                  self._additional_params)
 
-        @self.app.route(docs_url)
+        @self.app.route(self.docs_url)
         def docs():
-            html = schemas.make_docs_html(self.docs_prefix, docs_json_url)
+            html = schemas.make_docs_html(self.docs_prefix, self.docs_json_url)
             return html
 
         @self.app.route(docs_assets_path)
@@ -978,6 +991,6 @@ class ModelApp:
             import flask
             return flask.send_from_directory(cn.ASSETS_DIR, 'swagger-ui/' + filename)
 
-        @self.app.route(docs_json_url)
+        @self.app.route(self.docs_json_url)
         def docs_json():
             return json.dumps(openapi_json)
