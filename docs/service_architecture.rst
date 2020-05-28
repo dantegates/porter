@@ -23,7 +23,8 @@ ModelApp
         meta={'creators': 'Jack and Jill', 'release-date': '2020-04-01'},
         expose_docs=True,
         docs_url='/documentation/',
-        docs_json_url='/_documentation.json')
+        docs_json_url='/_documentation.json',
+        docs_prefix='/models/busy_app/')
 
 At present, all keyword arguments to :class:`ModelApp() <porter.services.ModelApp()>` are optional.  Here are
 their effects:
@@ -32,7 +33,9 @@ their effects:
 - ``meta``: This sets the ``app_meta`` object returned by the health checks (see :ref:`health_checks`).
 - ``expose_docs``: This enables automatic documentation.
 - ``docs_url``: This determines the URI where the documentation is hosted; by default this is ``/docs/``.  Note that GET requests to ``/`` forward to this URI.
-- ``docs_json_url``: This determines the URI for a JSON representation of the `Swagger <https://swagger.io>`_ input; by default this is ``/_docs.json``.  This is can be useful for interfacing with other `Swagger-related tools <https://swagger.io/tools/open-source/>`_.
+- ``docs_json_url``: This determines the URI for a JSON representation of the `Swagger <https://swagger.io>`_ input; by default this is ``/_docs.json``.  This can be useful for interfacing with other `Swagger-related tools <https://swagger.io/tools/open-source/>`_.
+- ``docs_prefix``: This locates the documentation somewhere other than the root level.  This is useful, for example, if the app will be deployed behind a load balancer.  In this example, suppose Busy App is hosted at ``[domain]/models/busy_app/``; configuring ``docs_prefix`` allows the documentation to be served accordingly from ``[domain]/models/busy_app/documentation/``.
+
 
 
 PredictionService
