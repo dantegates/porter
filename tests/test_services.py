@@ -1004,5 +1004,50 @@ class TestBaseServiceSchemas(unittest.TestCase):
         self.assertIs(response_schema.api_obj, output_schema)
 
 
+class TestModelAppDocs(unittest.TestCase):
+    @mock.patch('porter.services.api.App')
+    @mock.patch('porter.services.schemas.make_openapi_spec')
+    def test_defaults(self, mock_app, mock_make_openapi_spec):
+        model_app = ModelApp([], expose_docs=True)
+        expected_calls = [
+            mock.call('/docs/'),
+            mock.call('/assets/swagger-ui/<path:filename>'),
+            mock.call('/_docs.json'),
+        ]
+        model_app.app.route.assert_has_calls(expected_calls, any_order=True)
+
+    @mock.patch('porter.services.api.App')
+    @mock.patch('porter.services.schemas.make_openapi_spec')
+    def test_prefix(self, mock_app, mock_make_openapi_spec):
+        model_app = ModelApp([], docs_prefix='/my/docs/ns', expose_docs=True)
+        expected_calls = [
+            mock.call('/my/docs/ns/docs/'),
+            mock.call('/my/docs/ns/assets/swagger-ui/<path:filename>'),
+            mock.call('/my/docs/ns/_docs.json'),
+        ]
+        model_app.app.route.assert_has_calls(expected_calls, any_order=True)
+
+    @mock.patch('porter.services.api.App')
+    @mock.patch('porter.services.schemas.make_openapi_spec')
+    def test_custom1(self, mock_app, mock_make_openapi_spec):
+        model_app = ModelApp([], docs_prefix='/docs', expose_docs=True)
+        expected_calls = [
+            mock.call('/docs/docs/'),
+            mock.call('/docs/assets/swagger-ui/<path:filename>'),
+            mock.call('/docs/_docs.json'),
+        ]
+        model_app.app.route.assert_has_calls(expected_calls, any_order=True)
+
+    @mock.patch('porter.services.api.App')
+    @mock.patch('porter.services.schemas.make_openapi_spec')
+    def test_custom2(self, mock_app, mock_make_openapi_spec):
+        model_app = ModelApp([], docs_prefix='/docs', docs_url='/d/', docs_json_url='/d.json', expose_docs=True)
+        expected_calls = [
+            mock.call('/docs/d/'),
+            mock.call('/docs/assets/swagger-ui/<path:filename>'),
+            mock.call('/docs/d.json'),
+        ]
+        model_app.app.route.assert_has_calls(expected_calls, any_order=True)
+
 if __name__ == '__main__':
     unittest.main()

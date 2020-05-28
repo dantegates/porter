@@ -367,7 +367,7 @@ with open(os.path.join(ASSETS_DIR, 'swagger-ui/swagger_template.html')) as f:
     _doc_template = Template(f.read())
 
 
-def make_docs_html(docs_json_url):
+def make_docs_html(docs_prefix, docs_json_url):
     """
     Args:
         docs_json_url (str): URL where documentation JSON is exposed. Ignored if
@@ -376,4 +376,4 @@ def make_docs_html(docs_json_url):
     Returns:
         str: Static html docs to serve.
     """
-    return _doc_template.render(docs_json_url=docs_json_url)
+    return _doc_template.render(docs_prefix=docs_prefix, docs_json_url=docs_json_url)

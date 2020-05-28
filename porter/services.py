@@ -778,9 +778,13 @@ class ModelApp:
             ``request_schemas`` and ``response_schemas`` attributes of
             services added to the instance. Default is ``False``.
         docs_url (str): Endpoint for the API documentation. Ignored if
-            ``expose_docs=False``. Defaults to '/docs/'
+            ``expose_docs=False``. Defaults to '/docs/'. Note this does
+            _not_ override `docs_prefix`.
         docs_json_url (str): URL where documentation JSON is exposed. Ignored if
-            ``expose_docs=False``. Defaults to '/_docs.json'.
+            ``expose_docs=False``. Defaults to '/_docs.json'. Note this does
+            _not_ override `docs_prefix`.
+        docs_prefix (str): Prefix to applied to all documentation endpoints.
+            Must begin with a `/` and end without one.
 
     Attributes:
         name (str): Name for the application.
@@ -792,6 +796,7 @@ class ModelApp:
             documentation.
         docs_url (str): Endpoint the API documentation is exposed at.
         docs_json_url (str): URL where documentation JSON is exposed.
+        docs_prefix (str): Prefix to applied to all documentation endpoints.
     """
 
     # note: eventually we may want to save this state somewhere else.
@@ -803,7 +808,7 @@ class ModelApp:
     _health_check_response_schemas = {'GET': [schemas.ResponseSchema(schemas.health_check, 200)]}
 
     def __init__(self, services, *, name=None, description=None, version=None, meta=None,
-                 expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json'):
+                 expose_docs=False, docs_url='/docs/', docs_json_url='/_docs.json', docs_prefix=''):
         self.services = services
         self.name = name
         self.meta = {} if meta is None else meta
@@ -814,6 +819,7 @@ class ModelApp:
         self.expose_docs = expose_docs
         self.docs_url = docs_url
         self.docs_json_url = docs_json_url
+        self.docs_prefix = docs_prefix
         self.app = self._init_app()
 
         self._request_schemas = {}
@@ -954,19 +960,24 @@ class ModelApp:
     # TODO: perhaps this should be moved into the schemas module at some point
     # https://github.com/CadentTech/porter/issues/32
     def _route_docs(self):
+        docs_url = self.docs_prefix + self.docs_url
+        docs_json_url = self.docs_prefix + self.docs_json_url
+        docs_assets_path = self.docs_prefix + '/assets/swagger-ui/<path:filename>'
+
         openapi_json = schemas.make_openapi_spec(self.name, self.description, self.version,
                                                  self._request_schemas, self._response_schemas,
                                                  self._additional_params)
 
-        @self.app.route(self.docs_url)
+        @self.app.route(docs_url)
         def docs():
-            html = schemas.make_docs_html(self.docs_json_url)
+            html = schemas.make_docs_html(self.docs_prefix, docs_json_url)
             return html
 
-        @self.app.route('/assets/swagger-ui/{filename}')
+        @self.app.route(docs_assets_path)
         def swagger_ui(filename):
-            return self.app.send_static_file(filename)
+            import flask
+            return flask.send_from_directory(cn.ASSETS_DIR, 'swagger-ui/' + filename)
 
-        @self.app.route(self.docs_json_url)
+        @self.app.route(docs_json_url)
         def docs_json():
             return json.dumps(openapi_json)
