@@ -336,7 +336,7 @@ class TestAppPredictions(unittest.TestCase):
         mock__log_error.assert_called_with(self.prediction_service_error)
 
 
-class TestOpenAPIDocumentation(unittest.TestCase):
+class TestOpenAPIDocumentationDefaults(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         service1 = PredictionService(
@@ -352,14 +352,16 @@ class TestOpenAPIDocumentation(unittest.TestCase):
             model=None,  # we're not going to make calls for predictions here
             feature_schema=sc.Object(properties={'a': sc.Integer(), 'b': sc.Integer()})
         )
-        cls.model_app = ModelApp([], expose_docs=True)
-        cls.app = cls.model_app.app.test_client()
 
     def test_docs_url(self):
-        resp = self.app.get('/docs/')
+        model_app = ModelApp([], expose_docs=True)
+        app = model_app.app.test_client()
+        resp = app.get('/docs/')
         self.assertEqual(resp.status_code, 200)
 
     def test_can_serve_swagger_files(self):
+        model_app = ModelApp([], expose_docs=True)
+        app = model_app.app.test_client()
         files = [
             'favicon-16x16.png',
             'favicon-32x32.png',
@@ -376,7 +378,32 @@ class TestOpenAPIDocumentation(unittest.TestCase):
             'swagger_template.html',
         ]
         for filename in files:
-            resp = self.app.get(f'/assets/swagger-ui/{filename}')
+            resp = app.get(f'/assets/swagger-ui/{filename}')
+            self.assertEqual(resp.status_code, 200)
+
+    def test_docs_prefix(self):
+        model_app = ModelApp([], docs_prefix='/my/docs/ns', expose_docs=True)
+        app = model_app.app.test_client()
+        resp = app.get('/my/docs/ns/docs/')
+        self.assertEqual(resp.status_code, 200)
+
+        files = [
+            'favicon-16x16.png',
+            'favicon-32x32.png',
+            'index.html',
+            'oauth2-redirect.html',
+            'swagger-ui-bundle.js',
+            'swagger-ui-bundle.js.map',
+            'swagger-ui-standalone-preset.js',
+            'swagger-ui-standalone-preset.js.map',
+            'swagger-ui.css',
+            'swagger-ui.css.map',
+            'swagger-ui.js',
+            'swagger-ui.js.map',
+            'swagger_template.html',
+        ]
+        for filename in files:
+            resp = app.get(f'/my/docs/ns/assets/swagger-ui/{filename}')
             self.assertEqual(resp.status_code, 200)
 
 
@@ -398,7 +425,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
-            'app_meta': {}
+            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None}
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
@@ -445,7 +472,7 @@ class TestAppHealthChecks(unittest.TestCase):
                     }
                 }
             },
-            'app_meta': {}
+            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None}
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
@@ -478,7 +505,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
-            'app_meta': {},
+            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None},
             'services': {
                 'model1': {
                     'status': 'READY',
@@ -530,7 +557,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
-            'app_meta': {},
+            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None},
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',

@@ -19,7 +19,7 @@ Getting started is as easy as:
     app = ModelApp([prediction_service])
     app.run()
 
-Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get a prediction. Behind the scenes ``porter`` will convert the POST data to a ``pandas.DataFrame``, pass this to ``my_model.predict()`` and return the result to the user as formatted below
+Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get a prediction. Behind the scenes ``porter`` will convert the POST data to a ``pandas.DataFrame``, pass this to ``my_model.predict()`` and return the result to the user as formatted below:
 
 .. code-block:: javascript
 
