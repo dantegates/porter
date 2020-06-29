@@ -425,7 +425,10 @@ class TestAppHealthChecks(unittest.TestCase):
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
-            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None}
+            'app_meta': {
+                'description': '<div></div><div><p>(porter v0.15.1)</p></div>',
+                'name': None,
+                'version': None},
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
@@ -472,7 +475,10 @@ class TestAppHealthChecks(unittest.TestCase):
                     }
                 }
             },
-            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None}
+            'app_meta': {
+                'description': '<div></div><div><p>(porter v0.15.1)</p></div>',
+                'name': None,
+                'version': None},
         }
         self.assertEqual(resp_alive.status_code, 200)
         self.assertEqual(resp_ready.status_code, 503)
@@ -505,7 +511,10 @@ class TestAppHealthChecks(unittest.TestCase):
             'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
-            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None},
+            'app_meta': {
+                'description': '<div></div><div><p>(porter v0.15.1)</p></div>',
+                'name': None,
+                'version': None},
             'services': {
                 'model1': {
                     'status': 'READY',
@@ -557,7 +566,10 @@ class TestAppHealthChecks(unittest.TestCase):
             'request_id': '123',
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
-            'app_meta': {'name': None, 'description': ' (porter v0.15.1)', 'version': None},
+            'app_meta': {
+                'description': '<div></div><div><p>(porter v0.15.1)</p></div>',
+                'name': None,
+                'version': None},
             'services': {
                 'model1:1.0.0': {
                     'status': 'READY',

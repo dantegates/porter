@@ -812,8 +812,9 @@ class ModelApp:
         self.services = services
         self.name = name
         self.meta = {} if meta is None else meta
-        base_description = f' (porter v{VERSION})'
-        self.description = base_description if description is None else description + base_description
+        base_description = f'(porter v{VERSION})'
+        description = description if description is not None else ''
+        self.description = f'<div>{description}</div><div><p>{base_description}</p></div>'
         self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
