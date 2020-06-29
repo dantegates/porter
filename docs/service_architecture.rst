@@ -18,6 +18,10 @@ ModelApp
     app = ModelApp(
         [service1, service2, ...],
         name='Busy App',
+        description="""
+        <p>An app that exposes plenty of services.</p>
+        <p><b>Created by</b>: Jack and Jill</p>
+        """,
         description='An app that exposes plenty of services',
         version='1.0.37',
         meta={'creators': 'Jack and Jill', 'release-date': '2020-04-01'},
@@ -29,7 +33,7 @@ ModelApp
 At present, all keyword arguments to :class:`ModelApp() <porter.services.ModelApp()>` are optional.  Here are
 their effects:
 
-- ``name``, ``description``, ``version``: These set the title, subtitle, and version badge at the top of the documentation.  The ``porter`` version will be appended to the description.
+- ``name``, ``description``, ``version``: These set the title, subtitle, and version badge at the top of the documentation.  The description can optionally make use of HTML tags.  The ``porter`` version will be appended to the description.
 - ``meta``: This sets the ``app_meta`` object returned by the health checks (see :ref:`health_checks`).
 - ``expose_docs``: This enables automatic documentation.
 - ``docs_url``: This determines the URI where the documentation is hosted; by default this is ``/docs/``.  Note that GET requests to ``/`` forward to this URI.

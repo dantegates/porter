@@ -768,7 +768,7 @@ class ModelApp:
         name (str): Name for the application. This will appear in the documentation
             if ``expose_docs=True``. Optional.
         description (str): Description of the application. This will appear in
-            the documentation if ``expose_docs=True``. Optional.
+            the documentation if ``expose_docs=True``. HTML allowed. Optional.
         version (str): Version of the application. This will appear in the
             documentation if ``expose_docs=True``. Optional.
         meta (dict): Additional meta data added to the response body in health
