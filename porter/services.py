@@ -797,6 +797,8 @@ class ModelApp:
         docs_url (str): Endpoint the API documentation is exposed at.
         docs_json_url (str): URL where documentation JSON is exposed.
         docs_prefix (str): Prefix to applied to all documentation endpoints.
+        docs_json (dict or None): The OpenAPI spec used to serve the Swagger
+            documentation. `None` if `expose_docs` is `False`.
     """
 
     # note: eventually we may want to save this state somewhere else.
@@ -829,6 +831,14 @@ class ModelApp:
         # each service is given a unique ID
         self._service_ids = set()
         self.meta.update(self._init_meta())
+
+        if self.expose_docs:
+            self.docs_json = schemas.make_openapi_spec(
+                self.name, self.description, self.version, self._request_schemas,
+                self._response_schemas,  self._additional_params)
+        else:
+            self.docs_json = None
+
         self._build_app()
 
     def __call__(self, *args, **kwargs):
@@ -977,10 +987,6 @@ class ModelApp:
     def _route_docs(self):
         docs_assets_path = self.docs_prefix + '/assets/swagger-ui/<path:filename>'
 
-        openapi_json = schemas.make_openapi_spec(self.name, self.description, self.version,
-                                                 self._request_schemas, self._response_schemas,
-                                                 self._additional_params)
-
         @self.app.route(self.docs_url)
         def docs():
             html = schemas.make_docs_html(self.docs_prefix, self.docs_json_url)
@@ -993,4 +999,4 @@ class ModelApp:
 
         @self.app.route(self.docs_json_url)
         def docs_json():
-            return json.dumps(openapi_json)
+            return json.dumps(self.docs_json)
