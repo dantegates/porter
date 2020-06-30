@@ -210,3 +210,18 @@ The endpoint documentation can be unfolded, and you can select "Try it out" to t
     :width: 80%
     :alt: Auto-generated API documentation -- "try it out" feature.
     :align: center
+
+Accessing the OpenAPI Spec
+--------------------------
+
+The automatically generated OpenAPI spec used to render the Swagger documentation shown above can be
+accessed directly from the :class:`porter.services.ModelApp` instance.
+
+.. code-block:: python
+
+    app = ModelApp(..., expose_docs=True)
+    app.docs_json
+
+This attribute is useful for programmatically inspecting the documentation. Additionally, users
+may mutate this object (so long as it adheres to the OpenAPI standard), thereby overriding any
+aspect of the OpenAPI spec served.
