@@ -877,6 +877,7 @@ class ModelApp:
             ('name', self.name),
             ('description', self.description),
             ('version', self.version),
+            ('expose_docs', self.expose_docs),
         ]
         if self.expose_docs:
             meta.extend([
