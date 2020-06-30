@@ -768,7 +768,7 @@ class ModelApp:
         name (str): Name for the application. This will appear in the documentation
             if ``expose_docs=True``. Optional.
         description (str): Description of the application. This will appear in
-            the documentation if ``expose_docs=True``. Optional.
+            the documentation if ``expose_docs=True``. HTML allowed. Optional.
         version (str): Version of the application. This will appear in the
             documentation if ``expose_docs=True``. Optional.
         meta (dict): Additional meta data added to the response body in health
@@ -814,8 +814,9 @@ class ModelApp:
         self.services = services
         self.name = name
         self.meta = {} if meta is None else meta
-        base_description = f' (porter v{VERSION})'
-        self.description = base_description if description is None else description + base_description
+        base_description = f'(porter v{VERSION})'
+        description = description if description is not None else ''
+        self.description = f'<div>{description}</div><div><p>{base_description}</p></div>'
         self.version = version
         self.check_meta(self.meta)
         self.expose_docs = expose_docs
