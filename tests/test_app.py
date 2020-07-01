@@ -13,7 +13,7 @@ from werkzeug import exceptions as exc
 from porter import __version__
 from porter import constants as cn
 from porter.datascience import BaseModel, BasePostProcessor, BasePreProcessor
-from porter.services import ModelApp, PredictionService
+from porter.services import ModelApp, BaseService, PredictionService
 import porter.schemas as sc
 
 
@@ -405,6 +405,20 @@ class TestOpenAPIDocumentationDefaults(unittest.TestCase):
         for filename in files:
             resp = app.get(f'/my/docs/ns/assets/swagger-ui/{filename}')
             self.assertEqual(resp.status_code, 200)
+
+    def test_docs_paths(self):
+        class SC(BaseService):
+            def serve(self): pass
+            def status(self): pass
+            action = 'endpoint'
+
+        service = SC(name='the', api_version='v1')
+        model_app = ModelApp([service], expose_docs=True)
+        docs_json = model_app.docs_json
+        expected_keys = ['openapi', 'info', 'paths', 'components']
+        self.assertEqual(set(docs_json.keys()), set(expected_keys))
+        expected_paths = ['/the/v1/endpoint', '/-/alive', '/-/ready']
+        self.assertEqual(set(docs_json['paths'].keys()), set(expected_paths))
 
 
 @mock.patch('porter.responses.api.request_id', lambda: '123')

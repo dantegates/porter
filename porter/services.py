@@ -833,12 +833,8 @@ class ModelApp:
         self._service_ids = set()
         self.meta.update(self._init_meta())
 
-        if self.expose_docs:
-            self.docs_json = schemas.make_openapi_spec(
-                self.name, self.description, self.version, self._request_schemas,
-                self._response_schemas,  self._additional_params)
-        else:
-            self.docs_json = None
+        # this gets updated in _build_app if expose_docs is True
+        self.docs_json = None
 
         self._build_app()
 
@@ -919,6 +915,9 @@ class ModelApp:
             self._add_service(service)
 
         if self.expose_docs:
+            self.docs_json = schemas.make_openapi_spec(
+                self.name, self.description, self.version, self._request_schemas,
+                self._response_schemas,  self._additional_params)
             self._route_docs()
 
     def _route_endpoint(self, endpoint, fn, route_kwargs, *, request_schemas=None,
