@@ -1,6 +1,9 @@
 """Light wrappers around ``flask`` and ``requests``."""
 
 
+import functools
+import gzip
+import io
 import json
 import uuid
 
@@ -14,7 +17,11 @@ def request_method():
 
 def request_json(*args, **kwargs):
     """Return the JSON from the current request."""
-    return flask.request.get_json(*args, **kwargs)
+    req = flask.request
+    if req.content_encoding == 'gzip':
+        return json.loads(gzip.decompress(req.get_data()).decode('utf-8'))
+    else:
+        return req.get_json(*args, **kwargs)
 
 
 def jsonify(data, *args, **kwargs):
@@ -81,3 +88,36 @@ def validate_url(url):
         is_valid = False
     is_valid = parts.scheme and parts.host
     return is_valid
+
+
+def compress_response(fn):
+    """Wrap service function to handle ``Accept-Encoding: gzip``.
+
+    See https://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/
+    """
+    @functools.wraps(fn)
+    def view_func(*args, **kwargs):
+        @flask.after_this_request
+        def zipper(response):
+            accept_encoding = flask.request.headers.get('Accept-Encoding', '')
+
+            if 'gzip' not in accept_encoding.lower():
+                return response
+
+            response.direct_passthrough = False
+
+            gzip_buffer = io.BytesIO()
+            gzip_file = gzip.GzipFile(mode='wb', fileobj=gzip_buffer)
+            gzip_file.write(response.data)
+            gzip_file.close()
+
+            response.data = gzip_buffer.getvalue()
+            response.headers['Content-Encoding'] = 'gzip'
+            response.headers['Vary'] = 'Accept-Encoding'
+            response.headers['Content-Length'] = len(response.data)
+
+            return response
+
+        return fn(*args, **kwargs)
+
+    return view_func
