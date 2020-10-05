@@ -960,7 +960,9 @@ class ModelApp:
         # create tags for the service for the API docs
         additional_params = {method: {'tags': [service.name]} for method in  methods}
 
-        self._route_endpoint(service.endpoint, service, service.route_kwargs,
+        self._route_endpoint(service.endpoint,
+                             api.compress_response(service),
+                             service.route_kwargs,
                              request_schemas=service.request_schemas,
                              response_schemas=service.response_schemas,
                              additional_params=additional_params)
