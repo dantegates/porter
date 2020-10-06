@@ -16,3 +16,6 @@ return_user_data_on_error = False
 
 # Configurations for base response
 return_request_id = True
+
+# Support response compression
+support_gzip = False
