@@ -9,19 +9,22 @@ import uuid
 
 import flask
 
+from . import config as cf
+
 
 def request_method():
     """Return the HTTP method of the current request, e.g. 'GET', 'POST', etc."""
     return flask.request.method
 
 
-def request_json(*args, **kwargs):
+def request_json():
     """Return the JSON from the current request."""
     req = flask.request
+    # TODO: return 415 if unsupported media type
     if req.content_encoding == 'gzip':
         return json.loads(gzip.decompress(req.get_data()).decode('utf-8'))
     else:
-        return req.get_json(*args, **kwargs)
+        return req.get_json(force=True)
 
 
 def jsonify(data, *args, **kwargs):
@@ -31,6 +34,32 @@ def jsonify(data, *args, **kwargs):
     jsonified = flask.jsonify(data, *args, **kwargs)
     jsonified.raw_data = data
     return jsonified
+
+
+def _gzip_response(response):
+    response.direct_passthrough = False
+
+    gzip_buffer = io.BytesIO()
+    gzip_file = gzip.GzipFile(mode='wb', fileobj=gzip_buffer)
+    gzip_file.write(response.data)
+    gzip_file.close()
+    response.data = gzip_buffer.getvalue()
+
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Vary'] = 'Accept-Encoding'
+    response.headers['Content-Length'] = len(response.data)
+
+def encode_response(response):
+    # See https://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/
+    accept_encoding = flask.request.headers.get('Accept-Encoding', '')
+
+    if 'gzip' in accept_encoding.lower() and cf.support_gzip:
+        _gzip_response(response)
+    else:
+        # TODO: 406 if no acceptable return
+        # deal with 406
+        pass
+    return response
 
 
 def request_id():
@@ -89,35 +118,3 @@ def validate_url(url):
     is_valid = parts.scheme and parts.host
     return is_valid
 
-
-def compress_response(fn):
-    """Wrap service function to handle ``Accept-Encoding: gzip``.
-
-    See https://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/
-    """
-    @functools.wraps(fn)
-    def view_func(*args, **kwargs):
-        @flask.after_this_request
-        def zipper(response):
-            accept_encoding = flask.request.headers.get('Accept-Encoding', '')
-
-            if 'gzip' not in accept_encoding.lower():
-                return response
-
-            response.direct_passthrough = False
-
-            gzip_buffer = io.BytesIO()
-            gzip_file = gzip.GzipFile(mode='wb', fileobj=gzip_buffer)
-            gzip_file.write(response.data)
-            gzip_file.close()
-
-            response.data = gzip_buffer.getvalue()
-            response.headers['Content-Encoding'] = 'gzip'
-            response.headers['Vary'] = 'Accept-Encoding'
-            response.headers['Content-Length'] = len(response.data)
-
-            return response
-
-        return fn(*args, **kwargs)
-
-    return view_func
