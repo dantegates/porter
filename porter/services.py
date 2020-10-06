@@ -303,6 +303,9 @@ class BaseService(abc.ABC, StatefulRoute):
                     # exactly what we want to and is a quick fix for a feature that
                     # is experimental anyway.
                     schema.validate(json.loads(response.data))
+
+            if caught_error is None:
+                response = api.encode_response(response)
         return response
 
     def define_endpoint(self):
@@ -432,7 +435,7 @@ class BaseService(abc.ABC, StatefulRoute):
         If ``self.validate_request_data is True`` and a request schema has
         been defined the data will be validated against the schema.
         """
-        data = api.request_json(force=True)
+        data = api.request_json()
         if self.validate_request_data:
             schema = self._request_schemas.get('POST')
             if schema is not None:
@@ -960,9 +963,7 @@ class ModelApp:
         # create tags for the service for the API docs
         additional_params = {method: {'tags': [service.name]} for method in  methods}
 
-        self._route_endpoint(service.endpoint,
-                             api.compress_response(service),
-                             service.route_kwargs,
+        self._route_endpoint(service.endpoint, service, service.route_kwargs,
                              request_schemas=service.request_schemas,
                              response_schemas=service.response_schemas,
                              additional_params=additional_params)
