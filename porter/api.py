@@ -8,6 +8,7 @@ import json
 import uuid
 
 import flask
+import werkzeug.exceptions as werkzeug_exc
 
 from . import config as cf
 
@@ -17,14 +18,27 @@ def request_method():
     return flask.request.method
 
 
-def request_json():
-    """Return the JSON from the current request."""
-    req = flask.request
-    # TODO: return 415 if unsupported media type
-    if req.content_encoding == 'gzip':
-        return json.loads(gzip.decompress(req.get_data()).decode('utf-8'))
+def request_json(silent=False):
+    """Return the JSON from the current request.
+
+    Args:
+        silent (bool): Silence parsing errors and return None instead.
+    """
+    request = flask.request
+    encoding = request.content_encoding
+    try:
+        if encoding == 'gzip':
+            return json.loads(gzip.decompress(request.get_data()).decode('utf-8'))
+        elif encoding in ('identity', None):
+            return request.get_json(force=True)
+    except Exception as err:
+        if not silent:
+            raise werkzeug_exc.BadRequest(
+                'The browser (or proxy) sent a request that this server could not understand.')
     else:
-        return req.get_json(force=True)
+        if not silent:
+            # TODO: check error message wording
+            raise werkzeug_exc.UnsupportedMediaType(f'unsupported encoding: "{encoding}"')
 
 
 def jsonify(data, *args, **kwargs):
@@ -38,26 +52,30 @@ def jsonify(data, *args, **kwargs):
 
 def _gzip_response(response):
     response.direct_passthrough = False
-
-    gzip_buffer = io.BytesIO()
-    gzip_file = gzip.GzipFile(mode='wb', fileobj=gzip_buffer)
-    gzip_file.write(response.data)
-    gzip_file.close()
-    response.data = gzip_buffer.getvalue()
+    response.data = gzip.compress(response.data)
 
     response.headers['Content-Encoding'] = 'gzip'
     response.headers['Vary'] = 'Accept-Encoding'
     response.headers['Content-Length'] = len(response.data)
 
 def encode_response(response):
+    """Encode response if a supported value of ``Accept-Encoding`` is passed."""
     # See https://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/
-    accept_encoding = flask.request.headers.get('Accept-Encoding', '')
 
-    if 'gzip' in accept_encoding.lower() and cf.support_gzip:
+    # Short circuit if no encoding support enabled
+    if not cf.support_gzip:
+        return
+
+    accept_encoding = flask.request.headers.get('Accept-Encoding', '').lower()
+
+    if 'gzip' in accept_encoding and cf.support_gzip:
         _gzip_response(response)
     else:
-        # TODO: 406 if no acceptable return
-        # deal with 406
+        # If the client requests an unsupported encoding,
+        # it may be appropriate to respond with 406 Not Acceptable.
+        # However, it is probably preferrable to simply respond with
+        # "identity" encoding instead.
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
         pass
     return response
 

@@ -305,7 +305,7 @@ class BaseService(abc.ABC, StatefulRoute):
                     schema.validate(json.loads(response.data))
 
             if caught_error is None:
-                response = api.encode_response(response)
+                api.encode_response(response)
         return response
 
     def define_endpoint(self):
@@ -652,6 +652,8 @@ class PredictionService(BaseService):
             :class:`werkzeug.exceptions.UnprocessableEntity`: Raised when parsed
                 request data does not follow the specified schema (in
                 super().get_post_data).
+            :class:`werkzeug.exceptions.UnsupportedMediaType`: Raised when request data
+                is given in an unsupported Content-Encoding.
         """
         if api.request_method() == 'GET':
             return porter_responses.Response(

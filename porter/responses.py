@@ -99,7 +99,7 @@ def make_error_response(error):
 
     if cf.return_user_data_on_error:
         # silent=True -> flask.request.get_json(...) returns None if user did not
-        error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True, force=True)
+        error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True)
 
     return Response(payload, status_code=getattr(error, 'code', 500))
 
