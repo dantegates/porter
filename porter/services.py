@@ -171,11 +171,13 @@ class BaseService(abc.ABC, StatefulRoute):
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = [
-        # bad request, raised by flask if json can't be parsed
+        # bad request: raised by flask if json can't be parsed
         ('POST', 400, schemas.model_context_error, None),
-        # Unprocessable entity, valid json with semantic errors raised by porter
+        # Unsupported media type: content-encoding not supported
+        ('POST', 415, schemas.model_context_error, None),
+        # Unprocessable entity: valid json with semantic errors raised by porter
         ('POST', 422, schemas.model_context_error, None),
-        # internal server error, any unhandled exception in .serve() will cause this
+        # internal server error: any unhandled exception in .serve() will cause this
         ('POST', 500, schemas.model_context_error, None),
     ]
     # subclasses can override this to add additional defaults
