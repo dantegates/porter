@@ -678,7 +678,6 @@ class TestPredictionServiceSchemas(unittest.TestCase):
 
 
 class TestModelApp(unittest.TestCase):
-    @mock.patch('porter.api.compress_response', lambda x: x)
     @mock.patch('porter.services.schemas.make_openapi_spec')
     @mock.patch('porter.services.ModelApp._route_endpoint')
     def test_constructor_routing(self, mock__route_endpoint, mock_make_openapi_spec):
