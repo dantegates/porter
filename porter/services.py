@@ -304,10 +304,11 @@ class BaseService(abc.ABC, StatefulRoute):
                     # There is probably a better way to do this, but this validates
                     # exactly what we want to and is a quick fix for a feature that
                     # is experimental anyway.
-                    schema.validate(json.loads(response.data))
+                    validation_data = response.data
+                    if response.is_gzipped:
+                        validation_data = gzip.decompress(validation_data).decode('utf-8')
+                    schema.validate(json.loads(validation_data))
 
-            if caught_error is None:
-                api.encode_response(response)
         return response
 
     def define_endpoint(self):
