@@ -33,20 +33,26 @@ class TestDecodeRequest(unittest.TestCase):
         self.valid_dict = json.loads(self.valid_bytes)
         self.valid_gzip = gzip.compress(self.valid_bytes)
 
-    def test_request_json(self):
-        """Test well-formed request: data matches stated encoding."""
+    def test_request_json_identity(self):
+        """Test well-formed request: 'identity' encoding."""
         with mock.patch('flask.request', test_request(self.valid_bytes, None)):
             self.assertEqual(self.valid_dict, api.request_json())
         with mock.patch('flask.request', test_request(self.valid_bytes, 'identity')):
             self.assertEqual(self.valid_dict, api.request_json())
+
+    def test_request_json_gzip(self):
+        """Test well-formed request: gzip"""
         with mock.patch('flask.request', test_request(self.valid_gzip, 'gzip')):
             self.assertEqual(self.valid_dict, api.request_json())
 
-    def test_request_json_bad_request(self):
-        """Test bad data or mismatched data vs encoding."""
+    def test_request_json_bad_request_invalid_json(self):
+        """Test bad data."""
         with mock.patch('flask.request', test_request(b'{"invalid_json": true', None)):
             with self.assertRaises(werkzeug_exc.BadRequest):
                 api.request_json()
+
+    def test_request_json_bad_request_mismatch_encoding(self):
+        """Test mismatched data vs encoding."""
         with mock.patch('flask.request', test_request(self.valid_bytes, 'gzip')):
             with self.assertRaises(werkzeug_exc.BadRequest):
                 api.request_json()
@@ -54,13 +60,14 @@ class TestDecodeRequest(unittest.TestCase):
             with self.assertRaises(werkzeug_exc.BadRequest):
                 api.request_json()
 
-    def test_request_json_unsupported(self):
+    def test_request_json_unsupported_legal(self):
         """Test unsupported encoding."""
-        # legal but unsupported
         with mock.patch('flask.request', test_request(self.valid_bytes, 'compress')):
             with self.assertRaises(werkzeug_exc.UnsupportedMediaType):
                 api.request_json()
-        # illegal
+
+    def test_request_json_unsupported_legal(self):
+        """Test illegal encoding."""
         with mock.patch('flask.request', test_request(self.valid_bytes, 'fake_encoding')):
             with self.assertRaises(werkzeug_exc.UnsupportedMediaType):
                 api.request_json()
@@ -77,6 +84,7 @@ class TestEncodeResponse(unittest.TestCase):
         """Test gzip data + added headers."""
         data, response = self.data, self.response
         api._gzip_response(response)
+        self.assertEqual(response.is_gzipped, True)
         self.assertEqual(response.headers['Content-Encoding'], 'gzip')
         self.assertEqual(response.headers['Vary'], 'Accept-Encoding')
         self.assertEqual(gzip.decompress(response.data), self.data)
@@ -89,23 +97,25 @@ class TestEncodeResponse(unittest.TestCase):
                 api.encode_response(self.response)
                 _gzip_response.assert_not_called()
 
-    def test_encode_response_unaccept(self):
-        """Pass thru if no acceptable encoding requested."""
-        # illegal
+    def test_encode_response_unaccept_illegal(self):
+        """Pass thru if illegal accept-encoding."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='fake_encoding')):
                 api.encode_response(self.response)
                 _gzip_response.assert_not_called()
 
-        # legal but unsupported
+    def test_encode_response_unaccept_unsupported(self):
+        """Pass thru if legal but unsupported accept-encoding."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='compress')):
                 api.encode_response(self.response)
                 _gzip_response.assert_not_called()
 
-        # legal and supported but not enabled
+    def test_encode_response_unaccept_unsupported(self):
+        """Pass thru if legal and supported but not enabled accept-encoding."""
+        _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='gzip')):
                 with mock.patch('porter.config.support_gzip', False):
@@ -120,6 +130,28 @@ class TestEncodeResponse(unittest.TestCase):
                 with mock.patch('porter.config.support_gzip', True):
                     api.encode_response(self.response)
                     _gzip_response.assert_called_with(self.response)
+
+    @mock.patch('flask.jsonify', lambda x: test_response(x))
+    def test_jsonify_200(self):
+        """Test encoding applied if status_code = 200."""
+        with mock.patch('porter.api.encode_response', mock.Mock()) as encode_response:
+            with mock.patch('flask.request', test_request(self.data, accept_encoding='')):
+                r = api.jsonify(self.data, status_code=200)
+                self.assertEqual(r.status_code, 200)
+                self.assertEqual(r.raw_data, self.data)
+                self.assertEqual(r.is_gzipped, False)
+                encode_response.assert_called_with(r)
+
+    @mock.patch('flask.jsonify', lambda x: test_response(x))
+    def test_jsonify_not_200(self):
+        """Test encoding applied if status_code != 200."""
+        with mock.patch('porter.api.encode_response', mock.Mock()) as encode_response:
+            with mock.patch('flask.request', test_request(self.data, accept_encoding='')):
+                r = api.jsonify(self.data, status_code=400)
+                self.assertEqual(r.status_code, 400)
+                self.assertEqual(r.raw_data, self.data)
+                self.assertEqual(r.is_gzipped, False)
+                encode_response.assert_not_called()
 
 class TestValidate(unittest.TestCase):
 
