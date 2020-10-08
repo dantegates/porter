@@ -39,10 +39,14 @@ class TestDecodeRequest(unittest.TestCase):
             self.assertEqual(self.valid_dict, api.request_json())
         with mock.patch('flask.request', test_request(self.valid_bytes, 'identity')):
             self.assertEqual(self.valid_dict, api.request_json())
+        with mock.patch('flask.request', test_request(self.valid_bytes, 'Identity')):
+            self.assertEqual(self.valid_dict, api.request_json())
 
     def test_request_json_gzip(self):
         """Test well-formed request: gzip"""
         with mock.patch('flask.request', test_request(self.valid_gzip, 'gzip')):
+            self.assertEqual(self.valid_dict, api.request_json())
+        with mock.patch('flask.request', test_request(self.valid_gzip, 'GZip')):
             self.assertEqual(self.valid_dict, api.request_json())
 
     def test_request_json_bad_request_invalid_json(self):

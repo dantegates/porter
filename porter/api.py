@@ -25,20 +25,26 @@ def request_json(silent=False):
         silent (bool): Silence parsing errors and return None instead.
     """
     request = flask.request
-    encoding = request.content_encoding
-    try:
-        if encoding == 'gzip':
-            return json.loads(gzip.decompress(request.get_data()).decode('utf-8'))
-        elif encoding in ('identity', None):
-            return request.get_json(force=True)
-    except Exception as err:
-        if not silent:
-            raise werkzeug_exc.BadRequest(
-                'The browser (or proxy) sent a request that this server could not understand.')
+    encoding = str(request.content_encoding).lower()
+    bad_request = werkzeug_exc.BadRequest(
+        'The browser (or proxy) sent a request that this server could not understand.')
+    if encoding == 'gzip':
+        try:
+            data = json.loads(gzip.decompress(request.get_data()).decode('utf-8'))
+        except:
+            if not silent:
+                raise bad_request
+    elif encoding in ('identity', 'none'):
+        try:
+            data = request.get_json(force=True)
+        except:
+            if not silent:
+                raise bad_request
     else:
         if not silent:
             # TODO: check error message wording
             raise werkzeug_exc.UnsupportedMediaType(f'unsupported encoding: "{encoding}"')
+    return data
 
 
 def jsonify(data, *, status_code):
