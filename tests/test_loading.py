@@ -28,8 +28,8 @@ class TestLoadingSklearn(BaseTestLoading):
     @classmethod
     def setUpClass(cls):
         cls.X = np.random.rand(10, 20)
-        cls.y = np.random.randint(1, 10, size=10)
-        cls.model = sklearn.linear_model.SGDRegressor(max_iter=10)
+        cls.y = np.sum(cls.X, axis=1) + np.random.randint(1, 10, size=10)
+        cls.model = sklearn.linear_model.LinearRegression()
         cls.model.fit(cls.X, cls.y)
         cls.predictions = cls.model.predict(cls.X)
         super().setUpClass()

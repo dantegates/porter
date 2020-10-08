@@ -5,6 +5,8 @@ Tests for the `.app` attribute belonging to an instance of `porter.ModelService`
 
 import json
 import re
+import warnings
+
 import unittest
 from unittest import mock
 
@@ -24,6 +26,7 @@ class TestAppPredictions(unittest.TestCase):
         # define objects for model 1
         class Preprocessor1(BasePreProcessor):
             def process(self, X):
+                X = X.copy() # silence SettingWithCopyWarning
                 X['feature2'] = X.feature2.astype(str)
                 return X
         class Model1(BaseModel):
@@ -89,43 +92,45 @@ class TestAppPredictions(unittest.TestCase):
             batch_prediction=True,
             additional_checks=user_check
         )
-        prediction_service3 = PredictionService(
-            model=Model3(),
-            name='model-3',
-            api_version='v0.0-alpha',
-            preprocessor=None,
-            postprocessor=None,
-            feature_schema=feature_schema3,
-            validate_request_data=True,
-            validate_response_data=True,
-            batch_prediction=False,
-            meta={'algorithm': 'randomforest', 'lasttrained': 1}
-        )
-        prediction_service4 = PredictionService(
-            model=Model3(),
-            name='model-4',
-            api_version='v0.0-alpha',
-            preprocessor=None,
-            postprocessor=None,
-            feature_schema=feature_schema3,
-            validate_request_data=True,
-            validate_response_data=True,
-            batch_prediction=False,
-            meta={'algorithm': 'randomforest', 'lasttrained': 1}
-        )
-        prediction_service5 = PredictionService(
-            model=Model3(),
-            name='model-5',
-            api_version='v0.0-alpha',
-            preprocessor=None,
-            postprocessor=None,
-            feature_schema=feature_schema3,
-            prediction_schema=wrong_prediction_schema3,
-            validate_request_data=True,
-            validate_response_data=True,
-            batch_prediction=False,
-            meta={'algorithm': 'randomforest', 'lasttrained': 1}
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            prediction_service3 = PredictionService(
+                model=Model3(),
+                name='model-3',
+                api_version='v0.0-alpha',
+                preprocessor=None,
+                postprocessor=None,
+                feature_schema=feature_schema3,
+                validate_request_data=True,
+                validate_response_data=True,
+                batch_prediction=False,
+                meta={'algorithm': 'randomforest', 'lasttrained': 1}
+            )
+            prediction_service4 = PredictionService(
+                model=Model3(),
+                name='model-4',
+                api_version='v0.0-alpha',
+                preprocessor=None,
+                postprocessor=None,
+                feature_schema=feature_schema3,
+                validate_request_data=True,
+                validate_response_data=True,
+                batch_prediction=False,
+                meta={'algorithm': 'randomforest', 'lasttrained': 1}
+            )
+            prediction_service5 = PredictionService(
+                model=Model3(),
+                name='model-5',
+                api_version='v0.0-alpha',
+                preprocessor=None,
+                postprocessor=None,
+                feature_schema=feature_schema3,
+                prediction_schema=wrong_prediction_schema3,
+                validate_request_data=True,
+                validate_response_data=True,
+                batch_prediction=False,
+                meta={'algorithm': 'randomforest', 'lasttrained': 1}
+            )
         prediction_service_failing = PredictionService(
             model=ModelFailing(),
             name='failing-model',
@@ -226,6 +231,7 @@ class TestAppPredictions(unittest.TestCase):
         self.assertEqual(expectd_data['error'], actual_data['error'])
 
     def test_asdkfj(self):
+        # TODO: rename
         post_data2 = [{'id': 1, 'feature1': 2}, {'id': 2, 'feature1': 2}]
         resp = self.app.post('/model-3/v0.0-alpha/prediction', data=json.dumps(post_data2))
         print(resp.json)
