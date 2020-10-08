@@ -11,7 +11,7 @@ from . import api
 
 
 class Response:
-    def __init__(self, data, *, status_code=None):
+    def __init__(self, data, *, status_code=200):
         service_class = api.get_model_context()
         if isinstance(data, dict):
             self.data = self._init_payload(service_class, data)
@@ -21,10 +21,7 @@ class Response:
         self.status_code = status_code
 
     def jsonify(self):
-        jsonified = api.jsonify(self.data)
-        if self.status_code is not None:
-            jsonified.status_code = self.status_code
-        return jsonified
+        return api.jsonify(self.data, status_code=self.status_code)
 
     def _init_payload(self, service_class, data):
         payload = self._init_base_response()
