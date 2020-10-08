@@ -1,4 +1,6 @@
 import time
+import warnings
+
 import unittest
 from unittest import mock
 
@@ -73,6 +75,7 @@ class TestPredictionServiceCall(unittest.TestCase):
     @mock.patch('porter.services.api.request_method', lambda: 'POST')
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_success_batch(self, mock_responses_api, mock_request_json):
+        # TODO rename this or next test
         mock_request_json.return_value = [
             {'id': 1, 'feature1': 10, 'feature2': 0},
             {'id': 2, 'feature1': 11, 'feature2': 1},
@@ -80,7 +83,7 @@ class TestPredictionServiceCall(unittest.TestCase):
             {'id': 4, 'feature1': 13, 'feature2': 3},
             {'id': 5, 'feature1': 14, 'feature2': 3},
         ]
-        mock_responses_api.jsonify = lambda payload: payload
+        mock_responses_api.jsonify = lambda payload, status_code: payload
         mock_model = mock.Mock()
         test_model_name = 'model'
         test_api_version = '1.0.0'
@@ -135,8 +138,9 @@ class TestPredictionServiceCall(unittest.TestCase):
     @mock.patch('porter.services.api.request_method', lambda: 'POST')
     @mock.patch('porter.services.BaseService._ids', set())
     def test_serve_success_batch(self, mock_responses_api, mock_request_json):
+        # TODO rename this or previous test
         mock_request_json.return_value = {'id': 1, 'feature1': 10, 'feature2': 0}
-        mock_responses_api.jsonify = lambda payload: payload
+        mock_responses_api.jsonify = lambda payload, status_code: payload
         mock_model = mock.Mock()
         test_model_name = 'model'
         test_api_version = '1.0.0'
@@ -1002,6 +1006,20 @@ class TestBaseServiceSchemas(unittest.TestCase):
         self.assertIsInstance(response_schema, schemas.ResponseSchema)
         self.assertEqual(response_schema.description, 'test')
         self.assertIs(response_schema.api_obj, output_schema)
+
+    def test_validate_response_schema_warning(self):
+        class SC(BaseService):
+            def define_endpoint(self):
+                return '/an/endpoint'
+            def serve(self): pass
+            def status(self): pass
+            action = 'test'
+
+        with warnings.catch_warnings(record=True) as w:
+            SC(name='sc', api_version='v1', validate_response_data=True)
+            self.assertEqual(len(w), 1)
+            self.assertRegexpMatches(str(w[-1].message),
+                                     r'^Setting ``validate_response_data`` may significantly impact.*')
 
 
 class TestModelAppDocs(unittest.TestCase):
