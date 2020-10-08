@@ -83,7 +83,7 @@ class Test(unittest.TestCase):
             ]
         }
         self.assertEqual(actual.data, expected)
-        self.assertIsNone(actual.status_code)
+        self.assertEqual(actual.status_code, 200)
 
     @mock.patch('porter.responses.api.get_model_context')
     def test_make_prediction_response(self, mock_get_model_context):
@@ -107,7 +107,7 @@ class Test(unittest.TestCase):
             'predictions': {'id': 1, 'prediction': 10.0}
         }
         self.assertEqual(actual.data, expected)
-        self.assertIsNone(actual.status_code)
+        self.assertEqual(actual.status_code, 200)
 
     @mock.patch('porter.responses.api.get_model_context')
     def test_make_batch_prediction_response_with_request_id(self, mock_get_model_context):
@@ -135,7 +135,7 @@ class Test(unittest.TestCase):
             ]
         }
         self.assertEqual(actual.data, expected)
-        self.assertIsNone(actual.status_code)
+        self.assertEqual(actual.status_code, 200)
 
     @mock.patch('porter.responses.api.get_model_context')
     def test_make_prediction_response_with_request_id(self, mock_get_model_context):
@@ -159,7 +159,7 @@ class Test(unittest.TestCase):
             'predictions': {'id': 1, 'prediction': 10.0}
         }
         self.assertEqual(actual.data, expected)
-        self.assertIsNone(actual.status_code)
+        self.assertEqual(actual.status_code, 200)
 
 
 @mock.patch('porter.responses.Response._init_base_response', staticmethod(lambda: {'request_id': 123}))
