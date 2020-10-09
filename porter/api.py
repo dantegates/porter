@@ -28,6 +28,7 @@ def request_json(silent=False):
     encoding = str(request.content_encoding).lower()
     bad_request = werkzeug_exc.BadRequest(
         'The browser (or proxy) sent a request that this server could not understand.')
+    data = None
     if encoding == 'gzip':
         try:
             data = json.loads(gzip.decompress(request.get_data()).decode('utf-8'))
