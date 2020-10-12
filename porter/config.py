@@ -18,4 +18,4 @@ return_user_data_on_error = False
 return_request_id = True
 
 # Support response compression
-support_gzip = False
+support_response_gzip = False

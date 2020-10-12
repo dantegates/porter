@@ -93,63 +93,76 @@ class TestEncodeResponse(unittest.TestCase):
         self.assertEqual(response.headers['Vary'], 'Accept-Encoding')
         self.assertEqual(gzip.decompress(response.data), self.data)
 
-    def test_encode_response_plain(self):
+    def test__encode_response_inplace_plain(self):
         """Pass thru if no compression requested."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data)):
-                api.encode_response(self.response)
+                api._encode_response_inplace(self.response)
                 _gzip_response.assert_not_called()
 
-    def test_encode_response_unaccept_illegal(self):
+    def test__encode_response_inplace_unaccept_illegal(self):
         """Pass thru if illegal accept-encoding."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='fake_encoding')):
-                api.encode_response(self.response)
+                api._encode_response_inplace(self.response)
                 _gzip_response.assert_not_called()
 
-    def test_encode_response_unaccept_unsupported(self):
+    def test__encode_response_inplace_unaccept_unsupported(self):
         """Pass thru if legal but unsupported accept-encoding."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='compress')):
-                api.encode_response(self.response)
+                api._encode_response_inplace(self.response)
                 _gzip_response.assert_not_called()
 
-    def test_encode_response_unaccept_unsupported(self):
+    def test__encode_response_inplace_unaccept_unsupported(self):
         """Pass thru if legal and supported but not enabled accept-encoding."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='gzip')):
-                with mock.patch('porter.config.support_gzip', False):
-                    api.encode_response(self.response)
+                with mock.patch('porter.config.support_response_gzip', False):
+                    api._encode_response_inplace(self.response)
                     _gzip_response.assert_not_called()
 
-    def test_encode_response_gzip(self):
+    def test__encode_response_inplace_gzip(self):
         """Compress with gzip if requested and support is enabled."""
         _gzip_response = mock.Mock()
         with mock.patch('porter.api._gzip_response', _gzip_response):
             with mock.patch('flask.request', test_request(self.data, accept_encoding='gzip')):
-                with mock.patch('porter.config.support_gzip', True):
-                    api.encode_response(self.response)
+                with mock.patch('porter.config.support_response_gzip', True):
+                    api._encode_response_inplace(self.response)
                     _gzip_response.assert_called_with(self.response)
 
     @mock.patch('flask.jsonify', lambda x: test_response(x))
-    def test_jsonify_200(self):
+    def test_jsonify_200_support(self):
         """Test encoding applied if status_code = 200."""
-        with mock.patch('porter.api.encode_response', mock.Mock()) as encode_response:
-            with mock.patch('flask.request', test_request(self.data, accept_encoding='')):
-                r = api.jsonify(self.data, status_code=200)
-                self.assertEqual(r.status_code, 200)
-                self.assertEqual(r.raw_data, self.data)
-                self.assertEqual(r.is_gzipped, False)
-                encode_response.assert_called_with(r)
+        with mock.patch('porter.config.support_response_gzip', True):
+            with mock.patch('porter.api._encode_response_inplace', mock.Mock()) as encode_response:
+                with mock.patch('flask.request', test_request(self.data, accept_encoding='')):
+                    r = api.jsonify(self.data, status_code=200)
+                    self.assertEqual(r.status_code, 200)
+                    self.assertEqual(r.raw_data, self.data)
+                    self.assertEqual(r.is_gzipped, False)
+                    encode_response.assert_called_with(r)
+
+    @mock.patch('flask.jsonify', lambda x: test_response(x))
+    def test_jsonify_200_no_support(self):
+        """Test encoding applied if status_code = 200."""
+        with mock.patch('porter.config.support_response_gzip', False):
+            with mock.patch('porter.api._encode_response_inplace', mock.Mock()) as encode_response:
+                with mock.patch('flask.request', test_request(self.data, accept_encoding='')):
+                    r = api.jsonify(self.data, status_code=200)
+                    self.assertEqual(r.status_code, 200)
+                    self.assertEqual(r.raw_data, self.data)
+                    self.assertEqual(r.is_gzipped, False)
+                    encode_response.assert_not_called()
 
     @mock.patch('flask.jsonify', lambda x: test_response(x))
     def test_jsonify_not_200(self):
         """Test encoding applied if status_code != 200."""
-        with mock.patch('porter.api.encode_response', mock.Mock()) as encode_response:
+        with mock.patch('porter.api._encode_response_inplace', mock.Mock()) as encode_response:
             with mock.patch('flask.request', test_request(self.data, accept_encoding='')):
                 r = api.jsonify(self.data, status_code=400)
                 self.assertEqual(r.status_code, 400)
