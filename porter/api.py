@@ -26,25 +26,21 @@ def request_json(silent=False):
     """
     request = flask.request
     encoding = str(request.content_encoding).lower()
+    data = None
     bad_request = werkzeug_exc.BadRequest(
         'The browser (or proxy) sent a request that this server could not understand.')
-    data = None
-    if encoding == 'gzip':
-        try:
+    try:
+        if encoding == 'gzip':
             data = json.loads(gzip.decompress(request.get_data()).decode('utf-8'))
-        except:
-            if not silent:
-                raise bad_request
-    elif encoding in ('identity', 'none'):
-        try:
+        elif encoding in ('identity', 'none'):
             data = request.get_json(force=True)
-        except:
-            if not silent:
-                raise bad_request
-    else:
-        if not silent:
-            # TODO: check error message wording
+        else:
             raise werkzeug_exc.UnsupportedMediaType(f'unsupported encoding: "{encoding}"')
+        if data is None:
+            raise bad_request
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, werkzeug_exc.BadRequest) as err:
+        if not silent:
+            raise bad_request from err
     return data
 
 
@@ -59,7 +55,6 @@ def jsonify(data, *, status_code):
     if status_code == 200 and cf.support_response_gzip:
         _encode_response_inplace(jsonified)
     return jsonified
-
 
 def _gzip_response(response):
     response.direct_passthrough = False
