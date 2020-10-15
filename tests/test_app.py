@@ -219,7 +219,7 @@ class TestAppPredictions(unittest.TestCase):
     def test_prediction_bad_requests_400(self):
         actual = self.app.post('/a-model/v0/predict', data='cannot be parsed')
         self.assertTrue(actual.status_code, 400)
-        expectd_data = {
+        expected_data = {
             'request_id': 123,
             'error': {
                 'name': 'BadRequest',
@@ -228,7 +228,7 @@ class TestAppPredictions(unittest.TestCase):
         }
         actual_data = json.loads(actual.data)
         self.assertIn('request_id', actual_data)
-        self.assertEqual(expectd_data['error'], actual_data['error'])
+        self.assertEqual(expected_data['error'], actual_data['error'])
 
     def test_asdkfj(self):
         # TODO: rename
