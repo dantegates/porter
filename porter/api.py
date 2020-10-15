@@ -1,10 +1,16 @@
 """Light wrappers around ``flask`` and ``requests``."""
 
 
+import functools
+import gzip
+import io
 import json
 import uuid
 
 import flask
+import werkzeug.exceptions as werkzeug_exc
+
+from . import config as cf
 
 
 def request_method():
@@ -12,18 +18,67 @@ def request_method():
     return flask.request.method
 
 
-def request_json(*args, **kwargs):
-    """Return the JSON from the current request."""
-    return flask.request.get_json(*args, **kwargs)
+def request_json(silent=False):
+    """Return the JSON from the current request.
+
+    Args:
+        silent (bool): Silence parsing errors and return None instead.
+    """
+    request = flask.request
+    encoding = str(request.content_encoding).lower()
+    data = None
+    bad_request = werkzeug_exc.BadRequest(
+        'The browser (or proxy) sent a request that this server could not understand.')
+    try:
+        if encoding == 'gzip':
+            data = json.loads(gzip.decompress(request.get_data()).decode('utf-8'))
+        elif encoding in ('identity', 'none'):
+            data = request.get_json(force=True)
+        else:
+            raise werkzeug_exc.UnsupportedMediaType(f'unsupported encoding: "{encoding}"')
+        if data is None:
+            raise bad_request
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, werkzeug_exc.BadRequest) as err:
+        if not silent:
+            raise bad_request from err
+    return data
 
 
-def jsonify(data, *args, **kwargs):
+def jsonify(data, *, status_code):
     """'Jsonify' a Python object into something an instance of :class:`App` can return
     to the user.
     """
-    jsonified = flask.jsonify(data, *args, **kwargs)
+    jsonified = flask.jsonify(data)
+    jsonified.status_code = status_code
     jsonified.raw_data = data
+    if status_code == 200 and cf.support_response_gzip:
+        _encode_response_inplace(jsonified)
     return jsonified
+
+def _gzip_response(response):
+    response.direct_passthrough = False
+    response.data = gzip.compress(response.data)
+
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Vary'] = 'Accept-Encoding'
+    response.headers['Content-Length'] = len(response.data)
+
+def _encode_response_inplace(response):
+    """Encode response if a supported value of ``Accept-Encoding`` is passed."""
+    # See https://kb.sites.apiit.edu.my/knowledge-base/how-to-gzip-response-in-flask/
+
+    accept_encoding = flask.request.headers.get('Accept-Encoding', '').lower()
+
+    if 'gzip' in accept_encoding and cf.support_response_gzip:
+        _gzip_response(response)
+    else:
+        # If the client requests an unsupported encoding,
+        # it may be appropriate to respond with 406 Not Acceptable.
+        # However, it is probably preferrable to simply respond with
+        # "identity" encoding instead.
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
+        pass
+    return response
 
 
 def request_id():
@@ -81,3 +136,4 @@ def validate_url(url):
         is_valid = False
     is_valid = parts.scheme and parts.host
     return is_valid
+

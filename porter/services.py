@@ -171,11 +171,13 @@ class BaseService(abc.ABC, StatefulRoute):
     _ids = set()
     _logger = logging.getLogger(__name__)
     _default_response_schemas = [
-        # bad request, raised by flask if json can't be parsed
+        # bad request: raised by flask if json can't be parsed
         ('POST', 400, schemas.model_context_error, None),
-        # Unprocessable entity, valid json with semantic errors raised by porter
+        # Unsupported media type: content-encoding not supported
+        ('POST', 415, schemas.model_context_error, None),
+        # Unprocessable entity: valid json with semantic errors raised by porter
         ('POST', 422, schemas.model_context_error, None),
-        # internal server error, any unhandled exception in .serve() will cause this
+        # internal server error: any unhandled exception in .serve() will cause this
         ('POST', 500, schemas.model_context_error, None),
     ]
     # subclasses can override this to add additional defaults
@@ -302,7 +304,11 @@ class BaseService(abc.ABC, StatefulRoute):
                     # There is probably a better way to do this, but this validates
                     # exactly what we want to and is a quick fix for a feature that
                     # is experimental anyway.
-                    schema.validate(json.loads(response.data))
+                    validation_data = response.data
+                    if response.headers.get('Content-Encoding', None) == 'gzip':
+                        validation_data = gzip.decompress(validation_data).decode('utf-8')
+                    schema.validate(json.loads(validation_data))
+
         return response
 
     def define_endpoint(self):
@@ -432,7 +438,7 @@ class BaseService(abc.ABC, StatefulRoute):
         If ``self.validate_request_data is True`` and a request schema has
         been defined the data will be validated against the schema.
         """
-        data = api.request_json(force=True)
+        data = api.request_json()
         if self.validate_request_data:
             schema = self._request_schemas.get('POST')
             if schema is not None:
@@ -649,6 +655,8 @@ class PredictionService(BaseService):
             :class:`werkzeug.exceptions.UnprocessableEntity`: Raised when parsed
                 request data does not follow the specified schema (in
                 super().get_post_data).
+            :class:`werkzeug.exceptions.UnsupportedMediaType`: Raised when request data
+                is given in an unsupported Content-Encoding.
         """
         if api.request_method() == 'GET':
             return porter_responses.Response(

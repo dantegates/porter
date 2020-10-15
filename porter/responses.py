@@ -11,7 +11,7 @@ from . import api
 
 
 class Response:
-    def __init__(self, data, *, status_code=None):
+    def __init__(self, data, *, status_code=200):
         service_class = api.get_model_context()
         if isinstance(data, dict):
             self.data = self._init_payload(service_class, data)
@@ -21,10 +21,7 @@ class Response:
         self.status_code = status_code
 
     def jsonify(self):
-        jsonified = api.jsonify(self.data)
-        if self.status_code is not None:
-            jsonified.status_code = self.status_code
-        return jsonified
+        return api.jsonify(self.data, status_code=self.status_code)
 
     def _init_payload(self, service_class, data):
         payload = self._init_base_response()
@@ -99,7 +96,7 @@ def make_error_response(error):
 
     if cf.return_user_data_on_error:
         # silent=True -> flask.request.get_json(...) returns None if user did not
-        error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True, force=True)
+        error_dict[cn.ERROR_BODY_KEYS.USER_DATA] = api.request_json(silent=True)
 
     return Response(payload, status_code=getattr(error, 'code', 500))
 
