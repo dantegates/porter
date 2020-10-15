@@ -305,7 +305,7 @@ class BaseService(abc.ABC, StatefulRoute):
                     # exactly what we want to and is a quick fix for a feature that
                     # is experimental anyway.
                     validation_data = response.data
-                    if response.is_gzipped:
+                    if response.headers.get('Content-Encoding', None) == 'gzip':
                         validation_data = gzip.decompress(validation_data).decode('utf-8')
                     schema.validate(json.loads(validation_data))
 

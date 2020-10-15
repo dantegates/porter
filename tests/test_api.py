@@ -88,7 +88,6 @@ class TestEncodeResponse(unittest.TestCase):
         """Test gzip data + added headers."""
         data, response = self.data, self.response
         api._gzip_response(response)
-        self.assertEqual(response.is_gzipped, True)
         self.assertEqual(response.headers['Content-Encoding'], 'gzip')
         self.assertEqual(response.headers['Vary'], 'Accept-Encoding')
         self.assertEqual(gzip.decompress(response.data), self.data)
@@ -144,7 +143,6 @@ class TestEncodeResponse(unittest.TestCase):
                     r = api.jsonify(self.data, status_code=200)
                     self.assertEqual(r.status_code, 200)
                     self.assertEqual(r.raw_data, self.data)
-                    self.assertEqual(r.is_gzipped, False)
                     encode_response.assert_called_with(r)
 
     @mock.patch('flask.jsonify', lambda x: test_response(x))
@@ -156,7 +154,6 @@ class TestEncodeResponse(unittest.TestCase):
                     r = api.jsonify(self.data, status_code=200)
                     self.assertEqual(r.status_code, 200)
                     self.assertEqual(r.raw_data, self.data)
-                    self.assertEqual(r.is_gzipped, False)
                     encode_response.assert_not_called()
 
     @mock.patch('flask.jsonify', lambda x: test_response(x))
@@ -167,7 +164,6 @@ class TestEncodeResponse(unittest.TestCase):
                 r = api.jsonify(self.data, status_code=400)
                 self.assertEqual(r.status_code, 400)
                 self.assertEqual(r.raw_data, self.data)
-                self.assertEqual(r.is_gzipped, False)
                 encode_response.assert_not_called()
 
 class TestValidate(unittest.TestCase):

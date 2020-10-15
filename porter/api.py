@@ -51,7 +51,6 @@ def jsonify(data, *, status_code):
     jsonified = flask.jsonify(data)
     jsonified.status_code = status_code
     jsonified.raw_data = data
-    jsonified.is_gzipped = False
     if status_code == 200 and cf.support_response_gzip:
         _encode_response_inplace(jsonified)
     return jsonified
@@ -63,7 +62,6 @@ def _gzip_response(response):
     response.headers['Content-Encoding'] = 'gzip'
     response.headers['Vary'] = 'Accept-Encoding'
     response.headers['Content-Length'] = len(response.data)
-    response.is_gzipped = True
 
 def _encode_response_inplace(response):
     """Encode response if a supported value of ``Accept-Encoding`` is passed."""
