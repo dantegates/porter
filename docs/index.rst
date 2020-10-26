@@ -41,6 +41,7 @@ Features include:
    openapi_schemas
    service_architecture
    deployment
+   configuration
    error_handling
    logging
    unit_testing
