@@ -10,7 +10,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
+import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
@@ -22,8 +22,12 @@ copyright = '2022, Cadent Data Science'
 author = 'Cadent Data Science'
 
 # The full version, including alpha/beta/rc tags
-import porter
-release = porter.__version__
+# Read from __init__.py similar to how it's done in setup.py
+_here = os.path.abspath(os.path.dirname(__file__))
+_about = {}
+with open(os.path.join(_here, '..', 'porter', '__init__.py')) as f:
+    exec(f.read(), _about)
+release = _about['__version__']
 
 
 # -- General configuration ---------------------------------------------------
@@ -55,15 +59,11 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The master toctree document.
 master_doc = 'index'
 
-# Don't try to import pandas or numpy
-autodoc_mock_imports = ['pandas', 'numpy']
-
 
 # -- Options for HTML output -------------------------------------------------
 
 
 # on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
-import os
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'                           
                                                                                  
 if not on_rtd:  # only import and set the theme if we're building docs locally   
