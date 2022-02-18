@@ -45,7 +45,7 @@ class TestSchemas(unittest.TestCase):
         # borrowed from TestHealthChecks.test_make_alive_ready_response_is_ready
         valid_response = {
             'request_id': '123',
-            'porter_version': '0.15.3',
+            'porter_version': '0.15.4',
             'deployed_on': '2020-04-16T15:53:34.269254',
             'app_meta': {'foo': 1},
             'services': {
@@ -82,7 +82,7 @@ class TestSchemas(unittest.TestCase):
         # now try an invalid response
         invalid_response = {
             'request_id': 123,
-            'porter_version': '0.15.3',
+            'porter_version': '0.15.4',
             'deployed_on': '2020-04-16T15:53:34.269254',
             'app_meta': {'foo': 1},
         }

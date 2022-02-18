@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'porter'
-copyright = '2020, Cadent Data Science'
+copyright = '2022, Cadent Data Science'
 author = 'Cadent Data Science'
 
 # The full version, including alpha/beta/rc tags
@@ -54,6 +54,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The master toctree document.
 master_doc = 'index'
+
+# Don't try to import pandas or numpy
+autodoc_mock_imports = ['pandas', 'numpy']
 
 
 # -- Options for HTML output -------------------------------------------------
