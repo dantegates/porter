@@ -116,6 +116,7 @@ class TestFunctionService(unittest.TestCase):
         # test additional_checks: zero not allowed
         a = list(range(0, 11))
         r = self.test_app.post(endpoint, data=json.dumps(a))
+        print(r.json)
         self.assertEqual(r.status_code, 422)
 
 

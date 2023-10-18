@@ -5,14 +5,24 @@ import logging
 import traceback
 from inspect import istraceback
 
+from flask.json.provider import DefaultJSONProvider as _JSONProvider
 import numpy as np
+
+
+# https://flask.palletsprojects.com/en/2.3.x/changes/#version-2-0-0
+class JSONProvider(_JSONProvider):
+    def __init__(self, *args, encoder_factory, **kwargs):
+        self.__encoder_factory = encoder_factory
+        super().__init__(*args, **kwargs)
+
+    def dumps(self, s, **kwargs):
+        return super().dumps(s, cls=self.__encoder_factory)
 
 
 class NumpyEncoder(json.JSONEncoder):
     """A JSON encoder that handles ``numpy`` data types."""
 
     def default(self, obj):
-        # print('numpy')
         if isinstance(obj, np.integer):
             return int(obj)
         elif isinstance(obj, np.floating):

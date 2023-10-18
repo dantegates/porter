@@ -9,12 +9,12 @@ from setuptools import find_packages, setup
 NAME = 'porter'
 DESCRIPTION = 'porter is a framework for exposing machine learning models via REST APIs.'
 URL = 'https://github.com/CadentTech/porter'
-REQUIRES_PYTHON = '>=3.6.0'
+REQUIRES_PYTHON = '>=3.9.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
     # package: version
-    'Flask>=1.0.2,<1.1.0',
+    'Flask>=3.0.0,<4.0.0',
     'numpy>=1.15.0',
     'pandas>=0.23.0',
     'joblib',
