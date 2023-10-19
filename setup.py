@@ -15,10 +15,10 @@ REQUIRES_PYTHON = '>=3.9.0'
 REQUIRED = [
     # package: version
     'Flask>=3.0.0,<4.0.0',
-    'numpy>=1.15.0',
-    'pandas>=0.23.0',
-    'joblib',
-    'fastjsonschema>=2.14.4',
+    'numpy>=1.24.0',
+    'pandas>=2.0.0',
+    'joblib>=1.3.0',
+    'fastjsonschema>=2.18.0',
 ]
 
 # These are packages required for non-essential functionality, e.g. loading
@@ -33,8 +33,7 @@ REQUIRED = [
 # https://github.com/seatgeek/fuzzywuzzy#installation
 #
 EXTRAS_REQUIRED = {
-    'keras-utils': ['tensorflow>=1.4.0'],
-    's3-utils': ['boto3>=1.7.65'],
+    'keras-utils': ['tensorflow>=2.13.0'],
 }
 
 EXTRAS_REQUIRED['all'] = [r for requirements in EXTRAS_REQUIRED.values() for r in requirements]
