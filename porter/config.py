@@ -16,6 +16,9 @@ return_message_on_error = True
 return_traceback_on_error = False
 return_user_data_on_error = False
 
+# TODO: if not true api validation is broken
+preserve_original_exceptions = True
+
 # Configurations for base response
 return_request_id = True
 

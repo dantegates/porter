@@ -75,6 +75,11 @@ def make_batch_prediction_response(id_values, predictions):
 
 
 def make_error_response(error):
+    if cf.preserve_original_exceptions:
+        # https://github.com/pallets/flask/pull/3266
+        if (original_exception := getattr(error, 'original_exception', None)) is not None:
+            error = original_exception
+
     payload = {}
     payload[cn.GENERIC_ERROR_KEYS.ERROR] = error_dict = {}
 
