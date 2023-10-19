@@ -31,3 +31,5 @@ jobs:
         make install
     - name: Test
       run: make test
+    - name: Lint
+      run: make lint
