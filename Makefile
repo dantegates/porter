@@ -6,7 +6,7 @@ build:
 		-t ${ARGS} .
 
 test:
-	python -m pytest tests -v --tb=no
+	python -m pytest tests -ra -vv
 
 lint:
 	python -m pylint --errors-only porter
