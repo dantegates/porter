@@ -2,6 +2,8 @@
 
 [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
 
+![tests](https://github.com/github/docs/actions/workflows/tests.yml/badge.svg)
+
 `porter` is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
 
 Simplicity is a core goal of this project. The following 6 lines of code are a fully functional example. While this should the most common use case, `porter` is also designed to be easily extended to cover the remaining cases not supported out of the box.
