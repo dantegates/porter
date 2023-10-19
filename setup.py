@@ -34,6 +34,7 @@ REQUIRED = [
 #
 EXTRAS_REQUIRED = {
     'keras-utils': ['tensorflow>=2.13.0'],
+    'sklearn-utils': ['scikit-learn>=1.3.0'],
 }
 
 EXTRAS_REQUIRED['all'] = [r for requirements in EXTRAS_REQUIRED.values() for r in requirements]
