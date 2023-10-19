@@ -17,11 +17,7 @@ def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
     """
     extension = os.path.splitext(path)[-1]
     if path.startswith('s3://'):
-        if s3_access_key_id is None or s3_secret_access_key is None:
-            raise ValueError(
-                's3_access_key_id and s3_secret_access_key cannot be None '
-                'when loading a resource from S3.')
-        path_or_stream = load_s3(path, s3_access_key_id, s3_secret_access_key)
+        raise ValueError('S3 support has been deprecated')
     else:
         path_or_stream = path
     if extension == '.pkl':
@@ -58,24 +54,3 @@ def load_h5(path):
     import tensorflow as tf
     model = tf.keras.models.load_model(path)
     return model
-
-def load_s3(path, s3_access_key_id, s3_secret_access_key):
-    import boto3
-    import botocore
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=s3_access_key_id,
-        aws_secret_access_key=s3_secret_access_key)
-    bucket, key = split_s3_path(path)
-    # previously, we tried to reinterpret 404s specifically here,
-    # but it's better not to be so tighty coupled to the AWS API
-    stream = io.BytesIO()
-    _ = s3_client.download_fileobj(bucket, key, stream)
-    stream.seek(0)
-    return stream
-
-def split_s3_path(path):
-    if path.startswith('s3://'):
-        _, path = path.split('s3://')
-    bucket, _, key = path.partition('/')
-    return bucket, key
