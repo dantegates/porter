@@ -7,7 +7,7 @@ from .utils import JSONProvider, AppEncoder
 # JSON encoder used to serialize/deserialize request/response data.
 # If used with porter's automatic validations this should return native-like
 # types, such as dict, list, number, str, etc.
-json_encoder = partial(JSONProvider, encoder_factory=AppEncoder)
+json_encoder = partial(JSONProvider, encoder=AppEncoder())
 
 # Configurations for error responses.
 # Including traceback and user data in responses is useful for debugging

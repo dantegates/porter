@@ -11,12 +11,12 @@ import numpy as np
 
 # https://flask.palletsprojects.com/en/2.3.x/changes/#version-2-0-0
 class JSONProvider(_JSONProvider):
-    def __init__(self, *args, encoder_factory, **kwargs):
-        self.__encoder_factory = encoder_factory
+    def __init__(self, *args, encoder, **kwargs):
+        self.__encoder = encoder
         super().__init__(*args, **kwargs)
 
-    def dumps(self, s, **kwargs):
-        return super().dumps(s, cls=self.__encoder_factory)
+    def default(self, s, **kwargs):
+        return self.__encoder.default(s)
 
 
 class NumpyEncoder(json.JSONEncoder):
