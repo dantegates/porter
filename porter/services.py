@@ -20,6 +20,7 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 """
 
 import abc
+import gzip
 import json
 import logging
 import warnings
