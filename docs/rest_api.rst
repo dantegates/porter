@@ -67,8 +67,8 @@ Two health check endpoints are exposed by each ``porter`` app (not for each serv
 
     {
       "app_meta": {},
-      "deployed_on": "2020-04-01T12:00:00.445124",
-      "porter_version": "0.15.3",
+      "deployed_on": "2022-02-18T12:00:00.445124",
+      "porter_version": "0.15.4",
       "request_id": "e59b0ab32fe94ea1a31cb289a36baf51",
       "services": {
         "/my-model/v1/prediction": {

@@ -340,18 +340,23 @@ def make_openapi_spec(title, description, version, request_schemas, response_sch
 
 
 def _init_paths(request_schemas, response_schemas, additional_params):
+    # first ensure we have all endpoints covered
     endpoints = (
         set(request_schemas.keys())
         | set(response_schemas.keys())
         | set(additional_params.keys())
     )
+    # then, if additional_params covers every endpoint, use its ordering
+    if endpoints == set(additional_params.keys()):
+        endpoints = additional_params.keys()
+    # set methods for each endpoint
     endpoint_methods = {
         endpoint: (set(request_schemas.get(endpoint, {}).keys())
                  | set(response_schemas.get(endpoint, {}).keys())
                  | set(additional_params.get(endpoint, {}).keys()))
         for endpoint in endpoints
     }
-    paths = {}
+    # lowercase each method for each endpoint
     return {endpoint: {method.lower(): {} for method in methods}
             for endpoint, methods in endpoint_methods.items()}
 
