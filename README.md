@@ -1,8 +1,11 @@
 # porter
 
-[![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
+| | |
+| --- | --- |
+| Testing | ![Unit Tests](https://github.com/dantegates/porter/actions/workflows/unit-tests.yml/badge.svg) |
+| Documentation |  [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest) |
 
-![Unit Tests](https://github.com/dantegates/porter/actions/workflows/unit-tests.yml/badge.svg)
+
 
 `porter` is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
 
