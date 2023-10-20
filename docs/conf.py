@@ -18,8 +18,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'porter'
-copyright = '2020, Cadent Data Science'
-author = 'Cadent Data Science'
+copyright = '2023, Dante Gates; 2020, Cadent Data Science'
+author = 'Dante Gates'
 
 # The full version, including alpha/beta/rc tags
 import porter

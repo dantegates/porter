@@ -61,7 +61,7 @@ which generates logs (pretty printed for this example only) such as:
     }
 
 
-A full working example can be found in the example script `examples/api_logging.py <https://github.com/CadentTech/porter/blob/master/examples/api_logging.py>`_.
+A full working example can be found in the example script `examples/api_logging.py <https://github.com/dantegates/porter/blob/master/examples/api_logging.py>`_.
 
 User Logging
 ------------

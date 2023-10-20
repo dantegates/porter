@@ -28,7 +28,7 @@ Features include:
 * **Framework-agnostic design**: any object with a `predict()` method will do, which means `porter` plays nicely with [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/), or [xgboost](https://xgboost.readthedocs.io/en/latest/) models. Models that don't fit this pattern can be easily wrapped and used in ``porter``.
 * **OpenAPI integration**: lightweight, Pythonic schema specifications support automatic validation of HTTP request data and generation of API documentation using Swagger.
 * **Boiler plate reduction**: `porter` takes care of API logging and error handling out of the box, and supports streamlined model loading from `.pkl` and `.h5` files stored locally or on AWS S3.
-* **Robust testing**: a comprehensive test suite ensures that you can use `porter` with confidence. Additionally, `porter` has been extensively field tested by the Data Science team at Cadent.
+* **Robust testing**: a comprehensive test suite ensures that you can use `porter` with confidence. Additionally, `porter` has been extensively field tested.
 
 # Installation
 

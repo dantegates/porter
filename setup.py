@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 # Package meta-data.
 NAME = 'porter'
 DESCRIPTION = 'porter is a framework for exposing machine learning models via REST APIs.'
-URL = 'https://github.com/CadentTech/porter'
+URL = 'https://github.com/dantegates/porter'
 REQUIRES_PYTHON = '>=3.9.0'
 
 # What packages are required for this module to be executed?

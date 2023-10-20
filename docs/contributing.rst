@@ -6,13 +6,13 @@ Contributing
 Reaching out
 ------------
 
-To report a bug or request a new feature, describe your situation in the `issue tracker <https://github.com/CadentTech/porter/issues>`_ and use the *bug* or *enhancement* label as appropriate.
+To report a bug or request a new feature, describe your situation in the `issue tracker <https://github.com/dantegates/porter/issues>`_ and use the *bug* or *enhancement* label as appropriate.
 
 
 Submitting code
 ---------------
 
-If you would like to share enhancements to ``porter`` code or documentation, `fork us on GitHub <https://github.com/CadentTech/porter>`_ and make your changes in a new branch; then `submit a pull request <https://github.com/CadentTech/porter/pulls>`_ for review.
+If you would like to share enhancements to ``porter`` code or documentation, `fork us on GitHub <https://github.com/dantegates/porter>`_ and make your changes in a new branch; then `submit a pull request <https://github.com/dantegates/porter/pulls>`_ for review.
 
 For any contributions, we ask that any new behavior be validated by the test suite (discussed below), which must be passing in its entirety.
 
