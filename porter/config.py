@@ -16,7 +16,9 @@ return_message_on_error = True
 return_traceback_on_error = False
 return_user_data_on_error = False
 
-# TODO: if not true api validation is broken
+# TODO: if not true api validation is broken, maybe (?) what we want to do here
+# is raise ``PorterError``s internally. That way we could always preserve
+# errors we raise explicitly.
 # https://github.com/pallets/flask/pull/3266
 preserve_original_exceptions = True
 
