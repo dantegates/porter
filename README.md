@@ -35,12 +35,10 @@ Features include:
 `porter` can be installed with `pip` for `python3.6` and higher as follows:
 
 ```
-pip install -e git+https://github.com/CadentTech/porter#egg=porter[all]
+pip install -e git+https://github.com/dantegates/porter#egg=porter[all]
 ```
 
 For more details, see [this page](https://porter.readthedocs.io/en/latest/installation.html).
 
 # Documentation
 For more information, see the [documentation](https://porter.readthedocs.org).
-
-Copyright (c) 2020 Cadent Data Science
