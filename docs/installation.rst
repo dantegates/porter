@@ -26,10 +26,10 @@ For more details on this topic see `here <https://codeinthehole.com/tips/using-p
 Dependency Selection
 --------------------
 
-``porter`` offers optional support for loading ``keras`` models and for loading models via ``S3``.  To enable each of these options explicitly:
+``porter`` offers optional support for loading ``keras`` models.  To enable each of these options explicitly:
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/CadentTech/porter#egg=porter[keras-utils,s3-utils]
+    pip install -e git+https://github.com/CadentTech/porter#egg=porter[keras-utils]
 
 You can install just one of these additional requirements by removing the undesired name from the list in the brackets above (or you can install without optional dependencies by removing the bracketed list altogether).

@@ -31,14 +31,3 @@ Additionally you can install a ``git`` pre-commit hook to run the test suite eac
 .. code-block:: shell
 
     ./pre-commit-hook install
-
-
-Note that `test_loading.py <https://github.com/CadentTech/porter/blob/master/tests/test_loading.py>`_ requires the following environment variables in order to test ``porter``'s AWS S3 loading capabilities:
-
-.. code-block:: shell
-
-    export PORTER_S3_ACCESS_KEY_ID=[AWS access key id]
-    export PORTER_S3_SECRET_ACCESS_KEY=[AWS secret access key]
-    export PORTER_S3_BUCKET_TEST=[S3 bucket with rw access]
-
-This of course also requires the ``s3-utils`` optional dependency to be enabled.
