@@ -103,8 +103,23 @@ def get_model_context():
     return getattr(flask.g, 'model_context', None)
 
 
-App = flask.Flask
-"""alias of ``flask.app.Flask``."""
+class _PorterJSONProvider(flask.json.provider.DefaultJSONProvider):
+    def __init__(self, *args, encoder, **kwargs):
+        self.__encoder = encoder
+        super().__init__(*args, **kwargs)
+
+    def default(self, s, **kwargs):
+        return self.__encoder.default(s)
+
+
+class App(flask.Flask):
+    """Light wrapper around ``flask.app.Flask``."""
+
+    # Flask's recommendation is to subclass ``flask.app.Flask`` if you need
+    # custom JSON behavior
+    # https://flask.palletsprojects.com/en/3.0.x/api/#flask.json.provider.JSONProvider
+    json_provider_class = functools.partial(_PorterJSONProvider, encoder=cf.json_encoder)
+
 
 def post(*args, data, **kwargs):
     # requests should be considered an optional dependency.

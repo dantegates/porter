@@ -907,7 +907,7 @@ class ModelApp:
         """
 
         # register a custom JSON encoder
-        self.app.json = cf.json_encoder(self.app)
+        # self.app.json = cf.json_encoder
 
         # register error handler for all werkzeug default exceptions
         for error in werkzeug_exc.default_exceptions:
