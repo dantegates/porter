@@ -104,8 +104,8 @@ def get_model_context():
 
 
 class _PorterJSONProvider(flask.json.provider.DefaultJSONProvider):
-    def __init__(self, *args, encoder, **kwargs):
-        self.__encoder = encoder
+    def __init__(self, *args, encoder_factory, **kwargs):
+        self.__encoder = encoder_factory()
         super().__init__(*args, **kwargs)
 
     def default(self, s, **kwargs):
@@ -118,7 +118,7 @@ class App(flask.Flask):
     # Flask's recommendation is to subclass ``flask.app.Flask`` if you need
     # custom JSON behavior
     # https://flask.palletsprojects.com/en/3.0.x/api/#flask.json.provider.JSONProvider
-    json_provider_class = functools.partial(_PorterJSONProvider, encoder=cf.json_encoder)
+    json_provider_class = functools.partial(_PorterJSONProvider, encoder_factory=cf.json_encoder)
 
 
 def post(*args, data, **kwargs):
