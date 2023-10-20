@@ -76,8 +76,9 @@ def make_batch_prediction_response(id_values, predictions):
 
 def make_error_response(error):
     # TODO: this may not be the best place to do this, really we're working
-    # around another `flask`-specific artifact
+    # around another ``flask``-specific artifact
     if cf.preserve_original_exceptions:
+        # On ``flask``'s API:
         # https://github.com/pallets/flask/pull/3266
         if (original_exception := getattr(error, 'original_exception', None)) is not None:
             error = original_exception
