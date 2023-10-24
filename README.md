@@ -1,6 +1,11 @@
 # porter
 
-[![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest)
+| | |
+| --- | --- |
+| Testing | ![Unit Tests](https://github.com/dantegates/porter/actions/workflows/unit-tests.yml/badge.svg) |
+| Documentation |  [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest) |
+
+
 
 `porter` is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
 
@@ -23,19 +28,17 @@ Features include:
 * **Framework-agnostic design**: any object with a `predict()` method will do, which means `porter` plays nicely with [sklearn](https://scikit-learn.org/stable/), [keras](https://keras.io/backend/), or [xgboost](https://xgboost.readthedocs.io/en/latest/) models. Models that don't fit this pattern can be easily wrapped and used in ``porter``.
 * **OpenAPI integration**: lightweight, Pythonic schema specifications support automatic validation of HTTP request data and generation of API documentation using Swagger.
 * **Boiler plate reduction**: `porter` takes care of API logging and error handling out of the box, and supports streamlined model loading from `.pkl` and `.h5` files stored locally or on AWS S3.
-* **Robust testing**: a comprehensive test suite ensures that you can use `porter` with confidence. Additionally, `porter` has been extensively field tested by the Data Science team at Cadent.
+* **Robust testing**: a comprehensive test suite ensures that you can use `porter` with confidence. Additionally, `porter` has been extensively field tested.
 
 # Installation
 
 `porter` can be installed with `pip` for `python3.6` and higher as follows:
 
 ```
-pip install -e git+https://github.com/CadentTech/porter#egg=porter[all]
+pip install -e git+https://github.com/dantegates/porter#egg=porter[all]
 ```
 
 For more details, see [this page](https://porter.readthedocs.io/en/latest/installation.html).
 
 # Documentation
 For more information, see the [documentation](https://porter.readthedocs.org).
-
-Copyright (c) 2020 Cadent Data Science

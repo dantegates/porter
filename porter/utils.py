@@ -12,7 +12,6 @@ class NumpyEncoder(json.JSONEncoder):
     """A JSON encoder that handles ``numpy`` data types."""
 
     def default(self, obj):
-        # print('numpy')
         if isinstance(obj, np.integer):
             return int(obj)
         elif isinstance(obj, np.floating):

@@ -6,7 +6,7 @@
 porter documentation
 ====================
 
-`porter <https://github.com/CadentTech/porter/>`_ is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
+`porter <https://github.com/dantegates/porter/>`_ is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
 
 Simplicity is a core goal of this project. The following 6 lines of code are a fully functional example. While this should be the most common use case, ``porter`` is also designed to be easily extended to cover the remaining cases not supported out of the box.
 
@@ -27,8 +27,8 @@ Features include:
 - **Practical design**: suitable for projects ranging from proof-of-concept to production grade software.
 - **Framework-agnostic design**: any object with a ``predict()`` method will do, which means ``porter`` plays nicely with `sklearn <https://scikit-learn.org/stable/>`_, `keras <https://keras.io/backend/>`_, or `xgboost <https://xgboost.readthedocs.io/en/latest/>`_ models. Models that don't fit this pattern can be easily wrapped and used in ``porter``.
 - **OpenAPI integration**: lightweight, Pythonic schema specifications support automatic validation of HTTP request data and generation of API documentation using Swagger.
-- **Boiler plate reduction**: ``porter`` takes care of API logging and error handling out of the box, and supports streamlined model loading from ``.pkl`` and ``.h5`` files stored locally or on AWS S3.
-- **Robust testing**: ``porter`` includes a comprehensive test suite, and has been extensively field tested by the Data Science team at Cadent.
+- **Boiler plate reduction**: ``porter`` takes care of API logging and error handling out of the box, and supports streamlined model loading from ``.pkl`` and ``.h5`` files stored locally.
+- **Robust testing**: ``porter`` includes a comprehensive test suite, and has been extensively field tested.
 
 
 .. toctree::

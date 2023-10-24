@@ -8,17 +8,17 @@ from setuptools import find_packages, setup
 # Package meta-data.
 NAME = 'porter'
 DESCRIPTION = 'porter is a framework for exposing machine learning models via REST APIs.'
-URL = 'https://github.com/CadentTech/porter'
-REQUIRES_PYTHON = '>=3.6.0'
+URL = 'https://github.com/dantegates/porter'
+REQUIRES_PYTHON = '>=3.9.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
     # package: version
-    'Flask>=1.0.2,<1.1.0',
-    'numpy>=1.15.0',
-    'pandas>=0.23.0',
-    'joblib',
-    'fastjsonschema>=2.14.4',
+    'Flask>=3.0.0,<4.0.0',
+    'numpy>=1.24.0',
+    'pandas>=2.0.0',
+    'joblib>=1.3.0',
+    'fastjsonschema>=2.18.0',
 ]
 
 # These are packages required for non-essential functionality, e.g. loading
@@ -33,8 +33,8 @@ REQUIRED = [
 # https://github.com/seatgeek/fuzzywuzzy#installation
 #
 EXTRAS_REQUIRED = {
-    'keras-utils': ['tensorflow>=1.4.0'],
-    's3-utils': ['boto3>=1.7.65'],
+    'keras-utils': ['tensorflow>=2.13.0'],
+    'sklearn-utils': ['scikit-learn>=1.3.0'],
 }
 
 EXTRAS_REQUIRED['all'] = [r for requirements in EXTRAS_REQUIRED.values() for r in requirements]

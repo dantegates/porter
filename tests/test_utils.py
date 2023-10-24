@@ -50,7 +50,7 @@ class TestPythonEncoder(unittest.TestCase):
         self.assertRegex(actual_traceback, 'File.*test_default.*raise.Exception')
 
         actual_type1 = encoder.default(ValueError('A value error'))
-        expected_type1 = "ValueError('A value error',)"
+        expected_type1 = "ValueError('A value error')"
         self.assertEqual(actual_type1, expected_type1)
 
     def test_with_json_dumps(self):
@@ -59,7 +59,7 @@ class TestPythonEncoder(unittest.TestCase):
         rec = json.loads(dump)
         self.assertEqual(rec['datetime'], NOW.isoformat())
         self.assertEqual(rec['set'], [1, 2])
-        self.assertEqual(rec['exception'], "Exception('foo',)")
+        self.assertEqual(rec['exception'], "Exception('foo')")
 
 
 class TestAppEncoder(unittest.TestCase):
@@ -89,7 +89,7 @@ class TestAppEncoder(unittest.TestCase):
         self.assertRegex(actual_traceback, 'File.*test_default.*raise.Exception')
 
         actual_type1 = encoder.default(ValueError('A value error'))
-        expected_type1 = "ValueError('A value error',)"
+        expected_type1 = "ValueError('A value error')"
         self.assertEqual(actual_type1, expected_type1)
 
         actual_set = encoder.default({1, 2, 3})
@@ -104,7 +104,7 @@ class TestAppEncoder(unittest.TestCase):
              'exception': ValueError('a value error')
             }
         ], cls=AppEncoder)
-        expected = '[{"array": [[1, 2]], "int": 10, "exception": \"ValueError(\'a value error\',)\"}]'
+        expected = '[{"array": [[1, 2]], "int": 10, "exception": \"ValueError(\'a value error\')\"}]'
         self.assertEqual(actual, expected)
 
     def test_edge_case(self):

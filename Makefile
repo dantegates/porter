@@ -6,10 +6,10 @@ build:
 		-t ${ARGS} .
 
 test:
-	python3.6 -m pytest tests -v --tb=no
+	python -m pytest tests -ra -vv
 
 lint:
-	python3.6 -m pylint --errors-only porter
+	python -m pylint --errors-only porter
 
 coverage:
 	coverage run --source porter -m unittest discover -s tests
@@ -17,7 +17,7 @@ coverage:
 	open htmlcov/index.html
 
 install:
-	python3.6 -m pip install .[all]
+	python -m pip install .[all]
 
 docs: install
 	$(MAKE) -C $(shell pwd)/docs html

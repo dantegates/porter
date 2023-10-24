@@ -116,6 +116,7 @@ class TestFunctionService(unittest.TestCase):
         # test additional_checks: zero not allowed
         a = list(range(0, 11))
         r = self.test_app.post(endpoint, data=json.dumps(a))
+        print(r.json)
         self.assertEqual(r.status_code, 422)
 
 
@@ -160,6 +161,7 @@ class TestContracts(unittest.TestCase):
         }
 
         invalid_data_invalid_genre = {
+            "id": 0,
             "user_id": 1,
             "title_id": 19302943284,
             "genre": "isnotvalid",
@@ -167,6 +169,7 @@ class TestContracts(unittest.TestCase):
         }
 
         invalid_data_invalid_average_rating = {
+            "id": 0,
             "user_id": 1,
             "title_id": 19302943284,
             "genre": "action",
@@ -179,7 +182,7 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post(endpoint, data=json.dumps(invalid_data_missing_key))
         self.assertEqual(r.status_code, 422)
-        self.assertIn("data must contain ('average_rating', 'genre', 'id', 'title_id', 'user_id')", r.json['error']['messages'][0])
+        self.assertIn("data must contain ['id']", r.json['error']['messages'][0])
 
         r = self.test_app.post(endpoint, data=json.dumps(invalid_data_invalid_genre))
         self.assertEqual(r.status_code, 422)
@@ -388,8 +391,7 @@ class TestContracts(unittest.TestCase):
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data2))
         self.assertEqual(r.status_code, 422)
-        self.assertIn("data must contain ('an_array', 'another_property', 'string_with_enum_prop', 'yet_another_property')", r.json['error']['messages'][0])
-
+        self.assertIn("data must contain ['an_array', 'another_property', 'string_with_enum_prop', 'yet_another_property']", r.json['error']['messages'][0])
 
         r = self.test_app.post('/custom-service/v1/foo', data=json.dumps(invalid_data_checking_nested_validations1))
         self.assertEqual(r.status_code, 422)

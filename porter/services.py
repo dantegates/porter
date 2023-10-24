@@ -20,6 +20,7 @@ example of running the app in production ``$ gunicorn my_module:model_app``.
 """
 
 import abc
+import gzip
 import json
 import logging
 import warnings
@@ -904,9 +905,6 @@ class ModelApp:
         Returns:
             An instance of :class:`porter.api.App`.
         """
-
-        # register a custom JSON encoder
-        self.app.json_encoder = cf.json_encoder
 
         # register error handler for all werkzeug default exceptions
         for error in werkzeug_exc.default_exceptions:

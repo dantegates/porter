@@ -40,7 +40,7 @@ Now just send a POST request to the endpoint ``/my-model/v1/prediction`` to get 
 
 The model can be any Python object with a ``.predict(X)`` method, where ``X`` is a ``DataFrame`` and the return value is a sequence with one element per row of ``X``.
 
-:meth:`WrappedModel.from_file() <porter.datascience.WrappedModel.from_file()>` supports ``.pkl`` files via `joblib <https://joblib.readthedocs.io/>`_ and ``.h5`` files for `keras <https://keras.io/backend/>`_ models. You can even load from AWS S3 by passing a filename such as ``s3://my-bucket/my-model.pkl``.
+:meth:`WrappedModel.from_file() <porter.datascience.WrappedModel.from_file()>` supports ``.pkl`` files via `joblib <https://joblib.readthedocs.io/>`_ and ``.h5`` files for `keras <https://keras.io/backend/>`_ models.
 
 Multiple models can be served by a single app simply by passing additional services to :class:`porter.services.ModelApp`.
 
