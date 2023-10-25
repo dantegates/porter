@@ -15,6 +15,8 @@ Types of Changes:
 
 ## [Unreleased]
 
+## [v0.16.0-alpha] - 2023-10-25
+
 ### Changed
 - `porter`'s dependencies have been upgraded to `Flask>=3.0.0`
 - Removed references to `CadentTech` and updated `LICENSE`
