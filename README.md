@@ -32,7 +32,7 @@ Features include:
 
 # Installation
 
-`porter` can be installed with `pip` for `python3.6` and higher as follows:
+`porter` can be installed with `pip` for `python3.9` and higher as follows:
 
 ```
 pip install -e git+https://github.com/dantegates/porter#egg=porter[all]

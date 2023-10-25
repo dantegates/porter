@@ -5,3 +5,5 @@ htmlcov/
 porter.egg-info/
 __pycache__/
 build/
+dist/*
+porter_apis.egg-info/*

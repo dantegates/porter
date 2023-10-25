@@ -1,5 +1,5 @@
 [project]
-name = "porter"
+name = "porter-apis"
 version = "0.16.0"
 authors = [
   { name="Dante Gates", email="dantedgates@gmail.com" },
@@ -14,8 +14,8 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://github.com/dantegates/porter"
+"Bug Tracker" = "https://github.com/dantegates/porter/issues"
 
 [build-system]
 requires = ["setuptools>=61.0"]
