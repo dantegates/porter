@@ -1,6 +1,5 @@
 [project]
-name = "porter-apis"
-version = "0.16.0-beta"
+name = "schmorter"
 authors = [
   { name="Dante Gates", email="dantedgates@gmail.com" },
 ]
@@ -13,6 +12,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+dynamic = ["dependencies", "optional-dependencies", "version"]
+
 [project.urls]
 "Homepage" = "https://github.com/dantegates/porter"
 "Bug Tracker" = "https://github.com/dantegates/porter/issues"
@@ -20,3 +21,6 @@ classifiers = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "porter.__version__"}
