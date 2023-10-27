@@ -4,7 +4,9 @@
 | --- | --- |
 | Testing | ![Unit Tests](https://github.com/dantegates/porter/actions/workflows/unit-tests.yml/badge.svg) |
 | Documentation |  [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest) |
-| Meta | [![License](./LICENSE)](https://img.shields.io/pypi/l/schmorter) [![PyPI](https://pypi.org/project/schmorter/)](https://img.shields.io/pypi/v/schmorter) [![Python](https://pypi.org/project/schmorter/)](https://img.shields.io/pypi/pyversions/schmorter.svg|
+| Meta | [![License](https://img.shields.io/pypi/l/schmorter)](./LICENSE) [![PyPI](https://img.shields.io/pypi/v/schmorter)](https://pypi.org/project/schmorter/) [![Python](https://img.shields.io/pypi/pyversions/schmorter.svg)](https://pypi.org/project/schmorter/) |
+
+
 
 
 `porter` is a framework for data scientists who want to quickly and reliably deploy machine learning models as REST APIs. 
