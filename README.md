@@ -35,7 +35,7 @@ Features include:
 `porter` can be installed with `pip` for `python3.9` and higher as follows:
 
 ```
-pip install -e git+https://github.com/dantegates/porter#egg=porter[all]
+pip install porter-schmorter  # because porter was taken
 ```
 
 For more details, see [this page](https://porter.readthedocs.io/en/latest/installation.html).
