@@ -15,6 +15,12 @@ Types of Changes:
 
 ## [Unreleased]
 
+### Changed
+- Migrated fully from `setup.py` to `pyproject.toml` [#5](https://github.com/dantegates/porter/pull/5)
+- Use name `porter-schmorter` for PyPI [#5](https://github.com/dantegates/porter/pull/5)
+- Removed explicit references to `Python 3.6`
+
+
 ## [v0.16.0-alpha] - 2023-10-25
 
 ### Changed
