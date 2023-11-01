@@ -2,34 +2,30 @@
 Installation
 ============
 
-``porter`` can be installed with ``pip`` for ``python3.6`` and higher as follows:
+``porter`` can be installed with ``pip`` for ``python3.9`` and higher as follows:
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/dantegates/porter#egg=porter[all]
-
-Note that without the ``-e`` flag and ``#egg=porter`` on the end of the url ``pip freeze`` will output ``porter==<version>`` rather than ``-e git+https://...`` as typically desired.
+    pip install porter-schmorter  # because porter was taken
 
 
 Version Selection
 -----------------
 
-If you want to install ``porter`` from a specific commit or tag, e.g. tag ``1.0.0`` simply add ``@<commit-or-tag>`` immediately before ``#egg=porter``:
+If you want to install ``porter`` from a specific version, simply add ``==<version>``:
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/dantegates/porter@1.0.0#egg=porter
-
-For more details on this topic see `here <https://codeinthehole.com/tips/using-pip-and-requirementstxt-to-install-from-the-head-of-a-github-branch/>`_.
+    pip install porter-schmorter==<version>
 
 
 Dependency Selection
 --------------------
 
-``porter`` offers optional support for loading ``keras`` models.  To enable each of these options explicitly:
+``porter`` offers optional support for loading ``sklearn`` and ``keras`` models.  To enable each of these options explicitly:
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/dantegates/porter#egg=porter[keras-utils]
+    pip install -e git+https://github.com/dantegates/porter#egg=porter[sklearn-utils,keras-utils]
 
 You can install just one of these additional requirements by removing the undesired name from the list in the brackets above (or you can install without optional dependencies by removing the bracketed list altogether).
