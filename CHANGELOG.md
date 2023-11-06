@@ -15,6 +15,8 @@ Types of Changes:
 
 ## [Unreleased]
 
+## [v0.16.0] - 2023-10-25
+
 ### Changed
 - Migrated fully from `setup.py` to `pyproject.toml` [#5](https://github.com/dantegates/porter/pull/5)
 - Use name `porter-schmorter` for PyPI [#5](https://github.com/dantegates/porter/pull/5)
@@ -22,8 +24,6 @@ Types of Changes:
 
 ### Fixed
 - Sphinx build: use `add_stylesheet` -> `add_css_file` [#5](https://github.com/dantegates/porter/pull/5)
-
-## [v0.16.0-alpha] - 2023-10-25
 
 ### Changed
 - `porter`'s dependencies have been upgraded to `Flask>=3.0.0`
