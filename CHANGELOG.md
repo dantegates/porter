@@ -15,6 +15,11 @@ Types of Changes:
 
 ## [Unreleased]
 
+## [v0.16.2] - 2023-11-06
+
+### Fixed
+- Package build was not including `porter.schemas` [#6](https://github.com/dantegates/porter/pull/6)
+
 ## [v0.16.0] - 2023-10-25
 
 ### Changed
