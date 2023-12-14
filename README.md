@@ -4,7 +4,7 @@
 | --- | --- |
 | Testing | ![Unit Tests](https://github.com/dantegates/porter/actions/workflows/unit-tests.yml/badge.svg) |
 | Documentation |  [![Documentation Status](https://readthedocs.org/projects/porter/badge/?version=latest)](https://porter.readthedocs.io/en/latest/?badge=latest) |
-| Meta | [![License](https://img.shields.io/pypi/l/schmorter)](./LICENSE) [![PyPI](https://img.shields.io/pypi/v/schmorter)](https://pypi.org/project/schmorter/) [![Python](https://img.shields.io/pypi/pyversions/schmorter.svg)](https://pypi.org/project/schmorter/) |
+| Meta | [![License](https://img.shields.io/pypi/l/porter-schmorter)](./LICENSE) [![PyPI](https://img.shields.io/pypi/v/porter-schmorter)](https://pypi.org/project/porter-schmorter/) [![Python](https://img.shields.io/pypi/pyversions/porter-schmorter.svg)](https://pypi.org/project/porter-schmorter/) |
 
 
 
