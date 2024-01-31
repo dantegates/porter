@@ -58,30 +58,13 @@ master_doc = 'index'
 
 # -- Options for HTML output -------------------------------------------------
 
-
-# on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
-import os
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'                           
-                                                                                 
-if not on_rtd:  # only import and set the theme if we're building docs locally   
-    import sphinx_rtd_theme                                                      
-    html_theme = 'sphinx_rtd_theme'                                              
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]                   
-    # Override default css to get a larger width for local build                 
-    def setup(app):                                                              
-        #app.add_javascript("custom.js")                                         
-        app.add_css_file('theme_overrides.css')                                
-else:                                                                            
-    # Override default css
-    html_context = {
-        'css_files': [
-            'https://media.readthedocs.org/css/sphinx_rtd_theme.css',
-            'https://media.readthedocs.org/css/readthedocs-doc-embed.css',
-            '_static/theme_overrides.css',
-        ],                                                                       
-    }
-
-
+import sphinx_rtd_theme
+html_theme = 'sphinx_rtd_theme'                                              
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]                   
+# Override default css to get a larger width for local build                 
+def setup(app):                                                              
+    #app.add_javascript("custom.js")                                         
+    app.add_css_file('theme_overrides.css')                                
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
