@@ -15,6 +15,12 @@ Types of Changes:
 
 ## [Unreleased]
 
+### Changed
+- `keras` support now comes from [`keras` 3](https://keras.io/getting_started/#installing-keras-3), which supports multiple backends.
+
+### Fixed
+- Failing unit tests [#7](https://github.com/dantegates/porter/pull/7)
+
 ## [v0.16.2] - 2023-11-06
 
 ### Fixed
