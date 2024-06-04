@@ -50,10 +50,26 @@ class TestLoadingKeras(unittest.TestCase):
         cls.predictions = cls.model.predict(cls.X)
         super().setUpClass()
 
+    def test_load_keras(self):
+        with tempfile.NamedTemporaryFile(suffix='.keras') as tmp:
+            tf.keras.models.save_model(self.model, tmp.name)
+            loaded_model = loading.load_keras(tmp.name)
+        actual_predictions = loaded_model.predict(self.X)
+        expected_predictions = self.predictions
+        self.assertTrue(np.allclose(actual_predictions, expected_predictions))
+
+    def test_load_file_keras(self):
+        with tempfile.NamedTemporaryFile(suffix='.keras') as tmp:
+            tf.keras.models.save_model(self.model, tmp.name)
+            loaded_model = loading.load_file(tmp.name)
+        actual_predictions = loaded_model.predict(self.X)
+        expected_predictions = self.predictions
+        self.assertTrue(np.allclose(actual_predictions, expected_predictions))
+
     def test_load_h5(self):
         with tempfile.NamedTemporaryFile(suffix='.h5') as tmp:
             tf.keras.models.save_model(self.model, tmp.name)
-            loaded_model = loading.load_h5(tmp.name)
+            loaded_model = loading.load_keras(tmp.name)
         actual_predictions = loaded_model.predict(self.X)
         expected_predictions = self.predictions
         self.assertTrue(np.allclose(actual_predictions, expected_predictions))
