@@ -25,9 +25,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-keras-utils = ["tensorflow>=2.13.0"]
+keras-utils = ["keras>=3.0"]
 sklearn-utils = ["scikit-learn>=1.3.0"]
-dev = ["pytest", "sphinx", "sphinx_rtd_theme"]
+# `tensorflow` is a dev dependency because we need it to test `keras` loading
+# utilities, but don't want to impose it as the default backend for `keras`
+# users by adding it to the `keras-utils`.
+# Importantly, it needs to be >=2.16, see
+# https://keras.io/getting_started/#tensorflow--keras-2-backwards-compatibility
+dev = ["pytest", "sphinx", "sphinx_rtd_theme", "tensorflow>=2.16"]
 all = ["porter-schmorter[keras-utils,sklearn-utils,dev]"]
 
 [project.urls]

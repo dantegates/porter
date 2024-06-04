@@ -8,6 +8,12 @@ import tempfile
 import joblib
 
 
+_keras_extensions = (
+    '.h5',
+    '.keras',
+)
+
+
 def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
     """Load a file and return the result.
 
@@ -22,7 +28,7 @@ def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
         path_or_stream = path
     if extension == '.pkl':
         obj = load_pkl(path_or_stream)
-    elif extension == '.h5':
+    elif extension in _keras_extensions:
         # keras does not support loading a model from stream like joblib does.
         # as a workaround write the stream to a temporary file and load from
         # there.
@@ -35,9 +41,9 @@ def load_file(path, s3_access_key_id=None, s3_secret_access_key=None):
                     # like path_or_stream.read() would.
                     # https://docs.python.org/3/library/io.html#io.BytesIO.getbuffer
                     f.write(path_or_stream.getbuffer())
-                obj = load_h5(tmp.name)
+                obj = load_keras(tmp.name)
         else:
-            obj = load_h5(path_or_stream)
+            obj = load_keras(path_or_stream)
     else:
         raise ValueError('unkown file type')
     return obj
@@ -49,8 +55,8 @@ def load_pkl(path):
 
 # on the reasonableness of imports inside a function, see
 # https://stackoverflow.com/questions/3095071/in-python-what-happens-when-you-import-inside-of-a-function/3095167#3095167
-def load_h5(path):
+def load_keras(path):
     """Load and return an object stored in h5 with ``tensorflow``."""
-    import tensorflow as tf
-    model = tf.keras.models.load_model(path)
+    import keras
+    model = keras.models.load_model(path)
     return model
