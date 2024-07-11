@@ -587,6 +587,12 @@ class PredictionService(BaseService):
             validate outputs if `validate_request_data=True` and document the
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
+        feature_columns (list or None): Names of the features to use for prediction.
+            These must be a subset of the features passed on the POST request data, and
+            are the only values passed to ``model.predict()``. If ``None`` all POST data
+            is passed through. Defaults to None.
+        infer_feature_columns (bool): Whether to infer ``feature_columns`` from the keys
+            in ``feature_schema`` when ``feature_columns is None``.
         request_schema (:class:`porter.schemas.Object` or None) Description of valid
             request format, including instance IDs, and wrapped as Array if
             ``batch_prediction=True``.  Can be used for validation outside of ``porter``.
