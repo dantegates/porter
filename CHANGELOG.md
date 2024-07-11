@@ -15,6 +15,11 @@ Types of Changes:
 
 ## [Unreleased]
 
+## [v0.16.3] - 2024-07-11
+
+### Added
+- `feature_columns` can be passed explicitly to `PredictionService` or can be (optionally) inferred from `feature_schema` [#8](https://github.com/dantegates/porter/pull/8)
+
 ### Changed
 - `keras` support now comes from [`keras` 3](https://keras.io/getting_started/#installing-keras-3), which supports multiple backends.
 
