@@ -602,7 +602,8 @@ class PredictionService(BaseService):
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  action='prediction', batch_prediction=True,
                  additional_checks=None, feature_schema=None,
-                 prediction_schema=None, **kwargs):
+                 prediction_schema=None, feature_columns=None,
+                 infer_feature_columns=True, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -622,7 +623,10 @@ class PredictionService(BaseService):
         self.prediction_schema = prediction_schema
         self.request_schema = None
         self.response_schema = None
-        if self.feature_schema is not None:
+        self.infer_feature_columns = infer_feature_columns
+        if feature_columns is not None:
+            self.feature_columns = feature_columns
+        elif self.feature_schema is not None and self.infer_feature_columns:
             self._add_feature_schema(self.feature_schema)
             self.feature_columns = list(self.feature_schema.properties.keys())
         else:
@@ -684,6 +688,10 @@ class PredictionService(BaseService):
         # columns (all features provided in ``feature_schema``) if provided.
         # This allows the user to fully anticipate what features are passed
         # to the preprocessor.
+        #
+        # Additionally, this allows users to pass through additional columns
+        # that are not features, per se, but might be useful for, e.g.,
+        # postprocessing
         if self.feature_columns:
             X_preprocessed = X_input[self.feature_columns]
         else:
