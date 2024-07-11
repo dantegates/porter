@@ -15,6 +15,8 @@ Types of Changes:
 
 ## [Unreleased]
 
+## [v0.16.3] - 2024-07-11
+
 ### Added
 - `feature_columns` can be passed explicitly to `PredictionService` or can be (optionally) inferred from `feature_schema` [#8](https://github.com/dantegates/porter/pull/8)
 
