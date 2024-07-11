@@ -587,6 +587,12 @@ class PredictionService(BaseService):
             validate outputs if `validate_request_data=True` and document the
             API if added to an instance of `ModelApp` where
             `expose_docs=True`.
+        feature_columns (list or None): Names of the features to use for prediction.
+            These must be a subset of the features passed on the POST request data, and
+            are the only values passed to ``model.predict()``. If ``None`` all POST data
+            is passed through. Defaults to None.
+        infer_feature_columns (bool): Whether to infer ``feature_columns`` from the keys
+            in ``feature_schema`` when ``feature_columns is None``.
         request_schema (:class:`porter.schemas.Object` or None) Description of valid
             request format, including instance IDs, and wrapped as Array if
             ``batch_prediction=True``.  Can be used for validation outside of ``porter``.
@@ -602,7 +608,8 @@ class PredictionService(BaseService):
     def __init__(self, *, model, preprocessor=None, postprocessor=None,
                  action='prediction', batch_prediction=True,
                  additional_checks=None, feature_schema=None,
-                 prediction_schema=None, **kwargs):
+                 prediction_schema=None, feature_columns=None,
+                 infer_feature_columns=True, **kwargs):
         self.model = model
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -622,7 +629,10 @@ class PredictionService(BaseService):
         self.prediction_schema = prediction_schema
         self.request_schema = None
         self.response_schema = None
-        if self.feature_schema is not None:
+        self.infer_feature_columns = infer_feature_columns
+        if feature_columns is not None:
+            self.feature_columns = feature_columns
+        elif self.feature_schema is not None and self.infer_feature_columns:
             self._add_feature_schema(self.feature_schema)
             self.feature_columns = list(self.feature_schema.properties.keys())
         else:
@@ -684,6 +694,10 @@ class PredictionService(BaseService):
         # columns (all features provided in ``feature_schema``) if provided.
         # This allows the user to fully anticipate what features are passed
         # to the preprocessor.
+        #
+        # Additionally, this allows users to pass through additional columns
+        # that are not features, per se, but might be useful for, e.g.,
+        # postprocessing
         if self.feature_columns:
             X_preprocessed = X_input[self.feature_columns]
         else:
