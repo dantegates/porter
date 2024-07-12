@@ -15,6 +15,14 @@ Types of Changes:
 
 ## [Unreleased]
 
+## [v0.16.5] - 2024-07-12
+
+## Fixed
+
+- Register feature schema when `feature_columns` are explicitly passed to `PredictionService` [#10](https://github.com/dantegates/porter/pulls)
+
+## [v0.16.4] - 2024-07-12
+
 ### Added
 - Provisional hook for formatting the response data from `PredictionService` [#9](https://github.com/dantegates/porter/pull/9)
 
