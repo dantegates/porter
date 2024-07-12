@@ -714,13 +714,7 @@ class PredictionService(BaseService):
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
-        # finally format the predictions and return
-        if self.batch_prediction:
-            response = porter_responses.make_batch_prediction_response(X_input[_ID], preds)
-        else:
-            response = porter_responses.make_prediction_response(X_input[_ID].iloc[0], preds[0])
-
-        return response
+        return self._format_response(X_input[_ID], preds)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a ``pandas.DataFrame``.
@@ -778,6 +772,14 @@ class PredictionService(BaseService):
         # TODO: should a description be passed?
         # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
+
+    def _format_response(self, id_, preds):
+        # finally format the predictions and return
+        if self.batch_prediction:
+            response = porter_responses.make_batch_prediction_response(id_, preds)
+        else:
+            response = porter_responses.make_prediction_response(id_.iloc[0], preds[0])
+        return response
 
 
 class ModelApp:
