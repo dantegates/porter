@@ -714,7 +714,8 @@ class PredictionService(BaseService):
         if self._postprocess_model_output:
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
-        return self._format_response(X_input[_ID], preds)
+        # finally format the predictions and return
+        return self._format_response(X_input, X_preprocessed, preds)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a ``pandas.DataFrame``.
@@ -773,8 +774,15 @@ class PredictionService(BaseService):
         # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
 
-    def _format_response(self, id_, preds):
-        # finally format the predictions and return
+    def _format_response(self, X_input, X_preprocessed, preds):
+        """
+        Reshape predictions in "response format" accordingly for batch or instance
+        prediction.
+
+        Args:
+            id_: 
+        """
+        id_ = X_input[_ID]
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(id_, preds)
         else:
