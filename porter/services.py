@@ -730,6 +730,28 @@ class PredictionService(BaseService):
             data = [data]
         return pd.DataFrame(data)
 
+    def _format_response(self, X_input, X_preprocessed, preds):
+        """
+        Reshape predictions in "response format" accordingly for batch or instance
+        prediction.
+
+        Args:
+            X_input (``pandas.DataFrame``): The raw input from a POST request
+                converted to a ``pandas.DataFrame``.
+            X_preprocessed: The POST request data with preprocessing applied.
+            predictions: The output of an instance of :class:`BaseModel`.
+
+        Returns:
+            object: A "jsonified" object representing the response to return
+                to the user.
+        """
+        id_ = X_input[_ID]
+        if self.batch_prediction:
+            response = porter_responses.make_batch_prediction_response(id_, preds)
+        else:
+            response = porter_responses.make_prediction_response(id_.iloc[0], preds[0])
+        return response
+
     def _add_feature_schema(self, user_schema):
         assert isinstance(user_schema, schemas.Object), '``feature_schema`` must be an Object'
         # add ID to schema
