@@ -715,7 +715,7 @@ class PredictionService(BaseService):
             preds = self.postprocessor.process(X_input, X_preprocessed, preds)
 
         # finally format the predictions and return
-        return self.format_response(X_input, X_preprocessed, preds)
+        return self._format_response(X_input, X_preprocessed, preds)
 
     def get_post_data(self):
         """Return data from the most recent POST request as a ``pandas.DataFrame``.
@@ -730,7 +730,7 @@ class PredictionService(BaseService):
             data = [data]
         return pd.DataFrame(data)
 
-    def format_response(self, X_input, X_preprocessed, preds):
+    def _format_response(self, X_input, X_preprocessed, preds):
         """
         Reshape predictions in "response format" accordingly for batch or instance
         prediction.
