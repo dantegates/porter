@@ -15,6 +15,9 @@ Types of Changes:
 
 ## [Unreleased]
 
+### Added
+- Provisional hook for formatting the response data from `PredictionService` [#9](https://github.com/dantegates/porter/pull/9)
+
 ## [v0.16.3] - 2024-07-11
 
 ### Added
