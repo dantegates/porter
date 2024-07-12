@@ -630,13 +630,19 @@ class PredictionService(BaseService):
         self.request_schema = None
         self.response_schema = None
         self.infer_feature_columns = infer_feature_columns
-        if feature_columns is not None:
-            self.feature_columns = feature_columns
-        elif self.feature_schema is not None and self.infer_feature_columns:
+
+        if self.feature_schema is not None:
             self._add_feature_schema(self.feature_schema)
-            self.feature_columns = list(self.feature_schema.properties.keys())
-        else:
-            self.feature_columns = None
+
+        # infer `feature_columns` _only if_ they were not explicitly passed
+        # a feature schema is available and that is the desired behavior
+        if (feature_columns is None
+            and self.feature_schema is not None
+            and self.infer_feature_columns
+        ):
+            feature_columns = list(self.feature_schema.properties.keys())
+        self.feature_columns = feature_columns
+
         # if None, we'll add the default schema anyway
         self._add_prediction_schema(self.prediction_schema)
 
@@ -795,6 +801,21 @@ class PredictionService(BaseService):
         # TODO: should a description be passed?
         # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
+
+    def _format_response(self, X_input, X_preprocessed, preds):
+        """
+        Reshape predictions in "response format" accordingly for batch or instance
+        prediction.
+
+        Args:
+            id_: 
+        """
+        id_ = X_input[_ID]
+        if self.batch_prediction:
+            response = porter_responses.make_batch_prediction_response(id_, preds)
+        else:
+            response = porter_responses.make_prediction_response(id_.iloc[0], preds[0])
+        return response
 
 
 class ModelApp:
