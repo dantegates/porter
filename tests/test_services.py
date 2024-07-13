@@ -406,6 +406,39 @@ class TestPredictionServicePredict(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '.*callable.*'):
             prediction_service = PredictionService(model=None, additional_checks=1)
 
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_constructor_feature_columns_pass_explicit(self):
+        prediction_service = PredictionService(
+            model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4}, feature_columns=['a', 'bc', 'd'])
+        expected = ['a', 'bc', 'd']
+        self.assertEqual(prediction_service.feature_columns, expected)
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_constructor_feature_columns_infer(self):
+        prediction_service = PredictionService(
+            model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4},
+            infer_feature_columns=True,
+            feature_schema=schemas.Object(properties={'a': schemas.Number(), 'b': schemas.String()}))
+        expected = ['a', 'b']
+        self.assertEqual(prediction_service.feature_columns, expected)
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_constructor_feature_columns_no_infer(self):
+        prediction_service = PredictionService(
+            model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4},
+            infer_feature_columns=False,
+            feature_schema=schemas.Object(properties={'a': schemas.Number(), 'b': schemas.String()}))
+        expected = None
+        self.assertIs(prediction_service.feature_columns, expected)
+
+    @mock.patch('porter.services.BaseService._ids', set())
+    def test_constructor_feature_columns_priority_default(self):
+        prediction_service = PredictionService(
+            model=None, name='foo', api_version='bar', meta={'1': '2', '3': 4},
+            feature_columns=['z', '1', 'four'],
+            feature_schema=schemas.Object(properties={'a': schemas.Number(), 'b': schemas.String()}))
+        expected = ['z', '1', 'four']
+        self.assertEqual(prediction_service.feature_columns, expected)
 
 class TestPredictionServiceSchemas(unittest.TestCase):
     """Test the schema methods of PredictionService."""
