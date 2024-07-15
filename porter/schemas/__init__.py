@@ -2,7 +2,7 @@
 
 import warnings
 
-from .openapi import (Array, Boolean, Integer, Number, Object, RequestSchema,
+from .openapi import (Array, Boolean, Integer, Number, Object, OneOf, RequestSchema,
                       ResponseSchema, String, make_docs_html,
                       make_openapi_spec)
 from .schemas import (app_meta, error_body, error_messages, error_name,
@@ -11,7 +11,7 @@ from .schemas import (app_meta, error_body, error_messages, error_name,
                       request_id)
 
 __all__ = [
-    'Array', 'Boolean', 'Integer', 'Number', 'Object', 'RequestSchema',
+    'Array', 'Boolean', 'Integer', 'Number', 'Object', 'OneOf', 'RequestSchema',
     'ResponseSchema', 'String', 'make_docs_html', 'make_openapi_spec',
     'app_meta', 'error_body', 'error_messages', 'error_name',
     'error_traceback', 'generic_error', 'health_check', 'model_context',

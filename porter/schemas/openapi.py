@@ -61,18 +61,20 @@ class ApiObject:
                 definition of `self` and the second contains any references.
         """
         with _RefContext() as ref_context:
-            openapi_spec = dict(type=self._openapi_type_name, description=self.description, **self.additional_params)
-            openapi_spec.update(self._customized_openapi())
+            openapi_spec = self._openapi_spec()
             if self.reference_name is not None and not _RefContext.context_ignore_refs():
                 _RefContext.add_ref(self.reference_name, openapi_spec)
-                return {'$ref': f'#/components/schemas/{self.reference_name}'}, ref_context.schemas
+                return {'$ref': _to_ref(self)}, ref_context.schemas
         return openapi_spec, ref_context.schemas
 
-    def _customized_openapi(self):
-        """Return a mapping of custom values to be added to the OpenAPI spec.
-        Values specified here will override any defaults.
+    def _openapi_spec(self):
+        """Return a Pythonic representation of the OpenAPI spec, e.g.
+        {
+            'type': 'string',
+            'description': 'my string'
+        }
         """
-        return {}
+        return dict(type=self._openapi_type_name, description=self.description, **self.additional_params)
 
     @property
     def _openapi_type_name(self):
@@ -135,8 +137,10 @@ class Array(ApiObject):
         self.item_type = item_type
         super().__init__(*args, **kwargs)
 
-    def _customized_openapi(self):
-        return {'items': self.item_type.to_openapi()[0]}
+    def _openapi_spec(self):
+        spec = super()._openapi_spec()
+        spec.update({'items': self.item_type.to_openapi()[0]})
+        return spec
 
 class Object(ApiObject):
     """Object type."""
@@ -168,17 +172,50 @@ class Object(ApiObject):
                 self.required = tuple(required)
         super().__init__(*args, **kwargs)
 
-    def _customized_openapi(self):
-        spec = {}
+    def _openapi_spec(self):
+        base_spec = super()._openapi_spec()
+        object_spec = {}
         if self.properties is not None:
-            spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
-            spec['required'] = self.required
+            object_spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
+            object_spec['required'] = self.required
         if self.additional_properties_type is not None:
             if hasattr(self.additional_properties_type, 'to_openapi'):
-                spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
+                object_spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
             else:
-                spec['additionalProperties'] = self.additional_properties_type
-        return spec
+                object_spec['additionalProperties'] = self.additional_properties_type
+        base_spec.update(object_spec)
+        return base_spec
+
+
+class OneOf(ApiObject):
+    def __init__(self, description=None, *, definitions=None):
+        self.description = description
+        self.definitions = definitions
+        super().__init__()
+
+    def _openapi_spec(self):
+        return {'oneOf': _substitute_refs(self.definitions), 'description': self.description}
+
+
+def _substitute_refs(obj):
+    def is_ref(v):
+        return isinstance(v, ApiObject) and v.reference_name is not None
+
+    if isinstance(obj, list):
+        obj = [
+            _substitute_refs(v) if not is_ref(v) else _to_ref(v)
+            for v in obj
+        ]
+    elif isinstance(obj, dict):
+        obj = {
+            k: _substitute_refs(v) if not is_ref(v) else _to_ref(v)
+            for k, v in obj.items()
+        }
+    return obj
+
+
+def _to_ref(api_object):
+    return f'#/components/schemas/{api_object.reference_name}'
 
 
 class _RefContext:

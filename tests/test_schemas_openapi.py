@@ -11,7 +11,7 @@ to_openapi() must be working as well.
 import unittest
 
 from porter.schemas import (String, Number, Integer, Boolean,
-                            Array, Object,
+                            Array, Object, OneOf,
                             RequestSchema, ResponseSchema)
 
 
@@ -238,6 +238,20 @@ class TestObject(unittest.TestCase):
                 b=dict(x=1, y=2, z=3),
                 pi=3.1416,
             ))
+
+
+class TestOneOf(unittest.TestCase):
+    def test_boolean(self):
+        # check only True/False accepted
+        b = OneOf('a boolean', definitions=[String(), Number()])
+        oi = b.to_openapi()[0]
+        self.assertEqual(oi['oneOf'], [{'type': 'string'}, {'type': 'number'}])
+        # self.assertEqual(oi['description'], 'a boolean')
+        # b.validate(False)
+        # b.validate(True)
+        # with self.assertRaisesRegex(
+        #         ValueError, 'Schema validation failed: data must be boolean'):
+        #     b.validate('true')
 
 
 class TestRequestSchema(unittest.TestCase):
