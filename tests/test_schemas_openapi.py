@@ -179,29 +179,14 @@ class TestArray(unittest.TestCase):
                 ValueError, 'Schema validation failed: data must be array'):
             a.validate(None)
 
+    def test_nullable_item_type(self):
+        # check nullable
+        a = Array('is nullable', item_type=Integer(nullable=True))
+        a.validate([1])
+        a.validate([1, None])
+
+
 class TestObject(unittest.TestCase):
-
-    def setUp(self):
-        # complex object
-        self.o = Object(
-            properties=dict(
-                a=Object(
-                    properties=dict(
-                        aa=String(additional_params=dict(minLength=3)),
-                        bb=Object(
-                            properties=dict(
-                                ccc=Array(
-                                    item_type=Integer(),
-                                    additional_params=dict(minItems=3))
-                            )
-                        )
-                    )
-                ),
-                b=Object(additional_properties_type=Integer())
-            ),
-            additional_properties_type=Integer(),
-        )
-
     def test_simple(self):
         # check flat object validation
         o = Object(
@@ -242,7 +227,6 @@ class TestObject(unittest.TestCase):
                 ValueError, 'Schema validation failed: data must be object'):
             o.validate(None)
 
-    # @unittest.skip('working on support for this')
     def test_nested_nullable(self):
         # check nullable
         o = Object('is nullable', additional_properties_type=Integer(nullable=True))
@@ -254,6 +238,33 @@ class TestObject(unittest.TestCase):
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data.a must be integer'):
             o.validate({'a': None})
+
+    def test_additional_properties_type(self):
+        o = Object('is nullable', additional_properties_type=Integer(nullable=True))
+        o.validate({'a': 1, 'b': None})
+
+
+class TestComplexObject(unittest.TestCase):
+    def setUp(self):
+        # complex object
+        self.o = Object(
+            properties=dict(
+                a=Object(
+                    properties=dict(
+                        aa=String(additional_params=dict(minLength=3), nullable=True),
+                        bb=Object(
+                            properties=dict(
+                                ccc=Array(
+                                    item_type=Integer(nullable=True),
+                                    additional_params=dict(minItems=3))
+                            )
+                        )
+                    )
+                ),
+                b=Object(additional_properties_type=Integer())
+            ),
+            additional_properties_type=Integer(),
+        )
 
     def test_object_success(self):
         # check complex object that is valid
@@ -267,6 +278,46 @@ class TestObject(unittest.TestCase):
             b=dict(x=1, y=2, z=3),
             c=3 * 10**8,
         ))
+
+    def test_object_success_nullable_allowed1(self):
+        # check complex object that is valid
+        self.o.validate(dict(
+            a=dict(
+                aa=None,
+                bb=dict(
+                    ccc=[1,2,3]
+                )
+            ),
+            b=dict(x=1, y=2, z=3),
+            c=3 * 10**8,
+        ))
+
+    def test_object_success_nullable_allowed2(self):
+        # check complex object that is valid
+        self.o.validate(dict(
+            a=dict(
+                aa='123',
+                bb=dict(
+                    ccc=[1,None,3]
+                )
+            ),
+            b=dict(x=1, y=2, z=3),
+            c=3 * 10**8,
+        ))
+
+    def test_object_success_nullable_not_allowed(self):
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data.c must be integer'):
+            self.o.validate(dict(
+                a=dict(
+                    aa='123',
+                    bb=dict(
+                        ccc=[1,None,3]
+                    )
+                ),
+                b=dict(x=1, y=2, z=3),
+                c=None,
+            ))
 
     def test_object_missing_key(self):
         # check missing nested field
