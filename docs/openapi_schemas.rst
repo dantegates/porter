@@ -7,7 +7,7 @@ OpenAPI Schemas
 
 .. note::
 
-    Currently ``porter`` validates data against OpenAPI schemas by leveraging `fastjsonschema <https://github.com/horejsek/python-fastjsonschema>`_. This implies that ``porter`` currently only supports the intersection of OpenAPI and `JSONSchema <https://json-schema.org/>`_ which is described `here <https://swagger.io/docs/specification/data-models/keywords/>`_.
+    Aside from a few exceptions such as `nullable`, ``porter`` currently validates data against OpenAPI schemas by leveraging `fastjsonschema <https://github.com/horejsek/python-fastjsonschema>`_. This implies that ``porter`` currently only supports the intersection of OpenAPI and `JSONSchema <https://json-schema.org/>`_ which is described `here <https://swagger.io/docs/specification/data-models/keywords/>`_.
 
     At the moment this is simply an implementation detail. Any changes in the future would provide more broad support for the OpenAPI spec.
 
