@@ -13,6 +13,7 @@ import unittest
 from porter.schemas import (String, Number, Integer, Boolean,
                             Array, Object,
                             RequestSchema, ResponseSchema)
+from porter.schemas.openapi import _to_jsonschema
 
 
 class TestString(unittest.TestCase):
@@ -47,11 +48,11 @@ class TestString(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        s = String('is nullable', nullable=True)
+        s = String('is nullable', additional_params=dict(nullable=True))
         s.validate('foo')
         s.validate(None)
 
-        s = String('is not nullable', nullable=False)
+        s = String('is not nullable', additional_params=dict(nullable=False))
         s.validate('foo')
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be string'):
@@ -80,11 +81,11 @@ class TestNumber(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        n = Number('is nullable', nullable=True)
+        n = Number('is nullable', additional_params=dict(nullable=True))
         n.validate(1.)
         n.validate(None)
 
-        n = Number('is not nullable', nullable=False)
+        n = Number('is not nullable', additional_params=dict(nullable=False))
         n.validate(1.)
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be number'):
@@ -115,11 +116,11 @@ class TestInteger(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        i = Integer('is nullable', nullable=True)
+        i = Integer('is nullable', additional_params=dict(nullable=True))
         i.validate(1)
         i.validate(None)
 
-        i = Integer('is not nullable', nullable=False)
+        i = Integer('is not nullable', additional_params=dict(nullable=False))
         i.validate(1)
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be integer'):
@@ -140,11 +141,11 @@ class TestBoolean(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        b = Boolean('is nullable', nullable=True)
+        b = Boolean('is nullable', additional_params=dict(nullable=True))
         b.validate(True)
         b.validate(None)
 
-        b = Boolean('is not nullable', nullable=False)
+        b = Boolean('is not nullable', additional_params=dict(nullable=False))
         b.validate(True)
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be boolean'):
@@ -169,11 +170,11 @@ class TestArray(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        a = Array('is nullable', item_type=Integer(), nullable=True)
+        a = Array('is nullable', item_type=Integer(), additional_params=dict(nullable=True))
         a.validate([1])
         a.validate(None)
 
-        a = Array('is not nullable', item_type=Integer(), nullable=False)
+        a = Array('is not nullable', item_type=Integer(), additional_params=dict(nullable=False))
         a.validate([1])
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be array'):
@@ -181,7 +182,7 @@ class TestArray(unittest.TestCase):
 
     def test_nullable_item_type(self):
         # check nullable
-        a = Array('is nullable', item_type=Integer(nullable=True))
+        a = Array('is nullable', item_type=Integer(additional_params=dict(nullable=True)))
         a.validate([1])
         a.validate([1, None])
 
@@ -217,11 +218,11 @@ class TestObject(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        o = Object('is nullable', additional_properties_type=Integer(), nullable=True)
+        o = Object('is nullable', additional_properties_type=Integer(), additional_params=dict(nullable=True))
         o.validate({'a': 1})
         o.validate(None)
 
-        o = Object('is not nullable', additional_properties_type=Integer(), nullable=False)
+        o = Object('is not nullable', additional_properties_type=Integer(), additional_params=dict(nullable=False))
         o.validate({'a': 1})
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be object'):
@@ -229,7 +230,7 @@ class TestObject(unittest.TestCase):
 
     def test_nested_nullable(self):
         # check nullable
-        o = Object('is nullable', additional_properties_type=Integer(nullable=True))
+        o = Object('is nullable', additional_properties_type=Integer(additional_params=dict(nullable=True)))
         o.validate({'a': 1})
         o.validate({'a': None})
 
@@ -240,7 +241,7 @@ class TestObject(unittest.TestCase):
             o.validate({'a': None})
 
     def test_additional_properties_type(self):
-        o = Object('is nullable', additional_properties_type=Integer(nullable=True))
+        o = Object('is nullable', additional_properties_type=Integer(additional_params=dict(nullable=True)))
         o.validate({'a': 1, 'b': None})
 
 
@@ -251,11 +252,11 @@ class TestComplexObject(unittest.TestCase):
             properties=dict(
                 a=Object(
                     properties=dict(
-                        aa=String(additional_params=dict(minLength=3), nullable=True),
+                        aa=String(additional_params=dict(minLength=3, nullable=True)),
                         bb=Object(
                             properties=dict(
                                 ccc=Array(
-                                    item_type=Integer(nullable=True),
+                                    item_type=Integer(additional_params=dict(nullable=True)),
                                     additional_params=dict(minItems=3))
                             )
                         )
@@ -374,6 +375,70 @@ class TestComplexObject(unittest.TestCase):
                 b=dict(x=1, y=2, z=3),
                 pi=3.1416,
             ))
+
+class Test(unittest.TestCase):
+    def test__to_jsonschema_no_changes(self):
+        obj = {
+            'type': 'string',
+            'arbitrary': 'key',
+            'leave': {
+                'this': 'unchaged',
+                1: 2
+            }
+        }
+        actual = _to_jsonschema(obj)
+        expected = obj
+        self.assertEqual(expected, actual)
+
+    def test__to_jsonschema_changes_shallow(self):
+        obj = {
+            'type': 'string',
+            'change': 'this',
+            'nullable': True,
+            'leave': {
+                'this': 'unchaged',
+                1: 2
+            }
+        }
+        actual = _to_jsonschema(obj)
+        expected = {
+            'type': ['string', 'null'],
+            'change': 'this',
+            'leave': {
+                'this': 'unchaged',
+                1: 2
+            }
+        }
+        self.assertEqual(actual, expected)
+
+    def test__to_jsonschema_changes_deep(self):
+        obj = {
+            'type': 'string',
+            'arbitrary': 'key',
+            'leave': {
+                'this': 'unchaged',
+                1: 2,
+                'but': {
+                    'type': 'foo',
+                    'not': 'this',
+                    'nullable': True
+                }
+            }
+        }
+        actual = _to_jsonschema(obj)
+        expected = {
+            'type': 'string',
+            'arbitrary': 'key',
+            'leave': {
+                'this': 'unchaged',
+                1: 2,
+                'but': {
+                    'type': ['foo', 'null'],
+                    'not': 'this',
+                }
+            }
+        }
+        self.assertEqual(actual, expected)
 
 
 class TestRequestSchema(unittest.TestCase):
