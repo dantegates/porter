@@ -45,6 +45,18 @@ class TestString(unittest.TestCase):
                 ValueError, 'Schema validation failed: data must be one of'):
             s.validate('ghij')
 
+    def test_nullable(self):
+        # check nullable
+        s = String('is nullable', nullable=True)
+        s.validate('foo')
+        s.validate(None)
+
+        s = String('is not nullable', nullable=False)
+        s.validate('foo')
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data is not nullable'):
+            s.validate(None)
+
 class TestNumber(unittest.TestCase):
     def test_number(self):
         # check type
@@ -65,6 +77,19 @@ class TestNumber(unittest.TestCase):
             n.validate(999)
         # TODO: float/double distinction not supported by fastjsonschema?
         # https://github.com/CadentTech/porter/issues/30
+
+    def test_nullable(self):
+        # check nullable
+        s = Number('is nullable', nullable=True)
+        s.validate(1.)
+        s.validate(None)
+
+        s = Number('is not nullable', nullable=False)
+        s.validate(1.)
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data is not nullable'):
+            s.validate(None)
+
 
 class TestInteger(unittest.TestCase):
     def test_integer(self):
@@ -88,6 +113,18 @@ class TestInteger(unittest.TestCase):
                 ValueError, 'Schema validation failed: data must be smaller'):
             i.validate(4)
 
+    def test_nullable(self):
+        # check nullable
+        s = Number('is nullable', nullable=True)
+        s.validate(1)
+        s.validate(None)
+
+        s = Number('is not nullable', nullable=False)
+        s.validate(1)
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data is not nullable'):
+            s.validate(None)
+
 class TestBoolean(unittest.TestCase):
     def test_boolean(self):
         # check only True/False accepted
@@ -100,6 +137,18 @@ class TestBoolean(unittest.TestCase):
         with self.assertRaisesRegex(
                 ValueError, 'Schema validation failed: data must be boolean'):
             b.validate('true')
+
+    def test_nullable(self):
+        # check nullable
+        s = Boolean('is nullable', nullable=True)
+        s.validate(True)
+        s.validate(None)
+
+        s = Boolean('is not nullable', nullable=False)
+        s.validate(True)
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data is not nullable'):
+            s.validate(None)
 
 class TestArray(unittest.TestCase):
     def test_array(self):
@@ -117,6 +166,18 @@ class TestArray(unittest.TestCase):
         with self.assertRaisesRegex(
                 ValueError, r'Schema validation failed: data\[1\] must be bigger'):
             a.validate([1, -1, 2])
+
+    def test_nullable(self):
+        # check nullable
+        s = Array('is nullable', item_type=Integer(), nullable=True)
+        s.validate([1])
+        s.validate(None)
+
+        s = Array('is not nullable', item_type=Integer(), nullable=False)
+        s.validate([1])
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data is not nullable'):
+            s.validate(None)
 
 class TestObject(unittest.TestCase):
 
@@ -169,6 +230,17 @@ class TestObject(unittest.TestCase):
                 ValueError, 'at least one of properties and additional_properties_type'):
             Object()
 
+    def test_nullable(self):
+        # check nullable
+        s = Object('is nullable', additional_properties_type=Integer(), nullable=True)
+        s.validate({'a': 1})
+        s.validate(None)
+
+        s = Object('is not nullable', additional_properties_type=Integer(), nullable=False)
+        s.validate({'a': 1})
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data is not nullable'):
+            s.validate(None)
 
     def test_object_success(self):
         # check complex object that is valid

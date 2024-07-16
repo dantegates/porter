@@ -29,7 +29,7 @@ class ApiObject:
     """Simple abstractions providing an interface from `python` objects and
     popular API standards such as `openapi` and `jsonschema`.
     """
-    def __init__(self, description=None, *, additional_params=None, reference_name=None):
+    def __init__(self, description=None, *, additional_params=None, reference_name=None, nullable=False):
         """
         Args:
             description (string): Description of the object.
@@ -42,6 +42,7 @@ class ApiObject:
         self.description = description
         self.additional_params = additional_params or {}
         self.reference_name = reference_name
+        self.nullable = nullable
         with _RefContext(ignore_refs=True):
             # On compatability with the OpenApi spec and json schema see
             # https://swagger.io/docs/specification/data-models/keywords/
@@ -99,13 +100,18 @@ class ApiObject:
         """
         # possible hack for accepting numpy types
         #_numpy_to_builtin(data)
-        try:
-            self._validate(data)
-        except fastjsonschema.exceptions.JsonSchemaException as err:
-            # fastjsonschema raises useful error messsages so we'll reuse them.
-            # However, a ValueError so that other modules don't need to depend
-            # on fastjsonschema exceptions
-            raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
+        if self.nullable and data is None:
+            pass
+        elif not self.nullable and data is None:
+            raise ValueError('Schema validation failed: data is not nullable')
+        else:
+            try:
+                self._validate(data)
+            except fastjsonschema.exceptions.JsonSchemaException as err:
+                # fastjsonschema raises useful error messsages so we'll reuse them.
+                # However, a ValueError so that other modules don't need to depend
+                # on fastjsonschema exceptions
+                raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
 
 
 class String(ApiObject):
