@@ -38,6 +38,8 @@ class ApiObject:
             reference_name (None or str): If a `str` is given the object will
                 be represented as a `$ref` in OpenAPI endpoint definitions and
                 fully described by `reference_name` under "components/schemas".
+            nullable (bool): Whether `null` is an acceptable value or not.
+                Defaults to `False`.
         """
         self.description = description
         self.additional_params = additional_params or {}
