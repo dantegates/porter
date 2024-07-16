@@ -242,7 +242,7 @@ class TestObject(unittest.TestCase):
                 ValueError, 'Schema validation failed: data must be object'):
             o.validate(None)
 
-    @unittest.skip('working on support for this')
+    # @unittest.skip('working on support for this')
     def test_nested_nullable(self):
         # check nullable
         o = Object('is nullable', additional_properties_type=Integer(nullable=True))
@@ -252,7 +252,7 @@ class TestObject(unittest.TestCase):
         o = Object('is not nullable', additional_properties_type=Integer())
         o.validate({'a': 1})
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data.a must be object'):
+                ValueError, 'Schema validation failed: data.a must be integer'):
             o.validate({'a': None})
 
     def test_object_success(self):
