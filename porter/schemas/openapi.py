@@ -29,7 +29,7 @@ class ApiObject:
     """Simple abstractions providing an interface from `python` objects and
     popular API standards such as `openapi` and `jsonschema`.
     """
-    def __init__(self, description=None, *, additional_params=None, reference_name=None):
+    def __init__(self, description=None, *, additional_params=None, reference_name=None, nullable=False):
         """
         Args:
             description (string): Description of the object.
@@ -38,10 +38,13 @@ class ApiObject:
             reference_name (None or str): If a `str` is given the object will
                 be represented as a `$ref` in OpenAPI endpoint definitions and
                 fully described by `reference_name` under "components/schemas".
+            nullable (bool): Whether `null` is an acceptable value or not.
+                Defaults to `False`.
         """
         self.description = description
         self.additional_params = additional_params or {}
         self.reference_name = reference_name
+        self.nullable = nullable
         with _RefContext(ignore_refs=True):
             # On compatability with the OpenApi spec and json schema see
             # https://swagger.io/docs/specification/data-models/keywords/
@@ -61,18 +64,17 @@ class ApiObject:
                 definition of `self` and the second contains any references.
         """
         with _RefContext() as ref_context:
-            openapi_spec = dict(type=self._openapi_type_name, description=self.description, **self.additional_params)
-            openapi_spec.update(self._customized_openapi())
+            openapi_spec = self._openapi_spec()
             if self.reference_name is not None and not _RefContext.context_ignore_refs():
                 _RefContext.add_ref(self.reference_name, openapi_spec)
                 return {'$ref': f'#/components/schemas/{self.reference_name}'}, ref_context.schemas
         return openapi_spec, ref_context.schemas
 
-    def _customized_openapi(self):
-        """Return a mapping of custom values to be added to the OpenAPI spec.
-        Values specified here will override any defaults.
-        """
-        return {}
+    def _openapi_spec(self):
+        type_ = self._openapi_type_name
+        if self.nullable:
+            type_ = [type_, 'null']
+        return dict(type=type_, description=self.description, **self.additional_params)
 
     @property
     def _openapi_type_name(self):
@@ -95,17 +97,19 @@ class ApiObject:
                 "Schema validation failed:" so that users can programatically
                 differentiate between `ValueError`s explicitly raised by this
                 method and others.
-
         """
-        # possible hack for accepting numpy types
-        #_numpy_to_builtin(data)
-        try:
-            self._validate(data)
-        except fastjsonschema.exceptions.JsonSchemaException as err:
-            # fastjsonschema raises useful error messsages so we'll reuse them.
-            # However, a ValueError so that other modules don't need to depend
-            # on fastjsonschema exceptions
-            raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
+        # While `nullable` is part of the OpenAPI 3 spec, is not supported by
+        # JSONSchema draft-04 which we use for validations (see reference above).
+        # Thus we have whether null values are allowed ourselves and dispatch the
+        # rest to `fastjsonschema`
+        if not (self.nullable and data is None):
+            try:
+                self._validate(data)
+            except fastjsonschema.exceptions.JsonSchemaException as err:
+                # fastjsonschema raises useful error messsages so we'll reuse them.
+                # However, a ValueError so that other modules don't need to depend
+                # on fastjsonschema exceptions
+                raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
 
 
 class String(ApiObject):
@@ -135,8 +139,11 @@ class Array(ApiObject):
         self.item_type = item_type
         super().__init__(*args, **kwargs)
 
-    def _customized_openapi(self):
-        return {'items': self.item_type.to_openapi()[0]}
+    def _openapi_spec(self):
+        spec = super()._openapi_spec()
+        spec.update({'items': self.item_type.to_openapi()[0]})
+        return spec
+
 
 class Object(ApiObject):
     """Object type."""
@@ -168,17 +175,19 @@ class Object(ApiObject):
                 self.required = tuple(required)
         super().__init__(*args, **kwargs)
 
-    def _customized_openapi(self):
-        spec = {}
+    def _openapi_spec(self):
+        base_spec = super()._openapi_spec()
+        override_spec = {}
         if self.properties is not None:
-            spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
-            spec['required'] = self.required
+            override_spec['properties'] = {name: prop.to_openapi()[0] for name, prop in self.properties.items()}
+            override_spec['required'] = self.required
         if self.additional_properties_type is not None:
             if hasattr(self.additional_properties_type, 'to_openapi'):
-                spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
+                override_spec['additionalProperties'] = self.additional_properties_type.to_openapi()[0]
             else:
-                spec['additionalProperties'] = self.additional_properties_type
-        return spec
+                override_spec['additionalProperties'] = self.additional_properties_type
+        base_spec.update(override_spec)
+        return base_spec
 
 
 class _RefContext:
