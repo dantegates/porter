@@ -182,11 +182,18 @@ class Object(ApiObject):
 
 
 def _to_jsonschema(obj):
-    # While `nullable` is part of the OpenAPI 3 spec, is not supported by
-    # JSONSchema draft-04 which we use for validations (see reference above).
-    # Thus we have whether null values are allowed ourselves and dispatch the
-    # rest to `fastjsonschema`
+    """Recurse through `obj` converting from OpenAPI to JsonSchema.
+
+    Args:
+        obj (dict): An OpenAPI object representing a data type.
+    """
     if isinstance(obj, dict):
+        # While `nullable` is part of the OpenAPI 3 spec, it is not supported by
+        # JSONSchema draft-04 which we use for validations (see reference above).
+        # As a work-around we define the object as multiple types (this time
+        # supported by JsonSchema but not OpenAPI).
+        # See the secion "Mixed Types" here
+        # https://swagger.io/docs/specification/data-models/data-types/
         nullable = obj.pop('nullable', False)
         if nullable:
             obj['type'] = [obj['type'], 'null']

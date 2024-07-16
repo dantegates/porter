@@ -13,6 +13,7 @@ import unittest
 from porter.schemas import (String, Number, Integer, Boolean,
                             Array, Object,
                             RequestSchema, ResponseSchema)
+from porter.schemas.openapi import _to_jsonschema
 
 
 class TestString(unittest.TestCase):
@@ -374,6 +375,70 @@ class TestComplexObject(unittest.TestCase):
                 b=dict(x=1, y=2, z=3),
                 pi=3.1416,
             ))
+
+class Test(unittest.TestCase):
+    def test__to_jsonschema_no_changes(self):
+        obj = {
+            'type': 'string',
+            'arbitrary': 'key',
+            'leave': {
+                'this': 'unchaged',
+                1: 2
+            }
+        }
+        actual = _to_jsonschema(obj)
+        expected = obj
+        self.assertEqual(expected, actual)
+
+    def test__to_jsonschema_changes_shallow(self):
+        obj = {
+            'type': 'string',
+            'change': 'this',
+            'nullable': True,
+            'leave': {
+                'this': 'unchaged',
+                1: 2
+            }
+        }
+        actual = _to_jsonschema(obj)
+        expected = {
+            'type': ['string', 'null'],
+            'change': 'this',
+            'leave': {
+                'this': 'unchaged',
+                1: 2
+            }
+        }
+        self.assertEqual(actual, expected)
+
+    def test__to_jsonschema_changes_deep(self):
+        obj = {
+            'type': 'string',
+            'arbitrary': 'key',
+            'leave': {
+                'this': 'unchaged',
+                1: 2,
+                'but': {
+                    'type': 'foo',
+                    'not': 'this',
+                    'nullable': True
+                }
+            }
+        }
+        actual = _to_jsonschema(obj)
+        expected = {
+            'type': 'string',
+            'arbitrary': 'key',
+            'leave': {
+                'this': 'unchaged',
+                1: 2,
+                'but': {
+                    'type': ['foo', 'null'],
+                    'not': 'this',
+                }
+            }
+        }
+        self.assertEqual(actual, expected)
 
 
 class TestRequestSchema(unittest.TestCase):
