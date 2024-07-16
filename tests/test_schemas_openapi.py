@@ -54,7 +54,7 @@ class TestString(unittest.TestCase):
         s = String('is not nullable', nullable=False)
         s.validate('foo')
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data is not nullable'):
+                ValueError, 'Schema validation failed: data must be string'):
             s.validate(None)
 
 class TestNumber(unittest.TestCase):
@@ -80,15 +80,15 @@ class TestNumber(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        s = Number('is nullable', nullable=True)
-        s.validate(1.)
-        s.validate(None)
+        n = Number('is nullable', nullable=True)
+        n.validate(1.)
+        n.validate(None)
 
-        s = Number('is not nullable', nullable=False)
-        s.validate(1.)
+        n = Number('is not nullable', nullable=False)
+        n.validate(1.)
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data is not nullable'):
-            s.validate(None)
+                ValueError, 'Schema validation failed: data must be number'):
+            n.validate(None)
 
 
 class TestInteger(unittest.TestCase):
@@ -115,15 +115,15 @@ class TestInteger(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        s = Number('is nullable', nullable=True)
-        s.validate(1)
-        s.validate(None)
+        i = Integer('is nullable', nullable=True)
+        i.validate(1)
+        i.validate(None)
 
-        s = Number('is not nullable', nullable=False)
-        s.validate(1)
+        i = Integer('is not nullable', nullable=False)
+        i.validate(1)
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data is not nullable'):
-            s.validate(None)
+                ValueError, 'Schema validation failed: data must be integer'):
+            i.validate(None)
 
 class TestBoolean(unittest.TestCase):
     def test_boolean(self):
@@ -140,15 +140,15 @@ class TestBoolean(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        s = Boolean('is nullable', nullable=True)
-        s.validate(True)
-        s.validate(None)
+        b = Boolean('is nullable', nullable=True)
+        b.validate(True)
+        b.validate(None)
 
-        s = Boolean('is not nullable', nullable=False)
-        s.validate(True)
+        b = Boolean('is not nullable', nullable=False)
+        b.validate(True)
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data is not nullable'):
-            s.validate(None)
+                ValueError, 'Schema validation failed: data must be boolean'):
+            b.validate(None)
 
 class TestArray(unittest.TestCase):
     def test_array(self):
@@ -169,15 +169,15 @@ class TestArray(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        s = Array('is nullable', item_type=Integer(), nullable=True)
-        s.validate([1])
-        s.validate(None)
+        a = Array('is nullable', item_type=Integer(), nullable=True)
+        a.validate([1])
+        a.validate(None)
 
-        s = Array('is not nullable', item_type=Integer(), nullable=False)
-        s.validate([1])
+        a = Array('is not nullable', item_type=Integer(), nullable=False)
+        a.validate([1])
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data is not nullable'):
-            s.validate(None)
+                ValueError, 'Schema validation failed: data must be array'):
+            a.validate(None)
 
 class TestObject(unittest.TestCase):
 
@@ -232,15 +232,28 @@ class TestObject(unittest.TestCase):
 
     def test_nullable(self):
         # check nullable
-        s = Object('is nullable', additional_properties_type=Integer(), nullable=True)
-        s.validate({'a': 1})
-        s.validate(None)
+        o = Object('is nullable', additional_properties_type=Integer(), nullable=True)
+        o.validate({'a': 1})
+        o.validate(None)
 
-        s = Object('is not nullable', additional_properties_type=Integer(), nullable=False)
-        s.validate({'a': 1})
+        o = Object('is not nullable', additional_properties_type=Integer(), nullable=False)
+        o.validate({'a': 1})
         with self.assertRaisesRegex(
-                ValueError, 'Schema validation failed: data is not nullable'):
-            s.validate(None)
+                ValueError, 'Schema validation failed: data must be object'):
+            o.validate(None)
+
+    @unittest.skip('working on support for this')
+    def test_nested_nullable(self):
+        # check nullable
+        o = Object('is nullable', additional_properties_type=Integer(nullable=True))
+        o.validate({'a': 1})
+        o.validate({'a': None})
+
+        o = Object('is not nullable', additional_properties_type=Integer())
+        o.validate({'a': 1})
+        with self.assertRaisesRegex(
+                ValueError, 'Schema validation failed: data.a must be object'):
+            o.validate({'a': None})
 
     def test_object_success(self):
         # check complex object that is valid

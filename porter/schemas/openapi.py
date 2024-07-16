@@ -98,13 +98,11 @@ class ApiObject:
                 method and others.
 
         """
-        # possible hack for accepting numpy types
-        #_numpy_to_builtin(data)
-        if self.nullable and data is None:
-            pass
-        elif not self.nullable and data is None:
-            raise ValueError('Schema validation failed: data is not nullable')
-        else:
+        # While `nullable` is part of the OpenAPI 3 spec, is not supported by
+        # JSONSchema draft-04 which we use for validations (see reference above).
+        # Thus we have whether null values are allowed ourselves and dispatch the
+        # rest to `fastjsonschema`
+        if not (self.nullable and data is None):
             try:
                 self._validate(data)
             except fastjsonschema.exceptions.JsonSchemaException as err:
