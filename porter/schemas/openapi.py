@@ -44,13 +44,12 @@ class ApiObject:
         self.description = description
         self.additional_params = additional_params or {}
         self.reference_name = reference_name
-        self.nullable = nullable
         with _RefContext(ignore_refs=True):
             # On compatability with the OpenApi spec and json schema see
             # https://swagger.io/docs/specification/data-models/keywords/
             # and
             # http://json-schema.org/draft-06/json-schema-release-notes.html
-            self._jsonschema = self.to_openapi()[0]
+            self._jsonschema = _to_jsonschema(self.to_openapi()[0])
             self._validate = fastjsonschema.compile({
                 '$draft': '04',
                 **self._jsonschema
@@ -71,10 +70,7 @@ class ApiObject:
         return openapi_spec, ref_context.schemas
 
     def _openapi_spec(self):
-        type_ = self._openapi_type_name
-        if self.nullable:
-            type_ = [type_, 'null']
-        return dict(type=type_, description=self.description, **self.additional_params)
+        return dict(type=self._openapi_type_name, description=self.description, **self.additional_params)
 
     @property
     def _openapi_type_name(self):
@@ -98,18 +94,13 @@ class ApiObject:
                 differentiate between `ValueError`s explicitly raised by this
                 method and others.
         """
-        # While `nullable` is part of the OpenAPI 3 spec, is not supported by
-        # JSONSchema draft-04 which we use for validations (see reference above).
-        # Thus we have whether null values are allowed ourselves and dispatch the
-        # rest to `fastjsonschema`
-        if not (self.nullable and data is None):
-            try:
-                self._validate(data)
-            except fastjsonschema.exceptions.JsonSchemaException as err:
-                # fastjsonschema raises useful error messsages so we'll reuse them.
-                # However, a ValueError so that other modules don't need to depend
-                # on fastjsonschema exceptions
-                raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
+        try:
+            self._validate(data)
+        except fastjsonschema.exceptions.JsonSchemaException as err:
+            # fastjsonschema raises useful error messsages so we'll reuse them.
+            # However, a ValueError so that other modules don't need to depend
+            # on fastjsonschema exceptions
+            raise ValueError(f'Schema validation failed: {err.args[0]}', *err.args[1:]) from err
 
 
 class String(ApiObject):
@@ -188,6 +179,19 @@ class Object(ApiObject):
                 override_spec['additionalProperties'] = self.additional_properties_type
         base_spec.update(override_spec)
         return base_spec
+
+
+def _to_jsonschema(obj):
+    # While `nullable` is part of the OpenAPI 3 spec, is not supported by
+    # JSONSchema draft-04 which we use for validations (see reference above).
+    # Thus we have whether null values are allowed ourselves and dispatch the
+    # rest to `fastjsonschema`
+    if isinstance(obj, dict):
+        nullable = obj.pop('nullable', False)
+        if nullable:
+            obj['type'] = [obj['type'], 'null']
+        return {k: _to_jsonschema(v) for k, v in obj.items()}
+    return obj
 
 
 class _RefContext:
