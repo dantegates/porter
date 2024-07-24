@@ -763,7 +763,7 @@ class PredictionService(BaseService):
         # add ID to schema
         request_schema = schemas.Object(
             properties={
-                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
+                _ID: schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
                 **user_schema.properties},
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
@@ -778,7 +778,7 @@ class PredictionService(BaseService):
         prediction_schema = schemas.Object(
             'Model output',
             properties={
-                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body'),
+                _ID: schemas.Integer('An ID uniquely identifying each instance in the POST body'),
                 'prediction': user_schema or schemas.Number('Model Prediction')
             },
             reference_name=getattr(user_schema, 'reference_name', None)
