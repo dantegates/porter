@@ -802,21 +802,6 @@ class PredictionService(BaseService):
         # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
 
-    def _format_response(self, X_input, X_preprocessed, preds):
-        """
-        Reshape predictions in "response format" accordingly for batch or instance
-        prediction.
-
-        Args:
-            id_: 
-        """
-        id_ = X_input[_ID]
-        if self.batch_prediction:
-            response = porter_responses.make_batch_prediction_response(id_, preds)
-        else:
-            response = porter_responses.make_prediction_response(id_.iloc[0], preds[0])
-        return response
-
 
 class ModelApp:
     """
