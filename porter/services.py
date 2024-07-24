@@ -779,7 +779,7 @@ class PredictionService(BaseService):
             'Model output',
             properties={
                 _ID: schemas.Integer('An ID uniquely identifying each instance in the POST body'),
-                'prediction': user_schema or schemas.Number('Model Prediction')
+                cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: user_schema or schemas.Number('Model Prediction')
             },
             reference_name=getattr(user_schema, 'reference_name', None)
         )
@@ -789,9 +789,9 @@ class PredictionService(BaseService):
 
         response_schema = schemas.Object(
             properties={
-                'request_id': schemas.request_id,
-                'model_context': schemas.model_context,
-                'predictions': prediction_schema
+                cn.BASE_KEYS.REQUEST_ID: schemas.request_id,
+                cn.PREDICTION_KEYS.MODEL_CONTEXT: schemas.model_context,
+                cn.PREDICTION_KEYS.PREDICTIONS: prediction_schema
             }
         )
 
