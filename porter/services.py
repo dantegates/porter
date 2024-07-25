@@ -37,12 +37,8 @@ from . import schemas
 from .exceptions import PorterException
 from . import __version__ as VERSION
 
-# alias for convenience
-_ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
 
 _logger = logging.getLogger(__name__)
-
-
 
 class StatefulRoute:
     """Helper class to ensure that classes we intend to route via their
@@ -751,7 +747,7 @@ class PredictionService(BaseService):
             object: A "jsonified" object representing the response to return
                 to the user.
         """
-        id_ = X_input[_ID]
+        id_ = X_input[cn.PREDICTION_PREDICTIONS_KEYS.ID]
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(id_, preds)
         else:
@@ -763,7 +759,7 @@ class PredictionService(BaseService):
         # add ID to schema
         request_schema = schemas.Object(
             properties={
-                _ID: schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
+                cn.PREDICTION_PREDICTIONS_KEYS.ID: schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
                 **user_schema.properties},
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
@@ -775,10 +771,11 @@ class PredictionService(BaseService):
         self.add_request_schema('POST', request_schema)
 
     def _add_prediction_schema(self, user_schema):
+        print('FOO', cn.PREDICTION_PREDICTIONS_KEYS.ID)
         prediction_schema = schemas.Object(
             'Model output',
             properties={
-                _ID: schemas.Integer('An ID uniquely identifying each instance in the POST body'),
+                cn.PREDICTION_PREDICTIONS_KEYS.ID: schemas.Integer('An ID uniquely identifying each instance in the POST body'),
                 cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: user_schema or schemas.Number('Model Prediction')
             },
             reference_name=getattr(user_schema, 'reference_name', None)
