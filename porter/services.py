@@ -771,7 +771,6 @@ class PredictionService(BaseService):
         self.add_request_schema('POST', request_schema)
 
     def _add_prediction_schema(self, user_schema):
-        print('FOO', cn.PREDICTION_PREDICTIONS_KEYS.ID)
         prediction_schema = schemas.Object(
             'Model output',
             properties={
