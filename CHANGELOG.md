@@ -15,15 +15,21 @@ Types of Changes:
 
 ## [Unreleased]
 
-## [v0.16.5] - 2024-07-16
+## [v0.16.7] - 2024-07-25
 
-## ADDED
+### Fixed
+
+- Fix reference to the `id` key in request/response payloads sent to instances of `PredictionService` [#14](https://github.com/dantegates/porter/pull/14)
+
+## [v0.16.6] - 2024-07-16
+
+### ADDED
 
 - Support for `nullable` attributes in OpenAPI schemas [#11](https://github.com/dantegates/porter/pull/11)
 
 ## [v0.16.5] - 2024-07-12
 
-## Fixed
+### Fixed
 
 - Register feature schema when `feature_columns` are explicitly passed to `PredictionService` [#10](https://github.com/dantegates/porter/pull/10)
 

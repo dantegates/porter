@@ -37,12 +37,8 @@ from . import schemas
 from .exceptions import PorterException
 from . import __version__ as VERSION
 
-# alias for convenience
-_ID = cn.PREDICTION_PREDICTIONS_KEYS.ID
 
 _logger = logging.getLogger(__name__)
-
-
 
 class StatefulRoute:
     """Helper class to ensure that classes we intend to route via their
@@ -751,7 +747,7 @@ class PredictionService(BaseService):
             object: A "jsonified" object representing the response to return
                 to the user.
         """
-        id_ = X_input[_ID]
+        id_ = X_input[cn.PREDICTION_PREDICTIONS_KEYS.ID]
         if self.batch_prediction:
             response = porter_responses.make_batch_prediction_response(id_, preds)
         else:
@@ -763,7 +759,7 @@ class PredictionService(BaseService):
         # add ID to schema
         request_schema = schemas.Object(
             properties={
-                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
+                cn.PREDICTION_PREDICTIONS_KEYS.ID: schemas.Integer('An ID uniquely identifying each instance in the POST body.'),
                 **user_schema.properties},
             reference_name=user_schema.reference_name)
         if self.batch_prediction:
@@ -778,8 +774,8 @@ class PredictionService(BaseService):
         prediction_schema = schemas.Object(
             'Model output',
             properties={
-                'id': schemas.Integer('An ID uniquely identifying each instance in the POST body'),
-                'prediction': user_schema or schemas.Number('Model Prediction')
+                cn.PREDICTION_PREDICTIONS_KEYS.ID: schemas.Integer('An ID uniquely identifying each instance in the POST body'),
+                cn.PREDICTION_PREDICTIONS_KEYS.PREDICTION: user_schema or schemas.Number('Model Prediction')
             },
             reference_name=getattr(user_schema, 'reference_name', None)
         )
@@ -789,9 +785,9 @@ class PredictionService(BaseService):
 
         response_schema = schemas.Object(
             properties={
-                'request_id': schemas.request_id,
-                'model_context': schemas.model_context,
-                'predictions': prediction_schema
+                cn.BASE_KEYS.REQUEST_ID: schemas.request_id,
+                cn.PREDICTION_KEYS.MODEL_CONTEXT: schemas.model_context,
+                cn.PREDICTION_KEYS.PREDICTIONS: prediction_schema
             }
         )
 
@@ -801,21 +797,6 @@ class PredictionService(BaseService):
         # TODO: should a description be passed?
         # https://github.com/CadentTech/porter/issues/32
         self.add_response_schema('POST', 200, response_schema)
-
-    def _format_response(self, X_input, X_preprocessed, preds):
-        """
-        Reshape predictions in "response format" accordingly for batch or instance
-        prediction.
-
-        Args:
-            id_: 
-        """
-        id_ = X_input[_ID]
-        if self.batch_prediction:
-            response = porter_responses.make_batch_prediction_response(id_, preds)
-        else:
-            response = porter_responses.make_prediction_response(id_.iloc[0], preds[0])
-        return response
 
 
 class ModelApp:
