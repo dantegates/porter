@@ -446,7 +446,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'services': {},
             'app_meta': {
-                'description': '<div></div><div><p>(porter v0.16.6)</p></div>',
+                'description': '<div></div><div><p>(porter v0.16.7)</p></div>',
                 'expose_docs': False,
                 'name': None,
                 'version': None},
@@ -497,7 +497,7 @@ class TestAppHealthChecks(unittest.TestCase):
                 }
             },
             'app_meta': {
-                'description': '<div></div><div><p>(porter v0.16.6)</p></div>',
+                'description': '<div></div><div><p>(porter v0.16.7)</p></div>',
                 'expose_docs': False,
                 'name': None,
                 'version': None},
@@ -534,7 +534,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {
-                'description': '<div></div><div><p>(porter v0.16.6)</p></div>',
+                'description': '<div></div><div><p>(porter v0.16.7)</p></div>',
                 'expose_docs': False,
                 'name': None,
                 'version': None},
@@ -590,7 +590,7 @@ class TestAppHealthChecks(unittest.TestCase):
             'porter_version': __version__,
             'deployed_on': cn.HEALTH_CHECK_VALUES.DEPLOYED_ON,
             'app_meta': {
-                'description': '<div></div><div><p>(porter v0.16.6)</p></div>',
+                'description': '<div></div><div><p>(porter v0.16.7)</p></div>',
                 'expose_docs': False,
                 'name': None,
                 'version': None},
