@@ -15,6 +15,10 @@ Types of Changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- Reference schema keys in `porter.schemas.schemas` from `porter.constants` [#16](https://github.com/dantegates/porter/pull/16)
+
 ## [v0.16.7] - 2024-07-25
 
 ### Fixed
